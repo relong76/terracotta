@@ -351,10 +351,26 @@ export default {
     },
     participantSubmissions() {
       // return only this participant's submissions
-      return this.assessment.submissions.filter(s => s.participantId == this.participant_id);
+      return this.assessment.submissions
+        .filter(s => s.participantId == this.participant_id)
+        .sort((a, b) => a.dateSubmitted - b.dateSubmitted)
+        .reverse();
+    },
+    participantSubmissionScores() {
+      // return only this participant's submission scores
+      return this.participantSubmissions.map(ps => ps.alteredCalculatedGrade);
     }
   },
   watch: {
+    participantSubmissionScores: {
+      handler() {
+        if (!this.selectedSubmissionId && this.participantSubmissions.length) {
+          this.selectedSubmissionId = this.participantSubmissions[0].submissionId;
+        }
+      },
+      immediate: true,
+      deep: true
+    },
     selectedSubmissionId(newValue) {
       this.loadSubmissionResponses(newValue);
     },

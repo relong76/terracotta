@@ -402,9 +402,9 @@ public class ExportServiceImpl implements ExportService {
                             submission.getAssessment().getTreatment().getAssignment().getAssignmentId().toString(),
                             submission.getAssessment().getTreatment().getTreatmentId().toString(),
                             submission.getDateSubmitted().toString(),
-                            submission.getCalculatedGrade().toString(),
-                            submission.getAlteredCalculatedGrade().toString(),
-                            submission.getTotalAlteredGrade().toString()
+                            submission.getCalculatedGrade() != null ? submission.getCalculatedGrade().toString() : "0",
+                            submission.getAlteredCalculatedGrade() !=  null ? submission.getAlteredCalculatedGrade().toString() : "0",
+                            submission.getTotalAlteredGrade() != null ? submission.getTotalAlteredGrade().toString() : "0"
                         })
                 );
 
