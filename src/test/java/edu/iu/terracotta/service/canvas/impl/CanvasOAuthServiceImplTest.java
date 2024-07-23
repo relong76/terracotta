@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
@@ -45,6 +46,7 @@ import edu.iu.terracotta.model.canvas.CanvasAPITokenEntity;
 import edu.iu.terracotta.model.canvas.CanvasAPIUser;
 import edu.iu.terracotta.service.app.APIJWTService;
 import edu.iu.terracotta.service.lti.LTIDataService;
+import io.jsonwebtoken.lang.Collections;
 
 public class CanvasOAuthServiceImplTest extends BaseTest {
 
@@ -131,7 +133,6 @@ public class CanvasOAuthServiceImplTest extends BaseTest {
 
         assertEquals(token.getAccessToken(), result.getAccessToken());
         assertEquals(token.getRefreshToken(), result.getRefreshToken());
-        assertEquals(canvasOAuthService.getAllRequiredScopes(), result.getScopes());
         assertEquals(token.getUser().getId(), result.getCanvasUserId());
         assertEquals(token.getUser().getName(), result.getCanvasUserName());
         long actualExpiresEpochMillis = result.getExpiresAt().toInstant().toEpochMilli();
@@ -242,9 +243,7 @@ public class CanvasOAuthServiceImplTest extends BaseTest {
     @Test
     public void testIsAccessTokenAvailableReturnsFalseIfMissingScopes() {
         when(canvasAPITokenRepository.findByUser(eq(user))).thenReturn(Optional.of(tokenEntity));
-
-        // Only include the first required scope
-        tokenEntity.setScopes(CanvasAPIClientImpl.SCOPES_REQUIRED.get(0));
+        when(canvasAPITokenScopeService.getScopesForTokenId(anyLong())).thenReturn(Collections.emptyList());
 
         boolean result = canvasOAuthService.isAccessTokenAvailable(user);
 
@@ -260,7 +259,6 @@ public class CanvasOAuthServiceImplTest extends BaseTest {
 
         // Only include the first required scope
         tokenEntity.setAccessToken("old-access-token");
-        tokenEntity.setScopes(String.join(" ", CanvasAPIClientImpl.SCOPES_REQUIRED));
         token.setAccessToken("new-access-token");
 
         // Should try to refresh token
@@ -279,9 +277,6 @@ public class CanvasOAuthServiceImplTest extends BaseTest {
     @Test
     public void testIsAccessTokenAvailableReturnsFalseIfRefreshTokenFails() {
         when(canvasAPITokenRepository.findByUser(eq(user))).thenReturn(Optional.of(tokenEntity));
-
-        // Only include the first required scope
-        tokenEntity.setScopes(String.join(" ", CanvasAPIClientImpl.SCOPES_REQUIRED));
 
         // Should try to refresh token
         when(canvasAPIOAuthSettingsRepository.findByPlatformDeployment(eq(platformDeployment))).thenReturn(Optional.of(canvasAPIOAuthSettings));
