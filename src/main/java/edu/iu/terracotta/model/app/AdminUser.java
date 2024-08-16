@@ -17,7 +17,7 @@ import lombok.Setter;
 @Getter
 @Setter
 @Table(name = "terr_admin_user")
-public class AdminUser extends BaseEntity  {
+public class AdminUser extends BaseEntity {
 
     @Id
     @Column(nullable = false)

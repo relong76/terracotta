@@ -1,6 +1,8 @@
 <template>
   <div>
-    <v-container v-if="experiment">
+    <v-container
+      v-if="experiment"
+    >
       <v-row
         class="sticky my-1"
         justify="space-between"
@@ -37,8 +39,7 @@
             class="saveButton ml-4"
           >
             SAVE & EXIT
-          </v-btn
-          >
+          </v-btn>
         </div>
       </v-row>
       <v-row>
@@ -236,6 +237,7 @@
                       :balanced="balanced"
                       :loaded="loaded"
                       :activeExposureSet="exposureSet"
+                      :messageGroupsExpanded="messageGroupsExpanded"
                     />
                   </div>
                 </template>
@@ -560,6 +562,9 @@ export default {
     },
     experimentId() {
       return this.experiment.experimentId;
+    },
+    messageGroupsExpanded() {
+      return this.$route.params.messageGroupsExpanded;
     }
   },
 

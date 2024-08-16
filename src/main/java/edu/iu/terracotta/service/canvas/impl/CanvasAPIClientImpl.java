@@ -5,31 +5,48 @@ import edu.iu.terracotta.exceptions.LMSOAuthException;
 import edu.iu.terracotta.model.LtiUserEntity;
 import edu.iu.terracotta.model.canvas.AssignmentExtended;
 import edu.iu.terracotta.model.canvas.CanvasAPITokenEntity;
+import edu.iu.terracotta.model.canvas.ConversationOptions;
 import edu.iu.terracotta.model.canvas.CourseExtended;
 import edu.iu.terracotta.service.canvas.AssignmentReaderExtended;
 import edu.iu.terracotta.service.canvas.AssignmentWriterExtended;
 import edu.iu.terracotta.service.canvas.CanvasAPIClient;
+import edu.iu.terracotta.service.canvas.ConversationReaderExtended;
 import edu.iu.terracotta.service.canvas.CourseReaderExtended;
 import edu.iu.terracotta.service.canvas.CourseWriterExtended;
+import edu.iu.terracotta.service.canvas.FileWriterExtended;
 import edu.ksu.canvas.exception.CanvasException;
 import edu.ksu.canvas.exception.ObjectNotFoundException;
 import edu.ksu.canvas.interfaces.CanvasReader;
 import edu.ksu.canvas.interfaces.CanvasWriter;
+import edu.ksu.canvas.interfaces.ConversationReader;
+import edu.ksu.canvas.interfaces.ConversationWriter;
+import edu.ksu.canvas.interfaces.FileReader;
 import edu.ksu.canvas.interfaces.SubmissionReader;
+import edu.ksu.canvas.interfaces.UserReader;
+import edu.ksu.canvas.model.Conversation;
+import edu.ksu.canvas.model.Deposit;
+import edu.ksu.canvas.model.File;
+import edu.ksu.canvas.model.User;
 import edu.ksu.canvas.model.assignment.Submission;
 import edu.ksu.canvas.oauth.NonRefreshableOauthToken;
 import edu.ksu.canvas.oauth.OauthToken;
+import edu.ksu.canvas.requestOptions.CreateConversationOptions;
 import edu.ksu.canvas.requestOptions.GetSingleAssignmentOptions;
+import edu.ksu.canvas.requestOptions.GetSingleConversationOptions;
 import edu.ksu.canvas.requestOptions.GetSubmissionsOptions;
+import edu.ksu.canvas.requestOptions.GetUsersInCourseOptions;
 import edu.ksu.canvas.requestOptions.ListCourseAssignmentsOptions;
 import edu.ksu.canvas.requestOptions.ListUserCoursesOptions;
+import edu.ksu.canvas.requestOptions.UploadOptions;
 import lombok.extern.slf4j.Slf4j;
 
+import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.io.IOException;
+import java.io.InputStream;
 import java.text.MessageFormat;
 import java.util.Collections;
 import java.util.List;
@@ -282,6 +299,84 @@ public class CanvasAPIClientImpl implements CanvasAPIClient {
             return getWriter(baseUrl, CourseWriterExtended.class, tokenOverride).editCourse(canvasCourseId, courseExtended);
         } catch (IOException | CanvasException ex) {
             throw new CanvasApiException(String.format("Failed to edit the course with ID [%s] in Canvas", canvasCourseId), ex);
+        }
+    }
+
+    @Override
+    public List<Conversation> sendConversation(CreateConversationOptions createConversationOptions, LtiUserEntity apiUser) throws CanvasApiException {
+        try {
+            return getWriter(apiUser, ConversationWriter.class).createConversation(createConversationOptions);
+        } catch (IOException | CanvasException ex) {
+            throw new CanvasApiException(
+                String.format("Failed to send a conversation from Canvas user ID: [%s] to Canvas user ID: [%s] in Canvas",
+                    apiUser.getLmsUserId(),
+                    StringUtils.join(createConversationOptions.getOptionsMap().get("recipients[]"), ',')
+                ),
+                ex
+            );
+        }
+    }
+
+    @Override
+    public Optional<Conversation> getConversation(GetSingleConversationOptions getSingleConversationOptions, LtiUserEntity apiUser) throws CanvasApiException {
+        try {
+            return getReader(apiUser, ConversationReader.class).getSingleConversation(getSingleConversationOptions);
+        } catch (IOException | CanvasException ex) {
+            throw new CanvasApiException(String.format("Failed to get conversation with ID: [%s] for Canvas user ID: [%s]", getSingleConversationOptions.getConversationId(), apiUser.getLmsUserId()), ex);
+        }
+    }
+
+    @Override
+    public List<Conversation> getConversations(ConversationOptions conversationOptions, LtiUserEntity apiUser) throws CanvasApiException {
+        try {
+            return getReader(apiUser, ConversationReaderExtended.class).getConversations();
+        } catch (IOException | CanvasException ex) {
+            throw new CanvasApiException(String.format("Failed to get the list of conversations for Canvas user ID: [%s]", apiUser.getLmsUserId()), ex);
+        }
+    }
+
+    @Override
+    public List<User> listUsersForCourse(GetUsersInCourseOptions getUsersInCourseOptions, LtiUserEntity apiUser) throws CanvasApiException {
+        try {
+            return getReader(apiUser, UserReader.class).getUsersInCourse(getUsersInCourseOptions);
+        } catch (IOException | CanvasException ex) {
+            throw new CanvasApiException(String.format("Failed to get the list of users for Canvas course ID: [%s] for Canvas user ID: [%s]", getUsersInCourseOptions.getCourseId(), apiUser.getLmsUserId()), ex);
+        }
+    }
+
+    @Override
+    public Optional<Deposit> initializeFileUpload(LtiUserEntity apiUser, UploadOptions uploadOptions) throws CanvasApiException {
+        try {
+            return getWriter(apiUser, FileWriterExtended.class).initializeUpload(uploadOptions);
+        } catch (IOException | CanvasException e) {
+            throw new CanvasApiException(String.format("Failed to initialize file upload in Canvas for user ID [%s]", apiUser.getLmsUserId()), e);
+        }
+    }
+
+    @Override
+    public Optional<File> uploadFile(LtiUserEntity apiUser, Deposit deposit, InputStream inputStream, String filename) throws CanvasApiException {
+        try {
+            return getWriter(apiUser, FileWriterExtended.class).upload(deposit, inputStream, filename);
+        } catch (IOException | CanvasException e) {
+            throw new CanvasApiException(String.format("Failed to upload file to URL: [%s] in Canvas for user ID [%s]", deposit.getUploadUrl(), apiUser.getLmsUserId()), e);
+        }
+    }
+
+    @Override
+    public Optional<File> getFile(LtiUserEntity apiUser, long canvasFileId) throws CanvasApiException {
+        try {
+            return getReader(apiUser, FileReader.class).getFile(Long.toString(canvasFileId));
+        } catch (IOException | CanvasException e) {
+            throw new CanvasApiException(String.format("Failed to get for with Canvas file ID: [%s] for Canvas user ID: [%s]", canvasFileId, apiUser.getLmsUserId()), e);
+        }
+    }
+
+    @Override
+    public Optional<File> deleteFile(LtiUserEntity apiUser, long canvasFileId) throws CanvasApiException {
+        try {
+            return getWriter(apiUser, FileWriterExtended.class).delete(canvasFileId);
+        } catch (IOException | CanvasException e) {
+            throw new CanvasApiException(String.format("Failed to delete file ID: [{}] in Canvas for user ID [%s]", canvasFileId, apiUser.getLmsUserId()), e);
         }
     }
 

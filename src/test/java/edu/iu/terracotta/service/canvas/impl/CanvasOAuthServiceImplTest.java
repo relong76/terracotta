@@ -118,7 +118,7 @@ public class CanvasOAuthServiceImplTest extends BaseTest {
         assertTrue(parsedURL.getQuery().contains(encodeQueryParam("response_type", "code")));
         assertTrue(parsedURL.getQuery().contains(encodeQueryParam("redirect_uri",localUrl + "/lms/oauth2/oauth_response")));
         assertTrue(parsedURL.getQuery().contains(encodeQueryParam("state", state)));
-        //assertTrue(parsedURL.getQuery().contains(encodeQueryParam("scope", canvasOAuthService.getAllRequiredScopes())));
+        // assertTrue(parsedURL.getQuery().contains(encodeQueryParam("scope", canvasOAuthService.getAllRequiredScopes())));
     }
 
     @Test
@@ -132,7 +132,7 @@ public class CanvasOAuthServiceImplTest extends BaseTest {
 
         assertEquals(token.getAccessToken(), result.getAccessToken());
         assertEquals(token.getRefreshToken(), result.getRefreshToken());
-        //assertEquals(canvasOAuthService.getAllRequiredScopes(), result.getScopes());
+        // assertEquals(canvasOAuthService.getAllRequiredScopes(), result.getScopes());
         assertEquals(token.getUser().getId(), result.getCanvasUserId());
         assertEquals(token.getUser().getName(), result.getCanvasUserName());
         long actualExpiresEpochMillis = result.getExpiresAt().toInstant().toEpochMilli();
