@@ -352,6 +352,16 @@ const routes = [
             }
           },
           {
+            path: 'message',
+            name: 'Message',
+            component: () => import('../views/messaging/Message.vue')
+          },
+          {
+            path: 'message-group',
+            name: 'MessageGroup',
+            component: () => import('../views/messaging/MessageGroup.vue')
+          },
+          {
             path: 'exposure-sets/:exposure_id/assignment/:assignment_id/select-assignment-treatment',
             name: 'AssignmentTreatmentSelect',
             component: () => import('../views/assignment/AssignmentTreatmentSelect.vue'),

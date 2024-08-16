@@ -36,16 +36,29 @@
               :key="eidx"
             >
               <div class="d-flex justify-space-between">
-                <h3>Assignments</h3>
+                <h3>Components</h3>
                 <div
-                  v-if="loaded && getAssignmentsForExposure(exposure).length"
+                  class="component-buttons"
                 >
-                  <AddAssignmentDialog
-                    @multiple="handleAssignmentMultipleVersions(exposure)"
-                    @single="handleAssignmentSingleVersion(exposure)"
-                    :hasExistingAssignment="true"
-                    :isSingleConditionExperiment="singleConditionExperiment"
-                  />
+                  <div
+                    v-if="loaded && messagingEnabled"
+                    class="mb-5"
+                  >
+                    <add-message-dialog
+                      @add="handleAddMessage($event, exposure)"
+                      :isSingleConditionExperiment="singleConditionExperiment"
+                    />
+                  </div>
+                  <div
+                    v-if="loaded && getAssignmentsForExposure(exposure).length"
+                  >
+                    <add-assignment-dialog
+                      @multiple="handleAssignmentMultipleVersions(exposure)"
+                      @single="handleAssignmentSingleVersion(exposure)"
+                      :hasExistingAssignment="true"
+                      :isSingleConditionExperiment="singleConditionExperiment"
+                    />
+                  </div>
                 </div>
               </div>
               <template v-if="!loaded">
@@ -56,7 +69,17 @@
                   />
                 </div>
               </template>
-              <template v-if="loaded">
+              <template
+                v-if="loaded"
+              >
+                <message-group-table
+                  :experiment="experiment"
+                  :exposure="exposure"
+                  :mobileBreakpoint="mobileBreakpoint"
+                  :exposureSetIndex="eidx"
+                  :messageGroupsExpanded="getMessageGroupsExpanded"
+                  class="mb-5"
+                />
                 <v-card
                   v-if="!getAssignmentsForExposure(exposure).length"
                   class="no-assignments-yet d-flex flex-column px-5 py-5 rounded-lg mx-3 mb-5 d-inline-block"
@@ -65,7 +88,7 @@
                 >
                   <div class="no-assignments-yet-container">
                     <h4>You don't have any assignments yet</h4>
-                    <AddAssignmentDialog
+                    <add-assignment-dialog
                       @multiple="handleAssignmentMultipleVersions(exposure)"
                       @single="handleAssignmentSingleVersion(exposure)"
                       :hasExistingAssignment="false"
@@ -360,8 +383,10 @@
 <script>
 import { mapGetters, mapActions } from "vuex";
 import AddAssignmentDialog from "@/components/AddAssignmentDialog";
+import AddMessageDialog from "@/views/messaging/components/AddMessageDialog";
 import moment from "moment";
 import Sortable from "sortablejs";
+import MessageGroupTable from "@/views/messaging/table/MessageGroupTable.vue";
 import Spinner from "@/components/Spinner";
 
 export default {
@@ -370,12 +395,75 @@ export default {
     "experiment",
     "balanced",
     "loaded",
-    "activeExposureSet"
+    "activeExposureSet",
+    "messageGroupsExpanded"
   ],
   components: {
     AddAssignmentDialog,
+    AddMessageDialog,
+    MessageGroupTable,
     Spinner,
 },
+data: () => ({
+    tab: 0,
+    minTreatments: 2,
+    maxDesignGroups: 2,
+    conditionColors: [""],
+    assignmentsExpanded: [],
+    designExpanded: false,
+    mobileBreakpoint: 636,
+    assignmentHeaders: [
+      {
+        text: "",
+        align: "start",
+        sortable: false,
+        value: "drag"
+      },
+      {
+        text: "Assignment Name",
+        align: "start",
+        sortable: false,
+        value: "title"
+      },
+      {
+        text: "Treatments",
+        sortable: false,
+        value: "treatments"
+      },
+      {
+        text: "Due Date",
+        sortable: false,
+        value: "dueDate"
+      },
+      {
+        text: "Status",
+        sortable: false,
+        value: "published"
+      },
+      {
+        text: "Actions",
+        align: "center",
+        sortable: false,
+        value: "actions"
+      },
+      {
+        text: "",
+        sortable: false,
+        value: "data-table-expand"
+      }
+    ],
+    treatmentHeaders: [
+      {
+        text: "Treatment Name",
+        align: "start",
+        sortable: false,
+        value: "title"
+      }
+    ],
+    features: {
+      messaging: "MESSAGING"
+    }
+  }),
   directives: {
     sortableDataTable: {
       bind(el, binding, vnode) {
@@ -414,66 +502,18 @@ export default {
     },
     defaultCondition() {
       return this.conditions.find(c => c.defaultCondition);
+    },
+    messagingEnabled() {
+      return this.experiment.features?.some((feature) => feature.type === this.features.messaging);
+    },
+    getMessageGroupsExpanded() {
+      if (!this.messageGroupsExpanded) {
+        return [];
+      }
+
+      return JSON.parse(this.messageGroupsExpanded);
     }
   },
-  data: () => ({
-    tab: 0,
-    minTreatments: 2,
-    maxDesignGroups: 2,
-    conditionTreatments: {},
-    conditionColors: [""],
-    assignmentsExpanded: [],
-    designExpanded: false,
-    mobileBreakpoint: 636,
-    assignmentHeaders: [
-      {
-        text: "",
-        align: "start",
-        sortable: false,
-        value: "drag",
-      },
-      {
-        text: "Assignment Name",
-        align: "start",
-        sortable: false,
-        value: "title",
-      },
-      {
-        text: "Treatments",
-        sortable: false,
-        value: "treatments",
-      },
-      {
-        text: "Due Date",
-        sortable: false,
-        value: "dueDate",
-      },
-      {
-        text: "Status",
-        sortable: false,
-        value: "published",
-      },
-      {
-        text: "Actions",
-        align: "center",
-        sortable: false,
-        value: "actions",
-      },
-      {
-        text: "",
-        sortable: false,
-        value: "data-table-expand"
-      }
-    ],
-    treatmentHeaders: [
-      {
-        text: "Treatment Name",
-        align: "start",
-        sortable: false,
-        value: "title",
-      }
-    ]
-  }),
   watch: {
     assignmentsCount: {
       handler() {
@@ -495,7 +535,7 @@ export default {
       getConsentFile: "consent/getConsentFile",
       moveAssignment: "assignment/moveAssignment",
       setCurrentAssignment: 'assignments/setCurrentAssignment',
-      saveEditMode: "navigation/saveEditMode",
+      saveEditMode: "navigation/saveEditMode"
     }),
     saveOrder(event, assignments, exposure) {
       const movedItem = assignments.splice(event.oldIndex, 1)[0];
@@ -581,20 +621,28 @@ export default {
         }
       });
     },
+    async handleAddMessage(type, exposure) {
+      await this.saveEditMode({
+        initialPage: "MessageGroup",
+        callerPage: {
+          name: "ExperimentSummary",
+          tab: "assignment",
+          exposureSet: this.tab
+        }
+      });
+      this.$router.push({
+        name: "MessageGroup",
+        params: {
+          experimentId: this.experiment_id,
+          exposureId: exposure.exposureId,
+          type: type,
+          mode: "NEW"
+        }
+      });
+    },
     async getAssignmentDetails() {
       await this.fetchExposures(this.experiment.experimentId);
       return this.exposures;
-    },
-    hasTreatment(conditionId, assignmentId) {
-      const assignmentBasedOnConditions = this.conditionTreatments[
-        +conditionId
-      ];
-
-      return (
-        assignmentBasedOnConditions?.find(
-          (assignment) => assignment.assignmentId === assignmentId
-        ) !== undefined
-      );
     },
     async handleCreateTreatment(conditionId, assignmentId) {
       // POST TREATMENT
@@ -643,7 +691,6 @@ export default {
     },
     async handleDuplicateAssignment(eid, a) {
       // DUPLICATE ASSIGNMENT experiment_id, exposure_id, assignment_id
-
       try {
         const response = await this.duplicateAssignment([
           this.experiment_id,
@@ -893,7 +940,7 @@ td.treatments-table-container td span {
 }
 td.treatments-table-container .v-data-table__wrapper table {
   padding: 0 35px !important;
-  
+
   // @media screen and (min-width: 1264px) {
   //   padding: 0 35px !important;
   // }
@@ -917,5 +964,8 @@ span.v-chip.v-chip--label > span.v-chip__content {
   min-height: fit-content !important;
   height: unset !important;
   max-width: 400px !important;
+}
+div.component-buttons {
+  max-width: fit-content;
 }
 </style>

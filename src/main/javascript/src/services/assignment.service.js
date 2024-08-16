@@ -141,7 +141,6 @@ function handleResponse(response) {
 
       return response
     } else if (response.status===204) {
-      console.log('handleResponse | 204',{text,data,response})
       return []
     }
 

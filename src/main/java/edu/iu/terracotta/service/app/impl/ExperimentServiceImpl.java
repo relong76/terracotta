@@ -36,6 +36,7 @@ import edu.iu.terracotta.service.app.AssignmentService;
 import edu.iu.terracotta.service.app.ConditionService;
 import edu.iu.terracotta.service.app.ExperimentService;
 import edu.iu.terracotta.service.app.ExposureService;
+import edu.iu.terracotta.service.app.FeatureService;
 import edu.iu.terracotta.service.app.ParticipantService;
 import lombok.extern.slf4j.Slf4j;
 
@@ -70,6 +71,7 @@ public class ExperimentServiceImpl implements ExperimentService {
     @Autowired private AssignmentService assignmentService;
     @Autowired private ConditionService conditionService;
     @Autowired private ExposureService exposureService;
+    @Autowired private FeatureService featureService;
     @Autowired private FileStorageServiceImpl fileStorageService;
     @Autowired private ParticipantService participantService;
 
@@ -243,6 +245,7 @@ public class ExperimentServiceImpl implements ExperimentService {
         experimentDto.setCreatedAt(experiment.getCreatedAt());
         experimentDto.setUpdatedAt(experiment.getUpdatedAt());
         experimentDto.setCreatedBy(experiment.getCreatedBy().getUserId());
+        experimentDto.setFeatures(featureService.toDto(experiment.getPlatformDeployment().getFeatures()));
         List<ConditionDto> conditionDtoList = new ArrayList<>();
 
         if (conditions) {
