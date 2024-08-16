@@ -9,6 +9,7 @@ import java.util.Set;
 import jakarta.persistence.Basic;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
@@ -59,7 +60,10 @@ public class CanvasAPITokenEntity implements APIToken {
     @Column
     private String scopes;
 
-    @ManyToOne(optional = false)
+    @ManyToOne(
+        optional = false,
+        fetch = FetchType.EAGER
+    )
     @JoinColumn(name = "user_id")
     private LtiUserEntity user;
 

@@ -244,6 +244,7 @@ export default {
       resetConditions: 'conditions/resetConditions',
       resetExportData: 'exportData/resetExportData',
       resetExposures: 'exposures/resetExposures',
+      resetMessages: 'messagingMessageGroup/reset',
       resetOutcome: 'outcomes/resetOutcome',
       resetOutcomePotentials: 'outcomes/resetOutcomePotentials',
       resetParticipants: 'participants/resetParticipants',
@@ -332,6 +333,7 @@ export default {
     this.resetConditions();
     this.resetExportData();
     this.resetExposures();
+    this.resetMessages();
     this.resetOutcome();
     this.resetOutcomePotentials();
     this.resetParticipants();

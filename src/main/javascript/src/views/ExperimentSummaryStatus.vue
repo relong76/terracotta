@@ -198,9 +198,6 @@ export default {
   name: 'ExperimentSummaryStatus',
   props: ['experiment'],
   computed: {
-    experiment_id() {
-      return parseInt(this.experiment.experimentId)
-    },
     ...mapGetters({
       assignments: 'assignment/assignments',
       conditions: 'experiment/conditions',
@@ -208,6 +205,9 @@ export default {
       experimentOutcomes: 'outcome/experimentOutcomes',
       editMode: 'navigation/editMode'
     }),
+    experiment_id() {
+      return parseInt(this.experiment.experimentId)
+    },
     getSaveExitPage() {
       return this.editMode?.callerPage?.name || 'Home';
     },

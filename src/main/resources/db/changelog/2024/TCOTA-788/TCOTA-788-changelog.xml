@@ -1,0 +1,351 @@
+<?xml
+    version="1.1"
+    encoding="UTF-8"
+    standalone="no"
+?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:ext="http://www.liquibase.org/xml/ns/dbchangelog-ext"
+    xmlns:pro="http://www.liquibase.org/xml/ns/pro"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog-ext http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-ext.xsd http://www.liquibase.org/xml/ns/pro http://www.liquibase.org/xml/ns/pro/liquibase-pro-latest.xsd http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd"
+>
+    <property
+        name="u_id"
+        value="(UUID_TO_BIN(UUID()))"
+        dbms="mysql"
+    />
+    <changeSet author="rlong (generated)" id="1725631529000-1">
+        <createTable tableName="terr_messaging_message_group">
+            <column autoIncrement="true" name="id" type="BIGINT">
+                <constraints nullable="false" primaryKey="true"/>
+            </column>
+            <column name="uuid" type="BINARY(16)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="exposure_id" type="BIGINT">
+                <constraints nullable="false"/>
+            </column>
+            <column name="owner_id" type="BIGINT">
+                <constraints nullable="false"/>
+            </column>
+            <column name="entity_version" type="INT"/>
+            <column name="created_at" type="timestamp" defaultValueComputed="CURRENT_TIMESTAMP"/>
+            <column name="updated_at" type="datetime"/>
+        </createTable>
+        <createTable tableName="terr_messaging_message_group_configuration">
+            <column autoIncrement="true" name="id" type="BIGINT">
+                <constraints nullable="false" primaryKey="true"/>
+            </column>
+            <column name="uuid" type="BINARY(16)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="group_id" type="BIGINT">
+                <constraints nullable="false"/>
+            </column>
+            <column name="title" type="VARCHAR(255)"/>
+            <column name="status" type="VARCHAR(255)"/>
+            <column name="to_consented_only" type="BIT(1)"/>
+            <column name="group_order" type="INT"/>
+            <column name="entity_version" type="INT"/>
+            <column name="created_at" type="timestamp" defaultValueComputed="CURRENT_TIMESTAMP"/>
+            <column name="updated_at" type="datetime"/>
+        </createTable>
+        <createTable tableName="terr_messaging_message">
+            <column autoIncrement="true" name="id" type="BIGINT">
+                <constraints nullable="false" primaryKey="true"/>
+            </column>
+            <column name="uuid" type="BINARY(16)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="group_id" type="BIGINT">
+                <constraints nullable="false"/>
+            </column>
+            <column name="exposure_group_condition_id" type="BIGINT">
+                <constraints nullable="false"/>
+            </column>
+            <column name="entity_version" type="INT"/>
+            <column name="created_at" type="timestamp" defaultValueComputed="CURRENT_TIMESTAMP"/>
+            <column name="updated_at" type="datetime"/>
+        </createTable>
+        <createTable tableName="terr_messaging_message_configuration">
+            <column autoIncrement="true" name="id" type="BIGINT">
+                <constraints nullable="false" primaryKey="true"/>
+            </column>
+            <column name="uuid" type="BINARY(16)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="message_id" type="BIGINT">
+                <constraints nullable="false"/>
+            </column>
+            <column name="type" type="VARCHAR(255)"/>
+            <column name="status" type="VARCHAR(255)"/>
+            <column name="subject" type="VARCHAR(255)"/>
+            <column name="send_at" type="timestamp"/>
+            <column name="entity_version" type="INT"/>
+            <column name="created_at" type="timestamp" defaultValueComputed="CURRENT_TIMESTAMP"/>
+            <column name="updated_at" type="datetime"/>
+        </createTable>
+        <createTable tableName="terr_messaging_content">
+            <column autoIncrement="true" name="id" type="BIGINT">
+                <constraints nullable="false" primaryKey="true"/>
+            </column>
+            <column name="uuid" type="BINARY(16)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="message_id" type="BIGINT">
+                <constraints nullable="false"/>
+            </column>
+            <column name="body" type="TEXT"/>
+            <column name="entity_version" type="INT"/>
+            <column name="created_at" type="timestamp" defaultValueComputed="CURRENT_TIMESTAMP"/>
+            <column name="updated_at" type="datetime"/>
+        </createTable>
+        <createTable tableName="terr_messaging_content_standard_placeholder">
+            <column autoIncrement="true" name="id" type="BIGINT">
+                <constraints nullable="false" primaryKey="true"/>
+            </column>
+            <column name="uuid" type="BINARY(16)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="key" type="VARCHAR(255)"/>
+            <column name="label" type="VARCHAR(255)"/>
+            <column name="enabled" type="BIT(1)"/>
+            <column name="entity_version" type="INT"/>
+            <column name="created_at" type="timestamp" defaultValueComputed="CURRENT_TIMESTAMP"/>
+            <column name="updated_at" type="datetime"/>
+        </createTable>
+        <createTable tableName="terr_messaging_content_custom_placeholder">
+            <column autoIncrement="true" name="id" type="BIGINT">
+                <constraints nullable="false" primaryKey="true"/>
+            </column>
+            <column name="uuid" type="BINARY(16)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="content_id" type="BIGINT">
+                <constraints nullable="false"/>
+            </column>
+            <column name="key" type="VARCHAR(255)"/>
+            <column name="label" type="VARCHAR(255)"/>
+            <column name="enabled" type="BIT(1)"/>
+            <column name="entity_version" type="INT"/>
+            <column name="created_at" type="timestamp" defaultValueComputed="CURRENT_TIMESTAMP"/>
+            <column name="updated_at" type="datetime"/>
+        </createTable>
+        <createTable tableName="terr_messaging_content_attachment">
+            <column autoIncrement="true" name="id" type="BIGINT">
+                <constraints nullable="false" primaryKey="true"/>
+            </column>
+            <column name="uuid" type="BINARY(16)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="content_id" type="BIGINT">
+                <constraints nullable="false"/>
+            </column>
+            <column name="canvas_id" type="BIGINT"/>
+            <column name="display_name" type="VARCHAR(255)"/>
+            <column name="file_name" type="VARCHAR(255)"/>
+            <column name="size" type="BIGINT"/>
+            <column name="content_type" type="VARCHAR(255)"/>
+            <column name="url" type="VARCHAR(255)"/>
+            <column name="status" type="VARCHAR(255)"/>
+            <column name="entity_version" type="INT"/>
+            <column name="created_at" type="timestamp" defaultValueComputed="CURRENT_TIMESTAMP"/>
+            <column name="updated_at" type="datetime"/>
+        </createTable>
+        <createTable tableName="terr_messaging_rule">
+            <column autoIncrement="true" name="id" type="BIGINT">
+                <constraints nullable="false" primaryKey="true"/>
+            </column>
+            <column name="uuid" type="BINARY(16)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="content_id" type="BIGINT">
+                <constraints nullable="false"/>
+            </column>
+            <column name="field" type="VARCHAR(255)"/>
+            <column name="comparison" type="VARCHAR(255)"/>
+            <column name="value" type="VARCHAR(255)"/>
+            <column name="custom_placeholder_id" type="BIGINT"/>
+            <column name="standard_placeholder_id" type="BIGINT"/>
+            <column name="enabled" type="BIT(1)"/>
+            <column name="entity_version" type="INT"/>
+            <column name="created_at" type="timestamp" defaultValueComputed="CURRENT_TIMESTAMP"/>
+            <column name="updated_at" type="datetime"/>
+        </createTable>
+        <createTable tableName="terr_messaging_email_reply_to">
+            <column autoIncrement="true" name="id" type="BIGINT">
+                <constraints nullable="false" primaryKey="true"/>
+            </column>
+            <column name="uuid" type="BINARY(16)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="configuration_id" type="BIGINT">
+                <constraints nullable="false"/>
+            </column>
+            <column name="email" type="VARCHAR(255)"/>
+            <column name="entity_version" type="INT"/>
+            <column name="created_at" type="timestamp" defaultValueComputed="CURRENT_TIMESTAMP"/>
+            <column name="updated_at" type="datetime"/>
+        </createTable>
+        <createTable tableName="terr_messaging_message_log">
+            <column autoIncrement="true" name="id" type="BIGINT">
+                <constraints nullable="false" primaryKey="true"/>
+            </column>
+            <column name="uuid" type="BINARY(16)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="message_id" type="BIGINT">
+                <constraints nullable="false"/>
+            </column>
+            <column name="lti_user_user_id" type="BIGINT">
+                <constraints nullable="false"/>
+            </column>
+            <column name="body" type="TEXT"/>
+            <column name="canvas_conversation_id" type="BIGINT"/>
+            <column name="status" type="VARCHAR(255)"/>
+            <column name="entity_version" type="INT"/>
+            <column name="created_at" type="timestamp" defaultValueComputed="CURRENT_TIMESTAMP"/>
+            <column name="updated_at" type="datetime"/>
+        </createTable>
+        <createTable tableName="scheduled_tasks">
+            <column name="task_name" type="VARCHAR(100)"/>
+            <column name="task_instance" type="VARCHAR(100)"/>
+            <column name="task_data" type="TEXT"/>
+            <column name="execution_time" type="timestamp"/>
+            <column name="picked" type="BIT(1)"/>
+            <column name="picked_by" type="VARCHAR(50)"/>
+            <column name="last_success" type="timestamp"/>
+            <column name="last_failure" type="timestamp"/>
+            <column name="consecutive_failures" type="INT"/>
+            <column name="last_heartbeat" type="timestamp"/>
+            <column name="version" type="BIGINT"/>
+            <column name="entity_version" type="BIGINT"/>
+            <column name="created_at" type="timestamp" defaultValueComputed="CURRENT_TIMESTAMP"/>
+            <column name="updated_at" type="datetime"/>
+        </createTable>
+    </changeSet>
+    <changeSet author="rlong (generated)" id="1725631529000-2">
+        <addPrimaryKey tableName="scheduled_tasks" columnNames="task_name,task_instance" constraintName="scheduled_tasks_pk"/>
+    </changeSet>
+    <changeSet author="rlong (generated)" id="1725631529000-3">
+        <createIndex associatedWith="" indexName="FKeqihqbd3i50vy3pwgj0smde00" tableName="terr_messaging_message_group">
+            <column name="exposure_id"/>
+        </createIndex>
+        <createIndex associatedWith="" indexName="FKeqihqbd3i50vy3pwgj0smde01" tableName="terr_messaging_message_group">
+            <column name="owner_id"/>
+        </createIndex>
+        <createIndex associatedWith="" indexName="FKeqihqbd3i50vy3pwgj0smde02" tableName="terr_messaging_message_group_configuration">
+            <column name="group_id"/>
+        </createIndex>
+        <createIndex associatedWith="" indexName="FKeqihqbd3i50vy3pwgj0smde03" tableName="terr_messaging_message">
+            <column name="group_id"/>
+        </createIndex>
+        <createIndex associatedWith="" indexName="FKeqihqbd3i50vy3pwgj0smde04" tableName="terr_messaging_message">
+            <column name="exposure_group_condition_id"/>
+        </createIndex>
+        <createIndex associatedWith="" indexName="FKeqihqbd3i50vy3pwgj0smde05" tableName="terr_messaging_message_configuration">
+            <column name="message_id"/>
+        </createIndex>
+        <createIndex associatedWith="" indexName="FKeqihqbd3i50vy3pwgj0smde06" tableName="terr_messaging_content">
+            <column name="message_id"/>
+        </createIndex>
+        <createIndex associatedWith="" indexName="FKeqihqbd3i50vy3pwgj0smde07" tableName="terr_messaging_content_custom_placeholder">
+            <column name="content_id"/>
+        </createIndex>
+        <createIndex associatedWith="" indexName="FKeqihqbd3i50vy3pwgj0smde08" tableName="terr_messaging_content_attachment">
+            <column name="content_id"/>
+        </createIndex>
+        <createIndex associatedWith="" indexName="FKeqihqbd3i50vy3pwgj0smde09" tableName="terr_messaging_rule">
+            <column name="content_id"/>
+        </createIndex>
+        <createIndex associatedWith="" indexName="FKeqihqbd3i50vy3pwgj0smde10" tableName="terr_messaging_email_reply_to">
+            <column name="configuration_id"/>
+        </createIndex>
+        <createIndex associatedWith="" indexName="FKeqihqbd3i50vy3pwgj0smde11" tableName="terr_messaging_message_log">
+            <column name="lti_user_user_id"/>
+        </createIndex>
+        <createIndex associatedWith="" indexName="FKeqihqbd3i50vy3pwgj0smde12" tableName="terr_messaging_message_log">
+            <column name="message_id"/>
+        </createIndex>
+
+    </changeSet>
+    <changeSet author="rlong (generated)" id="1725631529000-4">
+        <addForeignKeyConstraint baseColumnNames="exposure_id" baseTableName="terr_messaging_message_group" constraintName="FK1dsq61x1pv4kg8t9qbqgex800" deferrable="false" initiallyDeferred="false" onDelete="RESTRICT" onUpdate="RESTRICT" referencedColumnNames="exposure_id" referencedTableName="terr_exposure" validate="true"/>
+        <addForeignKeyConstraint baseColumnNames="owner_id" baseTableName="terr_messaging_message_group" constraintName="FK1dsq61x1pv4kg8t9qbqgex801" deferrable="false" initiallyDeferred="false" onDelete="RESTRICT" onUpdate="RESTRICT" referencedColumnNames="user_id" referencedTableName="lti_user" validate="true"/>
+        <addForeignKeyConstraint baseColumnNames="group_id" baseTableName="terr_messaging_message_group_configuration" constraintName="FK1dsq61x1pv4kg8t9qbqgex802" deferrable="false" initiallyDeferred="false" onDelete="RESTRICT" onUpdate="RESTRICT" referencedColumnNames="id" referencedTableName="terr_messaging_message_group" validate="true"/>
+        <addForeignKeyConstraint baseColumnNames="group_id" baseTableName="terr_messaging_message" constraintName="FK1dsq61x1pv4kg8t9qbqgex803" deferrable="false" initiallyDeferred="false" onDelete="RESTRICT" onUpdate="RESTRICT" referencedColumnNames="id" referencedTableName="terr_messaging_message_group" validate="true"/>
+        <addForeignKeyConstraint baseColumnNames="exposure_group_condition_id" baseTableName="terr_messaging_message" constraintName="FK1dsq61x1pv4kg8t9qbqgex804" deferrable="false" initiallyDeferred="false" onDelete="RESTRICT" onUpdate="RESTRICT" referencedColumnNames="exposure_group_condition_id" referencedTableName="terr_exposure_group_condition" validate="true"/>
+        <addForeignKeyConstraint baseColumnNames="message_id" baseTableName="terr_messaging_message_configuration" constraintName="FK1dsq61x1pv4kg8t9qbqgex805" deferrable="false" initiallyDeferred="false" onDelete="RESTRICT" onUpdate="RESTRICT" referencedColumnNames="id" referencedTableName="terr_messaging_message" validate="true"/>
+        <addForeignKeyConstraint baseColumnNames="message_id" baseTableName="terr_messaging_content" constraintName="FK1dsq61x1pv4kg8t9qbqgex806" deferrable="false" initiallyDeferred="false" onDelete="RESTRICT" onUpdate="RESTRICT" referencedColumnNames="id" referencedTableName="terr_messaging_message" validate="true"/>
+        <addForeignKeyConstraint baseColumnNames="content_id" baseTableName="terr_messaging_content_custom_placeholder" constraintName="FK1dsq61x1pv4kg8t9qbqgex807" deferrable="false" initiallyDeferred="false" onDelete="RESTRICT" onUpdate="RESTRICT" referencedColumnNames="id" referencedTableName="terr_messaging_content" validate="true"/>
+        <addForeignKeyConstraint baseColumnNames="content_id" baseTableName="terr_messaging_content_attachment" constraintName="FK1dsq61x1pv4kg8t9qbqgex808" deferrable="false" initiallyDeferred="false" onDelete="RESTRICT" onUpdate="RESTRICT" referencedColumnNames="id" referencedTableName="terr_messaging_content" validate="true"/>
+        <addForeignKeyConstraint baseColumnNames="content_id" baseTableName="terr_messaging_rule" constraintName="FK1dsq61x1pv4kg8t9qbqgex809" deferrable="false" initiallyDeferred="false" onDelete="RESTRICT" onUpdate="RESTRICT" referencedColumnNames="id" referencedTableName="terr_messaging_content" validate="true"/>
+        <addForeignKeyConstraint baseColumnNames="custom_placeholder_id" baseTableName="terr_messaging_rule" constraintName="FK1dsq61x1pv4kg8t9qbqgex810" deferrable="false" initiallyDeferred="false" onDelete="RESTRICT" onUpdate="RESTRICT" referencedColumnNames="id" referencedTableName="terr_messaging_content_custom_placeholder" validate="true"/>
+        <addForeignKeyConstraint baseColumnNames="standard_placeholder_id" baseTableName="terr_messaging_rule" constraintName="FK1dsq61x1pv4kg8t9qbqgex811" deferrable="false" initiallyDeferred="false" onDelete="RESTRICT" onUpdate="RESTRICT" referencedColumnNames="id" referencedTableName="terr_messaging_content_standard_placeholder" validate="true"/>
+        <addForeignKeyConstraint baseColumnNames="configuration_id" baseTableName="terr_messaging_email_reply_to" constraintName="FK1dsq61x1pv4kg8t9qbqgex812" deferrable="false" initiallyDeferred="false" onDelete="RESTRICT" onUpdate="RESTRICT" referencedColumnNames="id" referencedTableName="terr_messaging_message_configuration" validate="true"/>
+        <addForeignKeyConstraint baseColumnNames="lti_user_user_id" baseTableName="terr_messaging_message_log" constraintName="FK1dsq61x1pv4kg8t9qbqgex813" deferrable="false" initiallyDeferred="false" onDelete="RESTRICT" onUpdate="RESTRICT" referencedColumnNames="user_id" referencedTableName="lti_user" validate="true"/>
+        <addForeignKeyConstraint baseColumnNames="message_id" baseTableName="terr_messaging_message_log" constraintName="FK1dsq61x1pv4kg8t9qbqgex814" deferrable="false" initiallyDeferred="false" onDelete="RESTRICT" onUpdate="RESTRICT" referencedColumnNames="id" referencedTableName="terr_messaging_message" validate="true"/>
+    </changeSet>
+    <changeSet author="rlong (generated)" id="1725631529000-5">
+        <insert tableName="terr_messaging_content_standard_placeholder">
+            <column name="uuid" valueComputed="${u_id}"/>
+            <column name="label" value="First Name"/>
+            <column name="key" value="FIRSTNAME" />
+            <column name="enabled" valueBoolean="true"/>
+            <column name="entity_version" value="0" />
+        </insert>
+        <insert tableName="terr_messaging_content_standard_placeholder">
+            <column name="uuid" valueComputed="${u_id}"/>
+            <column name="label" value="Last Name"/>
+            <column name="key" value="LASTNAME"/>
+            <column name="enabled" valueBoolean="true"/>
+            <column name="entity_version" value="0"/>
+        </insert>
+        <insert tableName="terr_messaging_content_standard_placeholder">
+            <column name="uuid" valueComputed="${u_id}"/>
+            <column name="label" value="Email"/>
+            <column name="key" value="EMAIL"/>
+            <column name="enabled" valueBoolean="true"/>
+            <column name="entity_version" value="0"/>
+        </insert>
+    </changeSet>
+    <changeSet author="rlong (generated)" id="1725631529000-6">
+        <insert tableName="canvas_api_scope">
+            <column name="scope" value="url:POST|/api/v1/users/:user_id/files"/>
+            <column name="entity_version" value="0"/>
+        </insert>
+        <insert tableName="canvas_api_scope">
+            <column name="scope" value="url:GET|/api/v1/files/:id"/>
+            <column name="entity_version" value="0"/>
+        </insert>
+        <insert tableName="canvas_api_scope">
+            <column name="scope" value="url:DELETE|/api/v1/files/:id"/>
+            <column name="entity_version" value="0"/>
+        </insert>
+        <insert tableName="canvas_api_scope">
+            <column name="scope" value="url:GET|/api/v1/users/:user_id/files/quota"/>
+            <column name="entity_version" value="0"/>
+        </insert>
+        <insert tableName="canvas_api_scope_features">
+            <column name="features_id" valueComputed="(SELECT id FROM terr_feature WHERE type = 'MESSAGING')"/>
+            <column name="scopes_id" valueComputed="(SELECT id FROM canvas_api_scope WHERE scope = 'url:POST|/api/v1/users/:user_id/files')"/>
+            <column name="entity_version" value="0"/>
+        </insert>
+        <insert tableName="canvas_api_scope_features">
+            <column name="features_id" valueComputed="(SELECT id FROM terr_feature WHERE type = 'MESSAGING')"/>
+            <column name="scopes_id" valueComputed="(SELECT id FROM canvas_api_scope WHERE scope = 'url:GET|/api/v1/files/:id')"/>
+            <column name="entity_version" value="0"/>
+        </insert>
+        <insert tableName="canvas_api_scope_features">
+            <column name="features_id" valueComputed="(SELECT id FROM terr_feature WHERE type = 'MESSAGING')"/>
+            <column name="scopes_id" valueComputed="(SELECT id FROM canvas_api_scope WHERE scope = 'url:DELETE|/api/v1/files/:id')"/>
+            <column name="entity_version" value="0"/>
+        </insert>
+        <insert tableName="canvas_api_scope_features">
+            <column name="features_id" valueComputed="(SELECT id FROM terr_feature WHERE type = 'MESSAGING')"/>
+            <column name="scopes_id" valueComputed="(SELECT id FROM canvas_api_scope WHERE scope = 'url:GET|/api/v1/users/:user_id/files/quota')"/>
+            <column name="entity_version" value="0"/>
+        </insert>
+    </changeSet>
+</databaseChangeLog>

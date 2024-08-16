@@ -20,10 +20,25 @@ import edu.iu.terracotta.exceptions.QuestionSubmissionNotMatchingException;
 import edu.iu.terracotta.exceptions.SubmissionCommentNotMatchingException;
 import edu.iu.terracotta.exceptions.SubmissionNotMatchingException;
 import edu.iu.terracotta.exceptions.TreatmentNotMatchingException;
+import edu.iu.terracotta.exceptions.messaging.MessageConfigurationNotMatchingException;
+import edu.iu.terracotta.exceptions.messaging.MessageContentNotMatchingException;
+import edu.iu.terracotta.exceptions.messaging.MessageGroupConfigurationNotFoundException;
+import edu.iu.terracotta.exceptions.messaging.MessageGroupNotFoundException;
+import edu.iu.terracotta.exceptions.messaging.MessageGroupNotMatchingException;
+import edu.iu.terracotta.exceptions.messaging.MessageGroupOwnerNotMatchingException;
+import edu.iu.terracotta.exceptions.messaging.MessageNotFoundException;
+import edu.iu.terracotta.exceptions.messaging.MessageNotMatchingException;
+import edu.iu.terracotta.exceptions.messaging.MessageOwnerNotMatchingException;
 import edu.iu.terracotta.model.ApiOneUseToken;
 import edu.iu.terracotta.model.PlatformDeployment;
 import edu.iu.terracotta.model.app.Experiment;
+import edu.iu.terracotta.model.app.Exposure;
 import edu.iu.terracotta.model.app.enumerator.ExposureTypes;
+import edu.iu.terracotta.model.app.messaging.Message;
+import edu.iu.terracotta.model.app.messaging.MessageConfiguration;
+import edu.iu.terracotta.model.app.messaging.MessageContent;
+import edu.iu.terracotta.model.app.messaging.MessageGroup;
+import edu.iu.terracotta.model.app.messaging.MessageGroupConfiguration;
 import edu.iu.terracotta.model.oauth2.Roles;
 import edu.iu.terracotta.model.oauth2.SecuredInfo;
 import edu.iu.terracotta.repository.AnswerEssaySubmissionRepository;
@@ -46,6 +61,11 @@ import edu.iu.terracotta.repository.QuestionSubmissionRepository;
 import edu.iu.terracotta.repository.SubmissionCommentRepository;
 import edu.iu.terracotta.repository.SubmissionRepository;
 import edu.iu.terracotta.repository.TreatmentRepository;
+import edu.iu.terracotta.repository.messaging.MessageConfigurationRepository;
+import edu.iu.terracotta.repository.messaging.MessageContentRepository;
+import edu.iu.terracotta.repository.messaging.MessageGroupConfigurationRepository;
+import edu.iu.terracotta.repository.messaging.MessageGroupRepository;
+import edu.iu.terracotta.repository.messaging.MessageRepository;
 import edu.iu.terracotta.service.app.APIJWTService;
 import edu.iu.terracotta.service.app.AdminService;
 import edu.iu.terracotta.service.lti.LTIDataService;
@@ -91,6 +111,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
+import java.util.UUID;
 
 /**
  * This manages all the data processing for the LTIRequest (and for LTI in general)
@@ -116,6 +137,11 @@ public class APIJWTServiceImpl implements APIJWTService {
     @Autowired private ExperimentRepository experimentRepository;
     @Autowired private ExposureRepository exposureRepository;
     @Autowired private GroupRepository groupRepository;
+    @Autowired private MessageConfigurationRepository messageConfigurationRepository;
+    @Autowired private MessageContentRepository messageContentRepository;
+    @Autowired private MessageGroupConfigurationRepository messageGroupConfigurationRepository;
+    @Autowired private MessageGroupRepository messageGroupRepository;
+    @Autowired private MessageRepository messageRepository;
     @Autowired private OutcomeRepository outcomeRepository;
     @Autowired private OutcomeScoreRepository outcomeScoreRepository;
     @Autowired private ParticipantRepository participantRepository;
@@ -628,15 +654,14 @@ public class APIJWTServiceImpl implements APIJWTService {
     }
 
     @Override
-    public void experimentAllowed(SecuredInfo securedInfo, Long experimentId) throws BadTokenException, ExperimentNotMatchingException {
+    public Experiment experimentAllowed(SecuredInfo securedInfo, Long experimentId) throws BadTokenException, ExperimentNotMatchingException {
         if (securedInfo ==null) {
             log.error(TextConstants.BAD_TOKEN);
             throw new BadTokenException(TextConstants.BAD_TOKEN);
         }
 
-        if (!experimentRepository.existsByExperimentIdAndPlatformDeployment_KeyIdAndLtiContextEntity_ContextId(experimentId, securedInfo.getPlatformDeploymentId(), securedInfo.getContextId())) {
-            throw new ExperimentNotMatchingException(TextConstants.EXPERIMENT_NOT_MATCHING);
-        }
+        return experimentRepository.findByExperimentIdAndPlatformDeployment_KeyIdAndLtiContextEntity_ContextId(experimentId, securedInfo.getPlatformDeploymentId(), securedInfo.getContextId())
+            .orElseThrow(() -> new ExperimentNotMatchingException(TextConstants.EXPERIMENT_NOT_MATCHING));
     }
 
     @Override
@@ -644,7 +669,7 @@ public class APIJWTServiceImpl implements APIJWTService {
         Optional<Experiment> experiment = experimentRepository.findById(experimentId);
 
         if (experiment.isEmpty()) {
-            throw new ExperimentNotMatchingException("The experiment with id " + experimentId + " does not exist");
+            throw new ExperimentNotMatchingException(String.format("The experiment with id [%s] does not exist", experimentId));
         }
 
         if (!experiment.get().isStarted()) {
@@ -692,10 +717,9 @@ public class APIJWTServiceImpl implements APIJWTService {
     }
 
     @Override
-    public void exposureAllowed(SecuredInfo securedInfo, Long experimentId, Long exposureId) throws ExposureNotMatchingException {
-        if (!exposureRepository.existsByExperiment_ExperimentIdAndExposureId(experimentId, exposureId)) {
-            throw new ExposureNotMatchingException(TextConstants.EXPOSURE_NOT_MATCHING);
-        }
+    public Exposure exposureAllowed(SecuredInfo securedInfo, Long experimentId, Long exposureId) throws ExposureNotMatchingException {
+        return exposureRepository.findByExperiment_ExperimentIdAndExposureId(experimentId, exposureId)
+            .orElseThrow(() -> new ExposureNotMatchingException(TextConstants.EXPOSURE_NOT_MATCHING));
     }
 
     @Override
@@ -805,6 +829,49 @@ public class APIJWTServiceImpl implements APIJWTService {
         if (!outcomeScoreRepository.existsByOutcome_OutcomeIdAndOutcomeScoreId(outcomeId, outcomeScoreId)) {
             throw new OutcomeScoreNotMatchingException(TextConstants.OUTCOME_SCORE_NOT_MATCHING);
         }
+    }
+
+    @Override
+    public MessageGroup messagingGroupAllowed(SecuredInfo securedInfo, long exposureId, UUID groupUuid) throws MessageGroupOwnerNotMatchingException, MessageGroupNotMatchingException, MessageGroupNotFoundException {
+        if (!messageGroupRepository.existsByUuidAndOwner_LmsUserId(groupUuid, securedInfo.getCanvasUserId())) {
+            throw new MessageGroupOwnerNotMatchingException(String.format("User with LMS User ID: [%s] does not own message group with UUID: [%s]", securedInfo.getCanvasUserId(), groupUuid));
+        }
+
+        if (!messageGroupRepository.existsByExposure_ExposureId(exposureId)) {
+            throw new MessageGroupNotMatchingException(String.format("Message group with UUID: [%s] not owned by exposure ID: [%s]", groupUuid, exposureId));
+        }
+
+        return messageGroupRepository.findByUuid(groupUuid)
+            .orElseThrow(() -> new MessageGroupNotFoundException(String.format("Message group with UUID: [%s] not found", groupUuid)));
+    }
+
+    @Override
+    public MessageGroupConfiguration messagingGroupConfigurationAllowed(SecuredInfo securedInfo, UUID groupUuid, UUID configurationUuid)
+        throws MessageGroupOwnerNotMatchingException, MessageGroupNotMatchingException, MessageGroupNotFoundException, MessageGroupConfigurationNotFoundException {
+            return messageGroupConfigurationRepository.findByUuidAndGroup_Uuid(configurationUuid, groupUuid)
+            .orElseThrow(() -> new MessageGroupConfigurationNotFoundException(String.format("Message group configuration with UUID: [%s] and group UUID: [%s] not found", configurationUuid, groupUuid)));
+    }
+
+    @Override
+    public Message messagingAllowed(SecuredInfo securedInfo, UUID groupUuid, UUID messageUuid) throws MessageOwnerNotMatchingException, MessageNotMatchingException, MessageNotFoundException {
+        if (!messageRepository.existsByUuidAndGroup_UuidAndGroup_Owner_LmsUserId(messageUuid, groupUuid, securedInfo.getCanvasUserId())) {
+            throw new MessageOwnerNotMatchingException(String.format("User with LMS User ID: [%s] does not own message with UUID: [%s]", securedInfo.getCanvasUserId(), messageUuid));
+        }
+
+        return messageRepository.findByUuid(messageUuid)
+            .orElseThrow(() -> new MessageNotFoundException(String.format("Message with UUID: [%s] not found", messageUuid)));
+    }
+
+    @Override
+    public MessageContent messagingContentAllowed(SecuredInfo securedInfo, UUID messageUuid, UUID contentUuid) throws MessageContentNotMatchingException {
+        return messageContentRepository.findByUuidAndMessage_Uuid(contentUuid, messageUuid)
+            .orElseThrow(() -> new MessageContentNotMatchingException(String.format("No message content with UUID: [%s] found for message UUID: [%s].", contentUuid, messageUuid)));
+    }
+
+    @Override
+    public MessageConfiguration messagingConfigurationAllowed(SecuredInfo securedInfo, UUID messageUuid, UUID configurationUuid) throws MessageConfigurationNotMatchingException {
+        return messageConfigurationRepository.findByUuidAndMessage_Uuid(configurationUuid, messageUuid)
+            .orElseThrow(() -> new MessageConfigurationNotMatchingException(String.format("No message configuration with UUID: [%s] found for message UUID: [%s].", configurationUuid, messageUuid)));
     }
 
 }

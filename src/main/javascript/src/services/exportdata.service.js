@@ -32,8 +32,6 @@ function handleResponse(response) {
         data: resp,
         status: response.status,
       };
-    } else {
-        console.log('handleResponse | 204', {response})
     }
   });
 }

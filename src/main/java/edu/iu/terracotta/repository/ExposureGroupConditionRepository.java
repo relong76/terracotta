@@ -20,5 +20,6 @@ public interface ExposureGroupConditionRepository extends JpaRepository<Exposure
     void deleteByExposure_Experiment_ExperimentId(Long experimentId);
     Optional<ExposureGroupCondition> getByCondition_ConditionIdAndExposure_ExposureId(Long conditionId, Long exposureId);
     Optional<ExposureGroupCondition>  getByGroup_GroupIdAndCondition_ConditionId(Long groupId, Long conditionId);
+    boolean existsByExposureGroupConditionIdAndCondition_Experiment_ExperimentId(long exposureGroupConditionId, long experimentId);
 
 }

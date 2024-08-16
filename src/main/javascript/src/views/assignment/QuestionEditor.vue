@@ -1,8 +1,10 @@
 <template>
   <div>
     <tip-tap-editor
-      :html="html"
+      :content="html"
+      editorType="html"
       @edited="handleEditedHtml"
+      hint="Question"
       required
     />
     <v-text-field
@@ -77,7 +79,6 @@ export default {
   ],
   data() {
     return {
-      editor: null,
       rules: [
         (v) => (v && !!v.trim()) || "required",
         (v) => (v || "").length <= 255 || "A maximum of 255 characters is allowed",

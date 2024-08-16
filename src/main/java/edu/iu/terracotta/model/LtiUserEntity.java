@@ -90,7 +90,7 @@ public class LtiUserEntity extends BaseEntity {
     )
     private Set<LtiResultEntity> results;
 
-    @ManyToOne(fetch = FetchType.LAZY)
+    @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(
         name = "key_id",
         referencedColumnName = "key_id"

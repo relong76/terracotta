@@ -138,7 +138,6 @@ function handleResponse(response) {
         return response
       }
 
-      console.log('handleResponse | then', { text, data, response });
       return data || response
     })
     .catch((text) => {

@@ -28,6 +28,7 @@ public class ExperimentDto {
     private Integer potentialParticipants;
     private Integer acceptedParticipants;
     private Integer rejectedParticipants;
+    private List<FeatureDto> features;
 
     @JsonInclude(JsonInclude.Include.NON_NULL)
     private Timestamp createdAt;

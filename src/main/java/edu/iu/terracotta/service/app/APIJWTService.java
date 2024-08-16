@@ -20,6 +20,22 @@ import edu.iu.terracotta.exceptions.QuestionSubmissionNotMatchingException;
 import edu.iu.terracotta.exceptions.SubmissionCommentNotMatchingException;
 import edu.iu.terracotta.exceptions.SubmissionNotMatchingException;
 import edu.iu.terracotta.exceptions.TreatmentNotMatchingException;
+import edu.iu.terracotta.exceptions.messaging.MessageConfigurationNotMatchingException;
+import edu.iu.terracotta.exceptions.messaging.MessageContentNotMatchingException;
+import edu.iu.terracotta.exceptions.messaging.MessageGroupConfigurationNotFoundException;
+import edu.iu.terracotta.exceptions.messaging.MessageGroupNotFoundException;
+import edu.iu.terracotta.exceptions.messaging.MessageGroupNotMatchingException;
+import edu.iu.terracotta.exceptions.messaging.MessageGroupOwnerNotMatchingException;
+import edu.iu.terracotta.exceptions.messaging.MessageNotFoundException;
+import edu.iu.terracotta.exceptions.messaging.MessageNotMatchingException;
+import edu.iu.terracotta.exceptions.messaging.MessageOwnerNotMatchingException;
+import edu.iu.terracotta.model.app.Experiment;
+import edu.iu.terracotta.model.app.Exposure;
+import edu.iu.terracotta.model.app.messaging.Message;
+import edu.iu.terracotta.model.app.messaging.MessageConfiguration;
+import edu.iu.terracotta.model.app.messaging.MessageContent;
+import edu.iu.terracotta.model.app.messaging.MessageGroup;
+import edu.iu.terracotta.model.app.messaging.MessageGroupConfiguration;
 import edu.iu.terracotta.model.oauth2.SecuredInfo;
 import edu.iu.terracotta.utils.lti.LTI3Request;
 import io.jsonwebtoken.Claims;
@@ -30,6 +46,7 @@ import java.security.GeneralSecurityException;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.UUID;
 
 public interface APIJWTService {
 
@@ -88,12 +105,12 @@ public interface APIJWTService {
     boolean isLearnerOrHigher(SecuredInfo securedInfo);
     boolean isGeneral(SecuredInfo securedInfo);
     boolean isTestStudent(SecuredInfo securedInfo);
-    void experimentAllowed(SecuredInfo securedInfo, Long experimentId) throws BadTokenException, ExperimentNotMatchingException;
+    Experiment experimentAllowed(SecuredInfo securedInfo, Long experimentId) throws BadTokenException, ExperimentNotMatchingException;
     boolean experimentLocked(Long experimentId, boolean throwException) throws ExperimentLockedException, ExperimentNotMatchingException;
     boolean conditionsLocked(Long experimentId, boolean throwException) throws ConditionsLockedException, ExperimentNotMatchingException;
     void conditionAllowed(SecuredInfo securedInfo, Long experimentId, Long conditionId) throws ConditionNotMatchingException;
     void participantAllowed(SecuredInfo securedInfo, Long experimentId, Long participantId) throws ParticipantNotMatchingException;
-    void exposureAllowed(SecuredInfo securedInfo, Long experimentId, Long exposureId) throws ExposureNotMatchingException;
+    Exposure exposureAllowed(SecuredInfo securedInfo, Long experimentId, Long exposureId) throws ExposureNotMatchingException;
     void groupAllowed(SecuredInfo securedInfo, Long experimentId, Long groupId) throws GroupNotMatchingException;
     void assignmentAllowed(SecuredInfo securedInfo, Long experimentId, Long assignmentId) throws AssignmentNotMatchingException;
     void assignmentAllowed(SecuredInfo securedInfo, Long experimentId, Long exposureId, Long assignmentId) throws AssignmentNotMatchingException;
@@ -110,5 +127,10 @@ public interface APIJWTService {
     void answerSubmissionAllowed(SecuredInfo securedInfo, Long questionSubmissionId, String answerType, Long answerSubmissionId) throws AnswerSubmissionNotMatchingException;
     boolean validateFileToken(String token, String fileId);
     String buildFileToken(String fileId, String localUrl) throws GeneralSecurityException;
+    MessageGroup messagingGroupAllowed(SecuredInfo securedInfo, long exposureId, UUID groupUuid) throws MessageGroupOwnerNotMatchingException, MessageGroupNotMatchingException, MessageGroupNotFoundException;
+    MessageGroupConfiguration messagingGroupConfigurationAllowed(SecuredInfo securedInfo, UUID groupUuid, UUID configurationId) throws MessageGroupOwnerNotMatchingException, MessageGroupNotMatchingException, MessageGroupNotFoundException, MessageGroupConfigurationNotFoundException;
+    Message messagingAllowed(SecuredInfo securedInfo, UUID groupUuid, UUID messageUuid) throws MessageOwnerNotMatchingException, MessageNotMatchingException, MessageNotFoundException;
+    MessageContent messagingContentAllowed(SecuredInfo securedInfo, UUID messageUuid, UUID contentUuid) throws MessageContentNotMatchingException;
+    MessageConfiguration messagingConfigurationAllowed(SecuredInfo securedInfo, UUID messageUuid, UUID configurationUuid) throws MessageConfigurationNotMatchingException;
 
 }
