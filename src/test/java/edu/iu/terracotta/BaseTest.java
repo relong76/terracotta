@@ -374,7 +374,7 @@ public class BaseTest {
             when(groupParticipantService.nextGroup(any(Experiment.class))).thenReturn(group);
             when(participantService.refreshParticipants(anyLong(), anyList())).thenReturn(Collections.singletonList(participant));
             when(questionService.getQuestion(anyLong())).thenReturn(question);
-            when(questionService.postQuestion(any(QuestionDto.class), anyLong(), anyBoolean())).thenReturn(questionDto);
+            when(questionService.postQuestion(any(QuestionDto.class), anyLong(), anyBoolean(), anyBoolean())).thenReturn(questionDto);
             when(questionService.save(any(Question.class))).thenReturn(question);
             when(resultsOutcomesAverageGradeService.conditions(any(Experiment.class), anyList(), anyList(), anyMap(), anyList(), anyMap(), anyList())).thenReturn(outcomesConditions);
             when(resultsOutcomesAverageGradeService.exposures(anyList(), anyList(), anyMap(), anyList(), anyList())).thenReturn(outcomesExposures);

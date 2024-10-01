@@ -2,7 +2,9 @@
   <v-app
     :style="appStyle"
   >
-    <v-main>
+    <v-main
+      v-if="!isIntegration"
+    >
       <template
         v-if="hasTokens && userInfo === 'Instructor'"
       >
@@ -52,11 +54,19 @@
         </v-row>
       </template>
     </v-main>
+    <v-main
+      v-else
+    >
+      <integrations
+        :status="integrationsData.status"
+      />
+    </v-main>
   </v-app>
 </template>
 
 <script>
 import { mapActions, mapGetters } from "vuex";
+import Integrations from "./views/integrations/Integrations.vue";
 import PageLoading from "@/components/PageLoading";
 import StudentConsent from './views/student/StudentConsent.vue';
 import StudentQuiz from './views/student/StudentQuiz.vue';
@@ -64,9 +74,15 @@ import StudentQuiz from './views/student/StudentQuiz.vue';
 export default {
   name: 'App',
   components: {
+    Integrations,
     PageLoading,
     StudentQuiz,
     StudentConsent
+  },
+  props: {
+    integrationsData: {
+      type: Object
+    }
   },
   data: () => ({
     childLoaded: false
@@ -85,6 +101,9 @@ export default {
     appStyle() {
       return this.$route.meta.appStyle;
     },
+    isIntegration() {
+      return this.integrationsData != null;
+    }
   },
   methods: {
     ...mapActions({

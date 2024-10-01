@@ -36,6 +36,7 @@ public class AssessmentDto {
     private Timestamp studentViewCorrectAnswersAfter;
     private Timestamp studentViewCorrectAnswersBefore;
     private RetakeDetails retakeDetails;
+    private boolean isIntegration;
 
     @JsonInclude(JsonInclude.Include.NON_NULL)
     private List<SubmissionDto> submissions;

@@ -54,6 +54,8 @@ import edu.iu.terracotta.service.app.AssignmentService;
 import edu.iu.terracotta.service.app.AssignmentTreatmentService;
 import edu.iu.terracotta.service.app.ParticipantService;
 import edu.iu.terracotta.service.app.SubmissionService;
+import edu.iu.terracotta.service.app.integrations.IntegrationLaunchService;
+import edu.iu.terracotta.service.app.integrations.IntegrationTokenService;
 import edu.iu.terracotta.service.caliper.CaliperService;
 import edu.iu.terracotta.service.canvas.CanvasAPIClient;
 import edu.iu.terracotta.utils.TextConstants;
@@ -116,6 +118,8 @@ public class AssignmentServiceImpl implements AssignmentService {
     @Autowired private AssignmentTreatmentService assignmentTreatmentService;
     @Autowired private CaliperService caliperService;
     @Autowired private CanvasAPIClient canvasAPIClient;
+    @Autowired private IntegrationLaunchService integrationLaunchService;
+    @Autowired private IntegrationTokenService integrationTokenService;
     @Autowired private ParticipantService participantService;
     @Autowired private SubmissionService submissionService;
 
@@ -416,6 +420,19 @@ public class AssignmentServiceImpl implements AssignmentService {
                         log.info("Previous assessment ID: [{}] has an incomplete submission ID: [{}]. Regrading and finalizing.", assessment.getAssessmentId(), submission.getSubmissionId());
                         continue;
                     }
+
+                    // create integration launch token
+                    integrationTokenService.create(
+                        submission,
+                        false
+                    );
+
+                    // create integration launch URL
+                    integrationLaunchService.buildUrl(
+                        submission,
+                        submissionList.size(),
+                        submission.getIntegration()
+                    );
 
                     caliperService.sendAssignmentRestarted(submission, securedInfo);
 

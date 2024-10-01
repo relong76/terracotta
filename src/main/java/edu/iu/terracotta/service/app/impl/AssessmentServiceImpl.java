@@ -31,6 +31,11 @@ import edu.iu.terracotta.model.app.RetakeDetails;
 import edu.iu.terracotta.model.app.Submission;
 import edu.iu.terracotta.model.app.Treatment;
 import edu.iu.terracotta.exceptions.TreatmentNotMatchingException;
+import edu.iu.terracotta.exceptions.integrations.IntegrationClientNotFoundException;
+import edu.iu.terracotta.exceptions.integrations.IntegrationConfigurationNotFoundException;
+import edu.iu.terracotta.exceptions.integrations.IntegrationConfigurationNotMatchingException;
+import edu.iu.terracotta.exceptions.integrations.IntegrationNotFoundException;
+import edu.iu.terracotta.exceptions.integrations.IntegrationNotMatchingException;
 import edu.iu.terracotta.model.app.dto.AssessmentDto;
 import edu.iu.terracotta.model.app.dto.QuestionDto;
 import edu.iu.terracotta.model.app.dto.SubmissionDto;
@@ -228,6 +233,7 @@ public class AssessmentServiceImpl implements AssessmentService {
         assessmentDto.setStudentViewCorrectAnswersAfter(assessment.getStudentViewCorrectAnswersAfter());
         assessmentDto.setStudentViewCorrectAnswersBefore(assessment.getStudentViewCorrectAnswersBefore());
         assessmentDto.setQuestions(handleQuestionDtos(assessment, submissionId, questions, answers, isStudent));
+        assessmentDto.setIntegration(assessment.isIntegration());
 
         List<SubmissionDto> submissionDtoList = new ArrayList<>();
         Long conditionId = assessment.getTreatment().getCondition().getConditionId();
@@ -335,7 +341,7 @@ public class AssessmentServiceImpl implements AssessmentService {
     public AssessmentDto putAssessment(Long id, AssessmentDto assessmentDto, boolean processQuestions)
             throws TitleValidationException, RevealResponsesSettingValidationException,
                 MultipleAttemptsSettingsValidationException, AssessmentNotMatchingException, IdInPostException, DataServiceException,
-                NegativePointsException, QuestionNotMatchingException, MultipleChoiceLimitReachedException {
+                NegativePointsException, QuestionNotMatchingException, MultipleChoiceLimitReachedException, IntegrationClientNotFoundException, IntegrationNotFoundException {
         return toDto(updateAssessment(id, assessmentDto, processQuestions), true, true, false, false);
     }
 
@@ -343,7 +349,7 @@ public class AssessmentServiceImpl implements AssessmentService {
     public Assessment updateAssessment(Long id, AssessmentDto assessmentDto, boolean processQuestions)
             throws TitleValidationException, RevealResponsesSettingValidationException,
                 MultipleAttemptsSettingsValidationException, AssessmentNotMatchingException, IdInPostException, DataServiceException,
-                NegativePointsException, QuestionNotMatchingException, MultipleChoiceLimitReachedException {
+                NegativePointsException, QuestionNotMatchingException, MultipleChoiceLimitReachedException, IntegrationClientNotFoundException, IntegrationNotFoundException {
         Assessment assessment = assessmentRepository.findByAssessmentId(id);
 
         if (assessment == null) {
@@ -372,7 +378,7 @@ public class AssessmentServiceImpl implements AssessmentService {
         return save(assessment);
     }
 
-    private void processAssessmentQuestions(AssessmentDto assessmentDto) throws IdInPostException, DataServiceException, QuestionNotMatchingException, NegativePointsException, MultipleChoiceLimitReachedException {
+    private void processAssessmentQuestions(AssessmentDto assessmentDto) throws IdInPostException, DataServiceException, QuestionNotMatchingException, NegativePointsException, MultipleChoiceLimitReachedException, IntegrationClientNotFoundException, IntegrationNotFoundException {
         if (CollectionUtils.isNotEmpty(assessmentDto.getQuestions())) {
             List<Long> existingQuestionIds = CollectionUtils.emptyIfNull(questionRepository.findByAssessment_AssessmentIdOrderByQuestionOrder(assessmentDto.getAssessmentId())).stream()
                 .map(Question::getQuestionId)
@@ -383,7 +389,7 @@ public class AssessmentServiceImpl implements AssessmentService {
             for (QuestionDto questionDto : assessmentDto.getQuestions()) {
                 if (questionDto.getQuestionId() == null) {
                     // create new question
-                    questionService.postQuestion(questionDto, assessmentDto.getAssessmentId(), false);
+                    questionService.postQuestion(questionDto, assessmentDto.getAssessmentId(), false, false);
                     continue;
                 }
 
@@ -400,7 +406,11 @@ public class AssessmentServiceImpl implements AssessmentService {
             }
 
             if (MapUtils.isNotEmpty(questionMap)) {
-                questionService.updateQuestion(questionMap);
+                try {
+                    questionService.updateQuestion(questionMap);
+                } catch (NegativePointsException | IntegrationNotFoundException | IntegrationNotMatchingException | IntegrationConfigurationNotFoundException | IntegrationConfigurationNotMatchingException e) {
+                    throw new DataServiceException(e.getMessage(), e);
+                }
             }
 
             // remove questions not passed in

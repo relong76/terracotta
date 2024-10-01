@@ -121,6 +121,7 @@
                         <v-expansion-panel-content>
                           <component
                             @edited="addEditedQuestion(question.questionId)"
+                            @integrationUpdated="handleIntegrationUpdate($event, question.questionId)"
                             :is="questionTypeComponents[question.questionType]"
                             :question="question"
                           />
@@ -145,6 +146,7 @@
             </p>
           </template>
           <v-menu
+            v-if="!isIntegrationType"
             offset-y
           >
             <template
@@ -184,10 +186,17 @@
                   <v-icon class="mr-1">mdi-file-upload-outline</v-icon> File submission
                 </v-list-item-title>
               </v-list-item>
+              <v-list-item
+                @click="handleAddQuestion('INTEGRATION')"
+              >
+                <v-list-item-title>
+                  <v-icon class="mr-1">mdi-monitor-multiple</v-icon> External integration
+                </v-list-item-title>
+              </v-list-item>
             </v-list>
           </v-menu>
           <v-menu
-            v-if="assignmentsAvailableToCopy.length > 0"
+            v-if="!isIntegrationType && assignmentsAvailableToCopy.length > 0"
             offset-y
             close-on-click
             close-on-content-click
@@ -278,6 +287,7 @@ import { mapActions, mapGetters, mapMutations } from "vuex";
 import { assessmentService } from '@/services';
 import draggable from 'vuedraggable';
 import FileUploadQuestionEditor from "./FileUploadQuestionEditor.vue";
+import ExternalIntegrationQuestionEditor from "@/views/integrations/ExternalIntegrationQuestionEditor.vue";
 import MultipleChoiceQuestionEditor from "./MultipleChoiceQuestionEditor.vue";
 import omitDeep from '../../helpers/deep-omit';
 import PageBreak from "./PageBreak.vue";
@@ -292,6 +302,7 @@ export default {
   components: {
     draggable,
     FileUploadQuestionEditor,
+    ExternalIntegrationQuestionEditor,
     MultipleChoiceQuestionEditor,
     PageBreak,
     QuestionEditor,
@@ -425,6 +436,7 @@ export default {
         MC: MultipleChoiceQuestionEditor,
         ESSAY: QuestionEditor,
         FILE: FileUploadQuestionEditor,
+        INTEGRATION: ExternalIntegrationQuestionEditor
       };
     },
     html: {
@@ -435,6 +447,9 @@ export default {
       set(value) {
         this.setAssessment({ ...this.assessment, html: value });
       },
+    },
+    isIntegrationType() {
+      return this.questions.some((question) => question.questionType === "INTEGRATION");
     }
   },
   methods: {
@@ -471,6 +486,11 @@ export default {
       await this.fetchExposures(this.experiment.experimentId);
       return this.exposures;
     },
+    handleIntegrationUpdate(integration, questionId) {
+      this.questions
+        .find((question) => question.questionId === questionId)
+        .integration = integration;
+    },
     async handleAddQuestion(questionType) {
       // POST QUESTION
       try {
@@ -482,7 +502,7 @@ export default {
           this.questions.length,
           questionType,
           1, // points
-          "",
+          ""
         ]);
 
         // add two default options on MC question creation
@@ -593,7 +613,8 @@ export default {
               index,
               question.questionType,
               question.randomizeAnswers,
-              question.answers
+              question.answers,
+              question.integration
             ]);
             return Promise.resolve(q);
           } catch (error) {
@@ -629,9 +650,11 @@ export default {
       );
     },
     async saveAll(routeName) {
-      if (this.answerableQuestions.some((q) => !q.html)) {
-        this.$swal("Please fill or delete empty questions.");
-        return false;
+      if (this.questions[0].questionType !== "INTEGRATION") {
+        if (this.answerableQuestions.some((q) => !q.html)) {
+          this.$swal("Please fill or delete empty questions.");
+          return false;
+        }
       }
 
       if (this.displayRegradeAssignmentDialog) {

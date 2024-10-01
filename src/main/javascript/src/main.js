@@ -15,6 +15,11 @@ const url = new URL(window.location.href);
 const params = new URLSearchParams(url.search);
 const tokenParam = params.get('token');
 const lmsApiOAuthURL = params.get("lms_api_oauth_url");
+const integrations = {
+  integration: params.get("integrations"),
+  status: params.get("status")
+};
+var appProps = {};
 
 const operations = [];
 
@@ -37,18 +42,25 @@ function startVue() {
     router.replace({name: "oauth2-redirect"});
   }
 
+  if (integrations.integration && integrations.status) {
+    appProps["integrationsData"] = integrations;
+  }
+
   new Vue({
     store,
     router,
     vuetify,
-    render: h => h(App),
+    props: ["integrationsData"],
+    render: h => h(App, {props: appProps}),
   }).$mount('#app')
 }
 
 function cleanURL() {
   // delete the token from the url
-  params.delete('token')
-  params.delete('lms_api_oauth_url');
+  params.delete("token");
+  params.delete("lms_api_oauth_url");
+  params.delete("integration");
+  params.delete("status");
   // update the url without the token param
   window.history.replaceState(
       {},

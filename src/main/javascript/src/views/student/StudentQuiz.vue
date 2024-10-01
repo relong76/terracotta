@@ -118,6 +118,21 @@
       </v-col>
     </v-row>
     <v-row
+      v-if="isIntegration && !submitted"
+      class="integration"
+    >
+      <v-col>
+        <div
+          v-if="assessment.html"
+          v-html="assessment.html"
+        ></div>
+        <iframe
+          :src="integrationLaunchUrl"
+        >
+        </iframe>
+      </v-col>
+    </v-row>
+    <v-row
       v-if="assessment && questionValues.length > 0"
     >
       <v-col>
@@ -128,8 +143,9 @@
           <div
             v-if="assessment.html && questionPageIndex === 0"
             v-html="assessment.html"
-          />
+          ></div>
           <form
+            v-if="!isIntegration"
             v-on:submit.prevent="handleSubmit"
             style="width: 100%;"
             ref="form"
@@ -257,7 +273,7 @@
           </form>
         </template>
         <template
-          v-else
+          v-if="submitted"
         >
           <v-alert
             type="success"
@@ -317,7 +333,8 @@ export default {
       pageLoaded: false,
       submissions: [],
       answerSubmissionId: null,
-      downloadId: null
+      downloadId: null,
+      integrationLaunchUrl: null
     };
   },
   watch: {
@@ -329,6 +346,11 @@ export default {
       }
     },
     answerableQuestions(newValue) {
+      if (newValue.questionType === this.questionTypes.integration) {
+        // integration type question; skip adding to answerable
+        return;
+      }
+
       this.questionValues = newValue.map((q) => {
         return {
           questionId: q.questionId,
@@ -346,10 +368,10 @@ export default {
       questionSubmissions: "submissions/questionSubmissions"
     }),
     allCurrentPageQuestionsAnswered() {
-      return this.areAllQuestionsAnswered(this.currentQuestionPage.questions);
+      return this.anyQuestionsNeedAnswering(this.currentQuestionPage.questions);
     },
     allQuestionsAnswered() {
-      return this.areAllQuestionsAnswered(this.answerableQuestions);
+      return this.anyQuestionsNeedAnswering(this.answerableQuestions);
     },
     currentQuestionPage() {
       return this.questionPages[this.questionPageIndex];
@@ -428,6 +450,17 @@ export default {
     },
     selectedDownloadId() {
       return this.downloadId;
+    },
+    isIntegration() {
+      return this.integrationLaunchUrl != null;
+    },
+    questionTypes() {
+      return {
+        essay: "ESSAY",
+        file: "FILE",
+        integration: "INTEGRATION",
+        mc: "MC"
+      }
     }
   },
   methods: {
@@ -522,12 +555,9 @@ export default {
         const existingQuestionSubmission = this.submissions.find(
           (qs) => qs.questionId === q.questionId
         );
-        const questionSubmissionId =
-          existingQuestionSubmission?.questionSubmissionId;
+        const questionSubmissionId = existingQuestionSubmission?.questionSubmissionId;
         // find existing answer submission id if it exists
-        const answerSubmissionId =
-          existingQuestionSubmission?.answerSubmissionDtoList?.[0]
-            ?.answerSubmissionId;
+        const answerSubmissionId = existingQuestionSubmission?.answerSubmissionDtoList?.[0]?.answerSubmissionId;
         const questionSubmission = {
           questionSubmissionId,
           questionId: q.questionId,
@@ -690,36 +720,32 @@ export default {
                   <div>Experiment: ${this.experimentId}</div>
                 </div>`;
     },
-    areAllQuestionsAnswered(answerableQuestions) {
-      for (const question of answerableQuestions) {
-        if (question.questionType === "MC") {
+    anyQuestionsNeedAnswering(answerableQuestions) {
+      return answerableQuestions.some(
+        (question) => {
           const answer = this.questionValues.find(
             ({ questionId }) => questionId === question.questionId
-          ).answerId;
-          if (answer === null) {
-            return false;
-          }
-        } else if (question.questionType === "ESSAY") {
-          const answer = this.questionValues.find(
-            ({ questionId }) => questionId === question.questionId
-          ).response;
-          if (answer === null || answer.trim() === "") {
-            return false;
-          }
-        } else if (question.questionType === "FILE") {
-          const answer = this.questionValues.find(
-              ({ questionId }) => questionId === question.questionId
-          ).response;
-          return answer !== null
-        } else {
-          console.log(
-            "Unexpected question type",
-            question.questionType,
-            question
           );
+
+          switch (question.questionType) {
+            case this.questionTypes.mc:
+              return answer.answerId === null;
+            case this.questionTypes.essay:
+              return answer.response === null || answer.trim() === "";
+            case this.questionTypes.file:
+              return answer.response === null;
+            case this.questionTypes.integration:
+              return false;
+            default:
+              console.log(
+                "Unexpected question type",
+                question.questionType,
+                question
+              );
+              return true;
+          }
         }
-      }
-      return true;
+      );
     },
     nextPage() {
       this.questionPageIndex++;
@@ -746,6 +772,7 @@ export default {
           this.treatmentId = data.treatmentId;
           this.assessmentId = data.assessmentId;
           this.submissionId = data.submissionId;
+          this.integrationLaunchUrl = data.integrationLaunchUrl;
 
           const { experimentId, conditionId, assessmentId, treatmentId, submissionId, questionSubmissionDtoList } = data;
 
@@ -753,7 +780,7 @@ export default {
 
           this.getQuestions(experimentId, conditionId, assessmentId, treatmentId, submissionId);
 
-        }else if(stepResponse?.status == 401) {
+        } else if(stepResponse?.status == 401) {
           if (stepResponse?.data.toString().includes("Error 150:")) {
             this.$swal({
               target: "#app",
@@ -770,6 +797,16 @@ export default {
     },
     round(n) {
       return n % 1 ? n.toFixed(2) : n;
+    },
+    async handleIntegrationsScore(e) {
+      console.log("integrations_score:: ", e.detail);
+      const view = await this.viewAssignment();
+
+      if (view?.status === 200) {
+        const { data } = view;
+        this.assignmentData = data;
+        this.submitted = true;
+      }
     }
   },
   async created() {
@@ -806,6 +843,13 @@ export default {
     this.pageLoaded = true;
     this.$emit('loaded');
   },
+  mounted() {
+    // handle integration iframe score return event
+    window.document.addEventListener("integrations_score", this.handleIntegrationsScore);
+  },
+  beforeDestroy () {
+    window.removeEventListener("integrations_score", this.handleIntegrationsScore);
+  }
 };
 </script>
 
@@ -823,5 +867,18 @@ export default {
 }
 .cardDetails {
   min-width: 100%;
+}
+.integration {
+  min-height: 100%;
+  min-width: 100%;
+  & > .col {
+    min-height: 100%;
+    min-width: 100%;
+    & > iframe {
+      min-height: 100%;
+      min-width: 100%;
+      border: none;
+    }
+  }
 }
 </style>

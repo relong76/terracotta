@@ -13,6 +13,7 @@ import edu.iu.terracotta.exceptions.ExceedingLimitException;
 import edu.iu.terracotta.exceptions.IdInPostException;
 import edu.iu.terracotta.exceptions.MultipleChoiceLimitReachedException;
 import edu.iu.terracotta.exceptions.QuestionNotMatchingException;
+import edu.iu.terracotta.exceptions.integrations.IntegrationNotFoundException;
 import edu.iu.terracotta.model.app.Question;
 import edu.iu.terracotta.model.app.dto.AnswerDto;
 import edu.iu.terracotta.model.app.dto.QuestionDto;
@@ -73,9 +74,9 @@ public class QuestionServiceImplTest extends BaseTest {
     }
 
     @Test
-    public void testPostQuestionMC() throws IdInPostException, DataServiceException, MultipleChoiceLimitReachedException {
+    public void testPostQuestionMC() throws IdInPostException, DataServiceException, MultipleChoiceLimitReachedException, IntegrationNotFoundException {
         when(question.getQuestionType()).thenReturn(QuestionTypes.MC);
-        QuestionDto retDto = questionService.postQuestion(questionDto, 1l, false);
+        QuestionDto retDto = questionService.postQuestion(questionDto, 1l, false, true);
 
         assertNotNull(retDto);
         verify(questionRepository).save(any(Question.class));
@@ -83,11 +84,11 @@ public class QuestionServiceImplTest extends BaseTest {
     }
 
     @Test
-    public void testPostQuestionEssay() throws IdInPostException, DataServiceException, MultipleChoiceLimitReachedException {
+    public void testPostQuestionEssay() throws IdInPostException, DataServiceException, MultipleChoiceLimitReachedException, IntegrationNotFoundException {
         when(question.getQuestionType()).thenReturn(QuestionTypes.ESSAY);
         when(questionDto.getQuestionType()).thenReturn(QuestionTypes.ESSAY.toString());
         when(questionRepository.save(any(Question.class))).thenReturn(question);
-        QuestionDto retDto = questionService.postQuestion(questionDto, 1l, false);
+        QuestionDto retDto = questionService.postQuestion(questionDto, 1l, false, true);
 
         assertNotNull(retDto);
         verify(questionRepository).save(any(Question.class));
@@ -95,10 +96,10 @@ public class QuestionServiceImplTest extends BaseTest {
     }
 
     @Test
-    public void testPostQuestionMCNoAnswers() throws IdInPostException, DataServiceException, MultipleChoiceLimitReachedException {
+    public void testPostQuestionMCNoAnswers() throws IdInPostException, DataServiceException, MultipleChoiceLimitReachedException, IntegrationNotFoundException {
         when(question.getQuestionType()).thenReturn(QuestionTypes.MC);
         when(questionDto.getAnswers()).thenReturn(null);
-        QuestionDto retDto = questionService.postQuestion(questionDto, 1l, false);
+        QuestionDto retDto = questionService.postQuestion(questionDto, 1l, false, true);
 
         assertNotNull(retDto);
         verify(questionRepository).save(any(Question.class));

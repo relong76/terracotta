@@ -1,7 +1,7 @@
-import Home from '../views/Home.vue'
-import OAuth2Redirect from '@/views/OAuth2Redirect.vue'
-import Vue from 'vue'
-import VueRouter from 'vue-router'
+import Home from "../views/Home.vue";
+import OAuth2Redirect from "@/views/OAuth2Redirect.vue";
+import Vue from "vue";
+import VueRouter from "vue-router";
 
 Vue.use(VueRouter)
 
