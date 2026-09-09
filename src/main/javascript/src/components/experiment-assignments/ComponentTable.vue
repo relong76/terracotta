@@ -828,16 +828,42 @@ onBeforeUnmount(() => {
   // never reaches them and a plain nested selector silently never matches - :deep() is
   // required to actually target them (matching this file's existing :deep(...) use for
   // the same child-component-internals reason elsewhere).
-  &.text-success,
-  &.text-success :deep(.v-chip__content),
-  &.text-success :deep(.v-chip__underlay) {
-    color: rgb(var(--v-theme-success)) !important;
+  // Published/Unpublished want a softer 3-tone look (pale fill + a slightly darker
+  // tinted border + a darker text, all pixel-sampled off the mockup) rather than this
+  // app's shared success/warning theme tokens' own flat-tonal look - see the
+  // AskUserQuestion decision on this exact fork: scoped to this table only, not a
+  // global theme retune, so nothing outside this component is affected. The fill goes
+  // on the chip's own background (not the tonal variant's :v-chip__underlay, which
+  // paints `background: currentColor` at a reduced opacity and would wash out an exact
+  // hex) - :v-chip__underlay is position:absolute, which paints above this in-flow
+  // background regardless of source order, so it has to be hidden outright (opacity:
+  // 0) rather than left semi-transparent, or it would still tint the fill underneath.
+  &.text-success {
+    color: #468650 !important;
+    background-color: #f3fdf5 !important;
+    border: 1px solid #cbf5d7;
+
+    :deep(.v-chip__content) {
+      color: #468650 !important;
+    }
+
+    :deep(.v-chip__underlay) {
+      opacity: 0 !important;
+    }
   }
 
-  &.text-warning,
-  &.text-warning :deep(.v-chip__content),
-  &.text-warning :deep(.v-chip__underlay) {
-    color: rgb(var(--v-theme-warning)) !important;
+  &.text-warning {
+    color: #b44b23 !important;
+    background-color: #fef7ee !important;
+    border: 1px solid #f8d9b0;
+
+    :deep(.v-chip__content) {
+      color: #b44b23 !important;
+    }
+
+    :deep(.v-chip__underlay) {
+      opacity: 0 !important;
+    }
   }
 
   &.text-error,
