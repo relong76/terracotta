@@ -31,7 +31,7 @@
             v-bind="menuProps"
             :aria-label="`treatment actions for ${row.title}`"
             :style="actionsOffset == null
-              ? { position: 'static', marginLeft: 'var(--treatment-indent, 32px)' }
+              ? { position: 'relative', transform: 'none' }
               : { left: `${actionsOffset}px` }"
             class="treatment-actions-btn"
             icon="mdi-dots-vertical"
@@ -101,7 +101,11 @@ const props = defineProps({
   // comment for why: this row's actions button needs to line up with the outer
   // table's real Actions column, which a plain right-aligned flex layout can't track
   // (that column isn't flush with this nested table's own right edge, and its exact
-  // position shifts with viewport/content). null before the first measurement runs.
+  // position shifts with viewport/content). null before the first measurement runs,
+  // and permanently on mobile (see columnOffsetStyle's comment in ComponentTable.vue) -
+  // the button falls back to position: relative rather than plain "static" since it
+  // has its own internal position: absolute overlay/underlay that needs this element
+  // to stay a positioned ancestor to stay contained within it.
   actionsOffset: {
     type: Number,
     default: null

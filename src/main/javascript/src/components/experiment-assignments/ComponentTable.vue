@@ -82,49 +82,51 @@
                   v-if="item.isPlaceholder"
                   class="treatment-row-content treatment-add-row d-flex align-center"
                 >
-                  <div class="treatment-info-group d-flex align-center">
-                    <div class="icon-circle" :class="placeholderIconCircleClass(row, item.treatment)">
-                      <v-icon>{{ placeholderIcon(row, item.treatment) }}</v-icon>
-                    </div>
-                    <span class="treatment-add-condition-name mr-2">{{ conditionDisplayName(item.condition) }}</span>
-                    <button
-                      type="button"
-                      class="treatment-add-box"
-                      :aria-label="`add treatment for ${conditionDisplayName(item.condition)}`"
-                      @click="handlePlaceholderEdit(row, item)"
-                    >
-                      <v-icon>mdi-plus</v-icon>
-                    </button>
-                    <a
-                      href="#"
-                      class="treatment-add-link ml-2"
-                      @click.prevent="handlePlaceholderEdit(row, item)"
-                    >
-                      Click to add treatment
-                    </a>
-                  </div>
-
-                  <v-tooltip
-                    location="top"
-                    content-class="tool-tip-content"
-                  >
-                    <template #activator="{ props: tooltipProps }">
-                      <v-chip
-                        v-bind="tooltipProps"
-                        variant="tonal"
-                        color="error"
-                        density="compact"
-                        class="status-pill treatment-add-status-pill"
-                        :style="columnOffsetStyle(columnOffsets.status)"
+                  <div class="treatment-add-main">
+                    <div class="treatment-info-group d-flex align-center">
+                      <div class="icon-circle" :class="placeholderIconCircleClass(row, item.treatment)">
+                        <v-icon>{{ placeholderIcon(row, item.treatment) }}</v-icon>
+                      </div>
+                      <span class="treatment-add-condition-name mr-2">{{ conditionDisplayName(item.condition) }}</span>
+                      <button
+                        type="button"
+                        class="treatment-add-box"
+                        :aria-label="`add treatment for ${conditionDisplayName(item.condition)}`"
+                        @click="handlePlaceholderEdit(row, item)"
                       >
-                        <v-icon start>mdi-alert-circle</v-icon>
-                        Needs attention
-                      </v-chip>
-                    </template>
-                    <div class="tool-tip-content-body">
-                      There are versions of this component that have not yet been created. Be sure to create all versions before publishing.
+                        <v-icon>mdi-plus</v-icon>
+                      </button>
+                      <a
+                        href="#"
+                        class="treatment-add-link ml-2"
+                        @click.prevent="handlePlaceholderEdit(row, item)"
+                      >
+                        Click to add treatment
+                      </a>
                     </div>
-                  </v-tooltip>
+
+                    <v-tooltip
+                      location="top"
+                      content-class="tool-tip-content"
+                    >
+                      <template #activator="{ props: tooltipProps }">
+                        <v-chip
+                          v-bind="tooltipProps"
+                          variant="tonal"
+                          color="error"
+                          density="compact"
+                          class="status-pill treatment-add-status-pill"
+                          :style="statusPillOffsetStyle(columnOffsets.status)"
+                        >
+                          <v-icon start>mdi-alert-circle</v-icon>
+                          Needs attention
+                        </v-chip>
+                      </template>
+                      <div class="tool-tip-content-body">
+                        There are versions of this component that have not yet been created. Be sure to create all versions before publishing.
+                      </div>
+                    </v-tooltip>
+                  </div>
 
                   <v-menu location="top start">
                     <template #activator="{ props: menuProps }">
@@ -434,15 +436,45 @@ const measureColumnOffsets = () => {
 // position: absolute is actively harmful: it pulls the element out of the row's normal
 // flow with no "left" to replace that with, collapsing the space it would have taken
 // and piling every such element in the row on top of each other. Falling back to
-// position: static (an inline style, so it wins over the class's non-!important
-// position: absolute without a specificity fight) keeps it in normal flow instead.
-// The static fallback also gets the same left indent the row-title icon/condition
-// name use (--treatment-indent, see measureColumnOffsets' comment) so that when this
-// wraps onto its own line (narrow width, long condition name/link text), it lines up
-// under that content instead of sitting flush against the row's own left edge.
+// position: relative (an inline style, so it wins over the class's non-!important
+// position: absolute without a specificity fight) keeps it in normal flow instead -
+// the actions button is a plain trailing sibling of .treatment-add-main (see the
+// template), vertically centered against its whole height by .treatment-add-row's own
+// align-items: center, so it needs no extra positioning of its own here. Not plain
+// "static": this element has its OWN internal position: absolute children (a v-btn's
+// overlay/underlay), which need THIS element to still be a positioned ancestor to
+// stay contained within it - "static" isn't a positioned value at all, so those
+// children would escape to size themselves against the next positioned ancestor up
+// (.treatment-add-row) instead (confirmed via the equivalent, more visible bug this
+// caused on the status pill below). "relative" behaves like "static" for this
+// element's OWN layout position (no top/left offset given), while still containing
+// its children correctly. transform also needs clearing: the class's
+// translateY(-50%) is only meaningful paired with position: absolute + top: 50% (the
+// desktop vertical-centering trick) - transform isn't gated by position, so left
+// alone it kept nudging this element up by half its own height even though top: 50%
+// (which it was supposed to offset) has no effect once position is no longer absolute.
 const columnOffsetStyle = offset => {
+  return offset == null ? { position: "relative", transform: "none" } : { left: `${offset}px` };
+};
+
+// same fallback as columnOffsetStyle, but for the status pill specifically: it lives
+// INSIDE .treatment-add-main (stacked under the icon/condition name/link, see the
+// template), so its fallback also needs the same left indent that content uses
+// (--treatment-indent, see measureColumnOffsets' comment) to line up under it, plus
+// some breathing room from the line above. position: relative, not "static" - see
+// columnOffsetStyle's comment above: this chip has its own internal
+// position: absolute .v-chip__underlay (the tonal variant's background layer), which
+// needs THIS element to stay a positioned ancestor or it escapes to fill whatever
+// positioned ancestor is next up instead (confirmed - without this it rendered as a
+// giant pink rectangle the full size of .treatment-add-row, not the compact pill).
+const statusPillOffsetStyle = offset => {
   return offset == null
-    ? { position: "static", marginLeft: "var(--treatment-indent, 32px)" }
+    ? {
+      position: "relative",
+      transform: "none",
+      marginLeft: "var(--treatment-indent, 32px)",
+      marginTop: "12px"
+    }
     : { left: `${offset}px` };
 };
 
@@ -992,15 +1024,16 @@ onBeforeUnmount(() => {
 // absolutely within this row, which needs the positioning context here.
 .treatment-add-row {
   position: relative;
-  // only matters on mobile, where these children fall back to normal static flow (see
-  // columnOffsetStyle's comment above) instead of being pulled out of it via
-  // position: absolute - lets the status pill/actions button wrap onto their own line
-  // instead of overflowing the viewport when the row's content is too wide to fit on
-  // one line at a narrow width. row-gap (rather than a per-element margin-top) only
-  // adds space between wrapped lines - it's a no-op when everything fits on one line,
-  // so it doesn't disturb this row's normal desktop/single-line vertical centering.
-  flex-wrap: wrap;
-  row-gap: 8px;
+}
+
+// wraps the icon/condition-name/link line and (on mobile, once it falls back to
+// normal static flow - see statusPillOffsetStyle's comment) the status pill stacked
+// beneath it, as one unit .treatment-add-row's align-items: center can center the
+// actions button against - without this wrapper, the button centered against only
+// the taller of two SIBLING flex lines it happened to land on when wrapping, which
+// put it noticeably off from the row's actual vertical center.
+.treatment-add-main {
+  min-width: 0;
 }
 
 .treatment-add-status-pill,
