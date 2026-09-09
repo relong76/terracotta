@@ -30,7 +30,7 @@
         <div class="icon-circle" :class="rowIconCircleClass(row)">
           <v-icon>{{ rowIcon(row) }}</v-icon>
         </div>
-        {{ row.title }}
+        <span class="row-title">{{ row.title }}</span>
 
         <v-chip
           v-if="row.treatments.length === 1"
@@ -111,7 +111,7 @@
                         :aria-label="`treatment actions for ${conditionDisplayName(item.condition)}`"
                         :style="columnOffsetStyle(columnOffsets.actions)"
                         class="treatment-add-actions-btn"
-                        icon="mdi-dots-horizontal"
+                        icon="mdi-dots-vertical"
                         variant="text"
                       />
                     </template>
@@ -274,6 +274,32 @@ const actionsMenuOpen = ref({});
 const columnOffsets = ref({ status: null, actions: null });
 let columnResizeObserver = null;
 
+// .v-data-table-alt (a shared class this table uses, see _tables.scss) applies
+// `transform: scale(0.99)` to fix an unrelated border-rendering issue. That transform
+// makes .data-table-assignments the actual containing block for any position:absolute
+// descendant (per spec, a transform on an ancestor does that, regardless of a *nearer*
+// position:relative ancestor), and scales down whatever "left" value is applied inside
+// it - confirmed empirically (a bare test div placed with left:500px rendered ~5px
+// short of 500px on screen, matching a ~0.99 factor). Reading the real scale back out
+// (rather than hardcoding 0.99) keeps this correct if that shared rule's value ever
+// changes for unrelated reasons.
+const getAncestorScaleX = element => {
+  let el = element;
+
+  while (el) {
+    const transform = getComputedStyle(el).transform;
+    const match = transform && transform !== "none" ? transform.match(/^matrix\(([^,]+),/) : null;
+
+    if (match) {
+      return parseFloat(match[1]) || 1;
+    }
+
+    el = el.parentElement;
+  }
+
+  return 1;
+};
+
 const measureColumnOffsets = () => {
   const table = tableRoot.value?.querySelector(".data-table-assignments");
   const placeholderRow = tableRoot.value?.querySelector(".treatment-add-row");
@@ -296,12 +322,15 @@ const measureColumnOffsets = () => {
 
   // measuring in real rendered (viewport) coordinates and taking the difference works
   // regardless of how many levels of nested padding/margin sit between the placeholder
-  // row and the outer table - no need to separately account for any of it
+  // row and the outer table - no need to separately account for any of it. The scale
+  // division compensates for .v-data-table-alt's transform (see above) - it's applied
+  // once here rather than at every call site that reads columnOffsets.
   const rowLeft = placeholderRow.getBoundingClientRect().left;
+  const scaleX = getAncestorScaleX(placeholderRow);
 
   columnOffsets.value = {
-    status: statusPill.getBoundingClientRect().left - rowLeft,
-    actions: actionsBtn.getBoundingClientRect().left - rowLeft
+    status: (statusPill.getBoundingClientRect().left - rowLeft) / scaleX,
+    actions: (actionsBtn.getBoundingClientRect().left - rowLeft) / scaleX
   };
 };
 
@@ -323,12 +352,12 @@ const isMobile = computed(() => width.value < mobileBreakpoint);
 const assignmentHeaders = computed(() => {
   const headers = [
     { title: "", align: "start", sortable: false, key: "drag" },
+    { title: "", sortable: false, key: "data-table-expand" },
     { title: "NAME", align: "start", sortable: false, key: "title" },
     { title: "TREATMENTS", sortable: false, key: "treatments" },
     { title: "DUE", sortable: false, key: "dueDate" },
     { title: "STATUS", sortable: false, key: "published" },
-    { title: "Actions", align: "center", sortable: false, key: "actions" },
-    { title: "", sortable: false, key: "data-table-expand" }
+    { title: "", align: "center", sortable: false, key: "actions" }
   ];
 
   return isMobile.value ? headers.filter(header => header.key !== "drag") : headers;
@@ -623,6 +652,10 @@ onBeforeUnmount(() => {
 </script>
 
 <style lang="scss" scoped>
+.row-title {
+  font-weight: 600;
+}
+
 .icon-circle {
   width: 28px;
   height: 28px;
@@ -676,7 +709,7 @@ onBeforeUnmount(() => {
 // the treatments column's incomplete-indicator is now a small dot rather
 // than a large circled-alert glyph - mdi-circle renders large by default
 .treatment-ratio-dot {
-  font-size: 8px !important;
+  font-size: 6px !important;
 }
 
 .treatments-section-label {

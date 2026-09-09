@@ -8,7 +8,7 @@
       <v-btn
         v-bind="menuProps"
         aria-label="actions"
-        icon="mdi-dots-horizontal"
+        icon="mdi-dots-vertical"
         variant="text"
         density="compact"
       />

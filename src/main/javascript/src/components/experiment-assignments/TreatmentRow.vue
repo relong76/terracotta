@@ -30,7 +30,7 @@
           <v-btn
             v-bind="menuProps"
             :aria-label="`treatment actions for ${row.title}`"
-            icon="mdi-dots-horizontal"
+            icon="mdi-dots-vertical"
             variant="text"
           />
         </template>
