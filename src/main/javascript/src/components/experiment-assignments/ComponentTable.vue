@@ -93,44 +93,45 @@
                     </a>
                   </div>
 
-                  <div class="treatment-btn-group d-flex align-center justify-space-between">
-                    <v-chip
-                      variant="tonal"
-                      color="error"
-                      density="compact"
-                      class="status-pill"
-                    >
-                      <v-icon start>mdi-alert-circle</v-icon>
-                      Needs attention
-                    </v-chip>
+                  <v-chip
+                    variant="tonal"
+                    color="error"
+                    density="compact"
+                    class="status-pill treatment-add-status-pill"
+                    :style="columnOffsetStyle(columnOffsets.status)"
+                  >
+                    <v-icon start>mdi-alert-circle</v-icon>
+                    Needs attention
+                  </v-chip>
 
-                    <v-menu location="start">
-                      <template #activator="{ props: menuProps }">
-                        <v-btn
-                          v-bind="menuProps"
-                          :aria-label="`treatment actions for ${conditionDisplayName(item.condition)}`"
-                          icon="mdi-dots-horizontal"
-                          variant="text"
-                        />
-                      </template>
+                  <v-menu location="start">
+                    <template #activator="{ props: menuProps }">
+                      <v-btn
+                        v-bind="menuProps"
+                        :aria-label="`treatment actions for ${conditionDisplayName(item.condition)}`"
+                        :style="columnOffsetStyle(columnOffsets.actions)"
+                        class="treatment-add-actions-btn"
+                        icon="mdi-dots-horizontal"
+                        variant="text"
+                      />
+                    </template>
 
-                      <v-list>
-                        <v-list-item @click="handlePlaceholderEdit(row, item)">
-                          <v-list-item-title class="d-flex justify-content-center">
-                            <v-icon>mdi-pencil</v-icon>
-                            <span>Edit</span>
-                          </v-list-item-title>
-                        </v-list-item>
+                    <v-list>
+                      <v-list-item @click="handlePlaceholderEdit(row, item)">
+                        <v-list-item-title class="d-flex justify-content-center">
+                          <v-icon>mdi-pencil</v-icon>
+                          <span>Edit</span>
+                        </v-list-item-title>
+                      </v-list-item>
 
-                        <v-list-item disabled>
-                          <v-list-item-title class="d-flex justify-content-center">
-                            <v-icon>mdi-eye-outline</v-icon>
-                            <span>Preview</span>
-                          </v-list-item-title>
-                        </v-list-item>
-                      </v-list>
-                    </v-menu>
-                  </div>
+                      <v-list-item disabled>
+                        <v-list-item-title class="d-flex justify-content-center">
+                          <v-icon>mdi-eye-outline</v-icon>
+                          <span>Preview</span>
+                        </v-list-item-title>
+                      </v-list-item>
+                    </v-list>
+                  </v-menu>
                 </div>
 
                 <TreatmentRow
@@ -205,7 +206,7 @@
 </template>
 
 <script setup>
-import { ref, computed, watch, onMounted, nextTick } from "vue";
+import { ref, computed, watch, onMounted, onBeforeUnmount, nextTick } from "vue";
 import { useDisplay } from "vuetify";
 import Sortable from "sortablejs";
 import dayjs from "@/plugins/dayjs";
@@ -263,6 +264,50 @@ const emit = defineEmits([
 const tableRoot = ref(null);
 const expandedRows = ref([]);
 const actionsMenuOpen = ref({});
+
+// there's no real Status/Actions column in the nested one-column treatments table for
+// the add-treatment placeholder's pill/menu to sit in, and a fixed CSS split can't
+// substitute - the outer table's actual column positions shift with viewport width and
+// content in ways that don't scale linearly (confirmed empirically: a split tuned for
+// one width was visibly wrong at another). Measuring the real positions and applying
+// them directly is the only way this stays correct at every width.
+const columnOffsets = ref({ status: null, actions: null });
+let columnResizeObserver = null;
+
+const measureColumnOffsets = () => {
+  const table = tableRoot.value?.querySelector(".data-table-assignments");
+  const placeholderRow = tableRoot.value?.querySelector(".treatment-add-row");
+
+  if (!table || !placeholderRow) {
+    return;
+  }
+
+  // measuring the header cells' own edges doesn't work for Actions: that column is
+  // center-aligned (see assignmentHeaders' align: "center"), so the real "..." button
+  // sits somewhere in the middle of the column, not at its left edge, and how far in
+  // depends on the column's width - which is exactly what changes with viewport width.
+  // Measuring an actual rendered row's real content instead sidesteps that entirely.
+  const statusPill = table.querySelector("tbody .status-pill:not(.treatment-add-status-pill)");
+  const actionsBtn = table.querySelector('tbody [aria-label="actions"]');
+
+  if (!statusPill || !actionsBtn) {
+    return;
+  }
+
+  // measuring in real rendered (viewport) coordinates and taking the difference works
+  // regardless of how many levels of nested padding/margin sit between the placeholder
+  // row and the outer table - no need to separately account for any of it
+  const rowLeft = placeholderRow.getBoundingClientRect().left;
+
+  columnOffsets.value = {
+    status: statusPill.getBoundingClientRect().left - rowLeft,
+    actions: actionsBtn.getBoundingClientRect().left - rowLeft
+  };
+};
+
+const columnOffsetStyle = offset => {
+  return offset == null ? {} : { left: `${offset}px` };
+};
 
 const mobileBreakpoint = 636;
 const { width } = useDisplay();
@@ -323,8 +368,13 @@ const conditionDisplayName = condition => condition.name || "No condition name";
 
 watch(
   () => props.rows,
-  rows => {
+  async rows => {
     expandedRows.value = rows.map(row => row.assignmentId);
+    // row content (e.g. a longer assignment title) can shift the outer table's own
+    // column widths, so re-measure whenever the rows themselves change, not just on
+    // resize
+    await nextTick();
+    measureColumnOffsets();
   },
   { immediate: true }
 );
@@ -557,7 +607,19 @@ const rowPublishedColumnText = row => {
   return "Unpublished";
 };
 
-onMounted(initSortable);
+onMounted(() => {
+  initSortable();
+
+  columnResizeObserver = new ResizeObserver(measureColumnOffsets);
+
+  if (tableRoot.value) {
+    columnResizeObserver.observe(tableRoot.value);
+  }
+});
+
+onBeforeUnmount(() => {
+  columnResizeObserver?.disconnect();
+});
 </script>
 
 <style lang="scss" scoped>
@@ -694,36 +756,23 @@ onMounted(initSortable);
 // right padding only, matching a real TreatmentRow's own right-side breathing room
 // before its actions menu - a left padding here would indent this row's icon further
 // than a real TreatmentRow's, breaking their alignment
+// this nested table has only one column, so there's no real Status/Actions column for
+// the pill/menu to sit in. A fixed CSS split (percentages, padding) can't track the
+// outer table's actual column positions - those shift with viewport width and content
+// in ways that don't scale linearly, so a value tuned for one width breaks at another
+// (confirmed empirically). Instead, ComponentTable.vue measures the outer table's real
+// Status/Actions column positions in JS (columnOffsets, re-measured on resize and data
+// changes) and positions .treatment-add-status-pill/.treatment-add-actions-btn
+// absolutely within this row, which needs the positioning context here.
 .treatment-add-row {
-  padding-right: 90px;
+  position: relative;
 }
 
-// this nested table has only one column, so there's no real "Status" column for the
-// pill to sit in - these widths approximate where the outer table's Name+Treatments+Due
-// columns end and Status/Actions begin (measured against the outer table's own rendered
-// proportions), so the pill and the actions menu land roughly under the outer table's
-// Status and Actions columns instead of bunching up at the far right. An approximation,
-// not a true sync - the outer columns can shift with content (e.g. a long assignment
-// title), which this can't follow.
-.treatment-add-row {
-  // no justify-content here (plain flex-start) - the two children's widths below are
-  // sized to sum to 100% themselves, so they sit flush against each other rather than
-  // having justify-content:space-between insert its own extra gap between them
-  .treatment-info-group {
-    flex: 0 0 61.5%;
-  }
-
-  // the shared .treatment-btn-group rule (ExperimentAssignments.vue) floats this right,
-  // which fights with the flex-basis + internal justify-content:space-between this
-  // needs to spread the pill and the menu button apart - float and flex don't mix.
-  // Its own right edge always lands at the row's right edge regardless of this
-  // flex-basis value (shifting the split only moves the pill, not the menu, since the
-  // menu is right-aligned within this box) - the row's own padding-right is what pulls
-  // the menu in to roughly the outer table's Actions position instead.
-  .treatment-btn-group {
-    float: none !important;
-    flex: 0 0 38.5%;
-  }
+.treatment-add-status-pill,
+.treatment-add-actions-btn {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
 }
 
 // just the "+" square - the "Click to add treatment" text is a separate link
