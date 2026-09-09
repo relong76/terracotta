@@ -522,12 +522,43 @@ onMounted(initSortable);
   font-size: 12px;
   font-weight: 600;
   letter-spacing: 0.04em;
-  text-transform: uppercase;
-  color: map.get($grey, "darker");
+}
+
+// Home.vue has an unscoped, app-wide `.v-data-table *:not(.v-icon) { color: black
+// !important; }` rule (see _global.scss's comment on the equivalent
+// .label-treatment-incomplete override for the full explanation). A single class here
+// (even with Vue's scoped-style data-v attribute added) only ties that rule's
+// specificity and loses on source order - qualifying with the ancestor
+// .treatments-table-container class too is what reliably beats it.
+.treatments-table-container .treatments-section-label {
+  color: map.get($grey, "darker") !important;
 }
 
 .status-pill {
   text-transform: none;
+
+  // same Home.vue override as .treatments-section-label above, but per Vuetify's
+  // "text-<color>" utility class so each status keeps its own theme color instead of
+  // every pill flattening to black
+  &.text-success {
+    color: rgb(var(--v-theme-success)) !important;
+    border-color: rgb(var(--v-theme-success)) !important;
+  }
+
+  &.text-warning {
+    color: rgb(var(--v-theme-warning)) !important;
+    border-color: rgb(var(--v-theme-warning)) !important;
+  }
+
+  &.text-error {
+    color: rgb(var(--v-theme-error)) !important;
+    border-color: rgb(var(--v-theme-error)) !important;
+  }
+
+  &.text-info {
+    color: rgb(var(--v-theme-info)) !important;
+    border-color: rgb(var(--v-theme-info)) !important;
+  }
 }
 
 .treatment-add-row {
