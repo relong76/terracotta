@@ -48,7 +48,9 @@
                 Only One Version
               </v-chip>
             </template>
-            This component has the same content for all students.
+            <div class="tool-tip-content-body">
+              This component has the same content for all students.
+            </div>
           </v-tooltip>
         </div>
       </template>
@@ -119,7 +121,9 @@
                         Needs attention
                       </v-chip>
                     </template>
-                    There are versions of this component that have not yet been created. Be sure to create all versions before publishing.
+                    <div class="tool-tip-content-body">
+                      There are versions of this component that have not yet been created. Be sure to create all versions before publishing.
+                    </div>
                   </v-tooltip>
 
                   <v-menu location="start">
@@ -208,7 +212,9 @@
               {{ rowPublishedColumnText(row) }}
             </v-chip>
           </template>
-          {{ statusTooltipText(row) }}
+          <div class="tool-tip-content-body">
+            {{ statusTooltipText(row) }}
+          </div>
         </v-tooltip>
         <v-chip
           v-else
@@ -230,7 +236,9 @@
           <template #activator="{ props: tooltipProps }">
             <span v-bind="tooltipProps">{{ dueDate(row) }}</span>
           </template>
-          A due date has been set for this component in the LMS.
+          <div class="tool-tip-content-body">
+            A due date has been set for this component in the LMS.
+          </div>
         </v-tooltip>
         <template v-else>
           {{ dueDate(row) }}
