@@ -193,15 +193,67 @@ describe("ComponentTable", () => {
     expect(wrapper.find(".label-treatment-incomplete").exists()).toBe(false);
   });
 
-  it("still marks an 'Only One Version' row incomplete when its own single treatment has no content", () => {
-    mountTable([
-      assignmentRow({ treatments: [incompleteTreatment(10, 1)] })
-    ]);
+  it("shows the add-treatment placeholder for an 'Only One Version' row's own treatment when it has no content, and clicking it emits edit-treatment (not add-treatment)", async () => {
+    const row = assignmentRow({ treatments: [incompleteTreatment(10, 1)] });
+
+    mountTable([row]);
 
     expect(wrapper.text()).toContain("Only One Version");
     expect(wrapper.text()).toContain("1 of 1");
     expect(wrapper.find(".label-treatment-incomplete").exists()).toBe(true);
-    expect(wrapper.find(".treatment-add-box").exists()).toBe(false);
+
+    const addBox = wrapper.find(".treatment-add-box");
+    expect(addBox.exists()).toBe(true);
+
+    await addBox.trigger("click");
+
+    expect(wrapper.emitted("edit-treatment")).toBeTruthy();
+    expect(wrapper.emitted("edit-treatment")[0][0]).toMatchObject({
+      treatment: { treatmentId: 10 }
+    });
+    expect(wrapper.emitted("add-treatment")).toBeFalsy();
+  });
+
+  it("shows the add-treatment placeholder for an existing-but-incomplete treatment on a multi-version assignment, and clicking it emits edit-treatment", async () => {
+    mountTable([
+      assignmentRow({
+        treatments: [completeTreatment(10, 1), completeTreatment(11, 2), incompleteTreatment(12, 3)]
+      })
+    ]);
+
+    const addBoxes = wrapper.findAll(".treatment-add-box");
+    expect(addBoxes).toHaveLength(1);
+
+    await addBoxes[0].trigger("click");
+
+    expect(wrapper.emitted("edit-treatment")).toBeTruthy();
+    expect(wrapper.emitted("edit-treatment")[0][0]).toMatchObject({
+      treatment: { treatmentId: 12, conditionId: 3 }
+    });
+    expect(wrapper.emitted("add-treatment")).toBeFalsy();
+  });
+
+  it("shows the add-treatment placeholder for an existing-but-incomplete message treatment, and clicking it emits edit-treatment", async () => {
+    mountTable([
+      messageRow({
+        treatments: [
+          { treatmentId: 20, conditionId: 1, configuration: { status: messageStatus.ready } },
+          { treatmentId: 21, conditionId: 2, configuration: { status: messageStatus.ready } },
+          { treatmentId: 22, conditionId: 3, configuration: { status: messageStatus.incomplete } }
+        ]
+      })
+    ]);
+
+    const addBoxes = wrapper.findAll(".treatment-add-box");
+    expect(addBoxes).toHaveLength(1);
+
+    await addBoxes[0].trigger("click");
+
+    expect(wrapper.emitted("edit-treatment")).toBeTruthy();
+    expect(wrapper.emitted("edit-treatment")[0][0]).toMatchObject({
+      treatment: { treatmentId: 22, conditionId: 3 }
+    });
+    expect(wrapper.emitted("add-treatment")).toBeFalsy();
   });
 
   it("shows the status pill with the theme color matching each row's status", () => {

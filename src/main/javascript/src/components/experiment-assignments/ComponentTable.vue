@@ -72,15 +72,17 @@
                   class="treatment-row-content treatment-add-row d-flex align-center justify-space-between"
                 >
                   <div class="treatment-info-group ml-8 d-flex align-center">
-                    <div class="icon-circle" :class="placeholderIconCircleClass(row)">
-                      <v-icon>{{ placeholderIcon(row) }}</v-icon>
+                    <div class="icon-circle" :class="placeholderIconCircleClass(row, item.treatment)">
+                      <v-icon>{{ placeholderIcon(row, item.treatment) }}</v-icon>
                     </div>
                     <span class="treatment-add-condition-name mr-2">{{ item.condition.conditionName }}</span>
                     <button
                       type="button"
                       class="treatment-add-box d-flex align-center"
                       :aria-label="`add treatment for ${item.condition.conditionName}`"
-                      @click="$emit('add-treatment', { row, condition: item.condition })"
+                      @click="item.treatment
+                        ? $emit('edit-treatment', { row, treatment: item.treatment })
+                        : $emit('add-treatment', { row, condition: item.condition })"
                     >
                       <v-icon class="mr-1">mdi-plus</v-icon>
                       Click to add treatment
@@ -265,7 +267,9 @@ const rowType = {
 };
 const treatmentIcon = {
   file: "mdi-file-outline",
-  message: "mdi-message-text-outline"
+  message: "mdi-message-text-outline",
+  assignment: "mdi-wrench-outline",
+  integration: "mdi-application-brackets-outline"
 };
 
 // there's no persisted signal for "this assignment was deliberately created as
@@ -342,12 +346,14 @@ const rowIconCircleClass = row => {
   return "";
 };
 
-// the icon/circle an add-treatment placeholder shows, matching what the
-// eventual real TreatmentRow would use for this row's type once created
-// (TreatmentRow.vue's own wrench/message icon convention)
-const placeholderIcon = row => {
+// the icon/circle an add-treatment placeholder shows. Reflects the existing
+// treatment's own type when one exists (just incomplete), falling back to this
+// row's default type (matching what a newly-created treatment would get) when the
+// condition has no treatment at all - see TreatmentRow.vue's own wrench/code/message
+// icon convention, which this mirrors.
+const placeholderIcon = (row, treatment) => {
   if (row.type === rowType.assignment) {
-    return "mdi-wrench-outline";
+    return treatment?.assessmentDto?.integration ? treatmentIcon.integration : treatmentIcon.assignment;
   }
 
   if (row.type === rowType.message) {
@@ -357,9 +363,9 @@ const placeholderIcon = row => {
   return "";
 };
 
-const placeholderIconCircleClass = row => {
+const placeholderIconCircleClass = (row, treatment) => {
   if (row.type === rowType.assignment) {
-    return "icon-circle-control";
+    return treatment?.assessmentDto?.integration ? "icon-circle-code" : "icon-circle-control";
   }
 
   if (row.type === rowType.message) {
@@ -369,18 +375,24 @@ const placeholderIconCircleClass = row => {
   return "";
 };
 
-// conditions with no matching treatment yet (by conditionId) - rendered as
-// "click to add treatment" placeholder rows alongside the real treatments. Skipped
-// entirely for a single-version row - it was never meant to cover every condition,
-// so the other conditions aren't "missing" from it.
-const missingConditionsForRow = row => {
-  if (isSingleVersionRow(row)) {
-    return [];
+// a treatment that exists but lacks content yet (no questions, invalid integration
+// URL, or - for messages - a status that isn't ready/disabled/sent) - the per-treatment
+// half of hasIncompleteTreatments below, factored out since the add-treatment
+// placeholder needs to ask this about one specific treatment, not a whole row
+const isTreatmentIncomplete = (row, treatment) => {
+  if (row.type === rowType.assignment) {
+    if (treatment.assessmentDto.integration && !treatment.assessmentDto.integrationUrlValid) {
+      return true;
+    }
+
+    return !(treatment.assessmentDto && treatment.assessmentDto.questions && treatment.assessmentDto.questions.length);
   }
 
-  return props.conditions.filter(condition =>
-    !row.treatments.some(treatment => treatment.conditionId === condition.conditionId)
-  );
+  if (row.type === rowType.message) {
+    return ![messageStatus.ready, messageStatus.disabled, messageStatus.sent].includes(treatment.configuration.status);
+  }
+
+  return false;
 };
 
 // the Treatments column's denominator, and the "TREATMENTS - X of Y added" label's Y -
@@ -390,14 +402,32 @@ const treatmentsTotalForRow = row => {
   return isSingleVersionRow(row) ? row.treatments.length : props.conditions.length;
 };
 
+// one entry per relevant condition: the real treatment when it exists and has
+// content, or an add-treatment placeholder when the condition has no treatment at
+// all OR its treatment exists but is incomplete - a single-version row only ever
+// considers the one condition it already has a treatment for (see isSingleVersionRow
+// above), never the experiment's other conditions, which it was never meant to cover
 const treatmentTableItems = row => {
-  const placeholders = missingConditionsForRow(row).map(condition => ({
-    isPlaceholder: true,
-    condition,
-    treatmentId: `missing-treatment-${row.assignmentId}-${condition.conditionId}`
-  }));
+  const relevantConditions = isSingleVersionRow(row)
+    ? props.conditions.filter(condition =>
+      row.treatments.some(treatment => treatment.conditionId === condition.conditionId)
+    )
+    : props.conditions;
 
-  return [...row.treatments, ...placeholders];
+  return relevantConditions.map(condition => {
+    const treatment = row.treatments.find(item => item.conditionId === condition.conditionId);
+
+    if (!treatment || isTreatmentIncomplete(row, treatment)) {
+      return {
+        isPlaceholder: true,
+        condition,
+        treatment: treatment || null,
+        treatmentId: treatment ? treatment.treatmentId : `missing-treatment-${row.assignmentId}-${condition.conditionId}`
+      };
+    }
+
+    return treatment;
+  });
 };
 
 const dueDate = row => {
@@ -407,31 +437,11 @@ const dueDate = row => {
 };
 
 const hasIncompleteTreatments = row => {
-  if (row.type === rowType.assignment) {
-    if (!isSingleVersionRow(row) && row.treatments.length < props.conditions.length) {
-      return true;
-    }
-
-    if (
-      row.treatments.some(
-        treatment => treatment.assessmentDto.integration && !treatment.assessmentDto.integrationUrlValid
-      )
-    ) {
-      return true;
-    }
-
-    return row.treatments.some(
-      treatment => !(treatment.assessmentDto && treatment.assessmentDto.questions && treatment.assessmentDto.questions.length)
-    );
+  if (!isSingleVersionRow(row) && row.treatments.length < props.conditions.length) {
+    return true;
   }
 
-  if (row.type === rowType.message) {
-    return !row.treatments.every(treatment =>
-      [messageStatus.ready, messageStatus.disabled, messageStatus.sent].includes(treatment.configuration.status)
-    );
-  }
-
-  return false;
+  return row.treatments.some(treatment => isTreatmentIncomplete(row, treatment));
 };
 
 const rowTreatmentsColumnClass = row => {
