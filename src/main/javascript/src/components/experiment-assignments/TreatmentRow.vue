@@ -3,7 +3,7 @@
     class="treatment-row-content d-flex align-center justify-space-between"
   >
     <div
-      class="treatment-info-group ml-8"
+      class="treatment-info-group ml-8 d-flex align-center"
     >
       <div class="icon-circle" :class="rowTreatmentsIconCircleClass">
         <v-icon class="component-icon">

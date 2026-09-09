@@ -69,7 +69,7 @@
               <template #item.title="{ item }">
                 <div
                   v-if="item.isPlaceholder"
-                  class="treatment-row-content treatment-add-row d-flex align-center justify-space-between"
+                  class="treatment-row-content treatment-add-row d-flex align-center"
                 >
                   <div class="treatment-info-group ml-8 d-flex align-center">
                     <div class="icon-circle" :class="placeholderIconCircleClass(row, item.treatment)">
@@ -93,12 +93,12 @@
                     </a>
                   </div>
 
-                  <div class="treatment-btn-group d-flex align-center">
+                  <div class="treatment-btn-group d-flex align-center justify-space-between">
                     <v-chip
                       variant="tonal"
                       color="error"
                       density="compact"
-                      class="status-pill mr-4"
+                      class="status-pill"
                     >
                       <v-icon start>mdi-alert-circle</v-icon>
                       Needs attention
@@ -614,7 +614,7 @@ onMounted(initSortable);
 // the treatments column's incomplete-indicator is now a small dot rather
 // than a large circled-alert glyph - mdi-circle renders large by default
 .treatment-ratio-dot {
-  font-size: 10px !important;
+  font-size: 8px !important;
 }
 
 .treatments-section-label {
@@ -691,8 +691,39 @@ onMounted(initSortable);
   }
 }
 
+// right padding only, matching a real TreatmentRow's own right-side breathing room
+// before its actions menu - a left padding here would indent this row's icon further
+// than a real TreatmentRow's, breaking their alignment
 .treatment-add-row {
-  padding: 0 16px;
+  padding-right: 90px;
+}
+
+// this nested table has only one column, so there's no real "Status" column for the
+// pill to sit in - these widths approximate where the outer table's Name+Treatments+Due
+// columns end and Status/Actions begin (measured against the outer table's own rendered
+// proportions), so the pill and the actions menu land roughly under the outer table's
+// Status and Actions columns instead of bunching up at the far right. An approximation,
+// not a true sync - the outer columns can shift with content (e.g. a long assignment
+// title), which this can't follow.
+.treatment-add-row {
+  // no justify-content here (plain flex-start) - the two children's widths below are
+  // sized to sum to 100% themselves, so they sit flush against each other rather than
+  // having justify-content:space-between insert its own extra gap between them
+  .treatment-info-group {
+    flex: 0 0 61.5%;
+  }
+
+  // the shared .treatment-btn-group rule (ExperimentAssignments.vue) floats this right,
+  // which fights with the flex-basis + internal justify-content:space-between this
+  // needs to spread the pill and the menu button apart - float and flex don't mix.
+  // Its own right edge always lands at the row's right edge regardless of this
+  // flex-basis value (shifting the split only moves the pill, not the menu, since the
+  // menu is right-aligned within this box) - the row's own padding-right is what pulls
+  // the menu in to roughly the outer table's Actions position instead.
+  .treatment-btn-group {
+    float: none !important;
+    flex: 0 0 38.5%;
+  }
 }
 
 // just the "+" square - the "Click to add treatment" text is a separate link
@@ -703,7 +734,7 @@ onMounted(initSortable);
   justify-content: center;
   width: 28px;
   height: 28px;
-  background: none;
+  background: white;
   border: 2px dashed map.get($grey, "lighter");
   border-radius: 8px;
   padding: 0;
