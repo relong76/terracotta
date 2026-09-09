@@ -4,6 +4,9 @@ import { mountComponent } from "@/test-utils/mount";
 import TreatmentRow from "./TreatmentRow.vue";
 import { message as messageStatus } from "@/helpers/messaging/status.js";
 
+// v-menu content is teleported to document.body (outside the wrapper's own
+// element), so we open the menu with a real click and query document.body
+// directly, matching ComponentActionsMenu.spec.js's convention.
 let wrapper;
 
 afterEach(() => {
@@ -26,6 +29,7 @@ const exposure = {
 const assignmentRow = (treatmentsCount = 2) => ({
   type: "assignment",
   assignmentId: 100,
+  title: "Assignment 1",
   treatments: new Array(treatmentsCount).fill(null)
 });
 
@@ -54,6 +58,7 @@ const integrationTreatment = overrides => ({
 const messageTreatmentRow = () => ({
   type: "message",
   assignmentId: 200,
+  title: "Message 1",
   treatments: [null, null]
 });
 
@@ -70,7 +75,6 @@ const mountRow = props => {
       conditionColorMapping,
       exposure,
       singleConditionExperiment: false,
-      displayTreatmentMenu: false,
       ...props
     }
   });
@@ -78,15 +82,32 @@ const mountRow = props => {
   return wrapper;
 };
 
+const activator = () => wrapper.find('[aria-label^="treatment actions for"]');
+
+const openMenu = async () => {
+  await activator().trigger("click");
+};
+
+const itemTitles = () =>
+  Array.from(document.body.querySelectorAll(".v-list-item-title")).map(el => el.textContent.trim());
+
+const findItem = label =>
+  Array.from(document.body.querySelectorAll(".v-list-item")).find(el => el.textContent.includes(label));
+
+const clickItem = async label => {
+  findItem(label).dispatchEvent(new MouseEvent("click", { bubbles: true }));
+  await wrapper.vm.$nextTick();
+};
+
 describe("TreatmentRow", () => {
-  it("renders the file icon and Edit button for a complete assignment treatment", () => {
+  it("renders the wrench icon in an icon-circle for a complete assignment treatment", () => {
     mountRow({
       row: assignmentRow(),
       treatment: fileTreatment()
     });
 
     expect(wrapper.find(".component-icon").classes()).toContain("mdi-wrench-outline");
-    expect(wrapper.find(".btn-treatment-edit").text()).toContain("Edit");
+    expect(wrapper.find(".icon-circle").classes()).toContain("icon-circle-control");
     expect(wrapper.find(".label-treatment-complete").exists()).toBe(true);
   });
 
@@ -100,43 +121,26 @@ describe("TreatmentRow", () => {
     expect(wrapper.findComponent({ name: "ToolTip" }).exists()).toBe(true);
   });
 
-  it("shows the integration icon for an assignment treatment with integration enabled", () => {
+  it("shows the integration icon in the code icon-circle for an assignment treatment with integration enabled", () => {
     mountRow({
       row: assignmentRow(),
       treatment: integrationTreatment()
     });
 
     expect(wrapper.find(".component-icon").classes()).toContain("mdi-application-brackets-outline");
+    expect(wrapper.find(".icon-circle").classes()).toContain("icon-circle-code");
   });
 
-  it("shows a disabled Preview link for an integration treatment when not using the treatment menu", () => {
+  it("renders a single dots-menu activator with an aria-label naming the row", () => {
     mountRow({
       row: assignmentRow(),
-      treatment: integrationTreatment(),
-      displayTreatmentMenu: false
+      treatment: fileTreatment()
     });
 
-    const links = wrapper.findAllComponents({ name: "VBtn" });
-    const preview = links.find(btn => btn.text().includes("Preview"));
-
-    expect(preview.exists()).toBe(true);
-    expect(preview.props("disabled")).toBe(false);
+    expect(activator().attributes("aria-label")).toBe("treatment actions for Assignment 1");
   });
 
-  it("disables the Preview link when the integration URL is invalid", () => {
-    mountRow({
-      row: assignmentRow(),
-      treatment: integrationTreatment({ integrationUrlValid: false }),
-      displayTreatmentMenu: false
-    });
-
-    const links = wrapper.findAllComponents({ name: "VBtn" });
-    const preview = links.find(btn => btn.text().includes("Preview"));
-
-    expect(preview.props("disabled")).toBe(true);
-  });
-
-  it("shows a Preview button (not menu) for a non-integration, non-message treatment and emits preview-treatment", async () => {
+  it("opens the menu with Edit and Preview for a plain assignment treatment, and Preview emits preview-treatment", async () => {
     const treatment = fileTreatment();
 
     mountRow({
@@ -144,10 +148,13 @@ describe("TreatmentRow", () => {
       treatment
     });
 
-    const buttons = wrapper.findAllComponents({ name: "VBtn" });
-    const preview = buttons.find(btn => btn.text().includes("Preview"));
+    await openMenu();
+    const titles = itemTitles();
 
-    await preview.trigger("click");
+    expect(titles.some(text => text.includes("Edit"))).toBe(true);
+    expect(titles.some(text => text.includes("Preview"))).toBe(true);
+
+    await clickItem("Preview");
 
     expect(wrapper.emitted("preview-treatment")).toBeTruthy();
     expect(wrapper.emitted("preview-treatment")[0][0]).toEqual(treatment);
@@ -159,7 +166,37 @@ describe("TreatmentRow", () => {
 
     mountRow({ row, treatment });
 
-    await wrapper.find(".btn-treatment-edit").trigger("click");
+    await openMenu();
+    await clickItem("Edit");
+
+    expect(wrapper.emitted("edit-treatment")).toBeTruthy();
+    expect(wrapper.emitted("edit-treatment")[0][0]).toEqual({ row, treatment });
+  });
+
+  it("shows an enabled Preview integration link when the integration URL is valid", async () => {
+    mountRow({
+      row: assignmentRow(),
+      treatment: integrationTreatment()
+    });
+
+    await openMenu();
+
+    const previewItem = findItem("Preview");
+    expect(previewItem.classList.contains("v-list-item--disabled")).toBe(false);
+    expect(document.body.querySelector(".integration-preview-link")).toBeTruthy();
+  });
+
+  it("disables the Preview item, but keeps Edit clickable, when the integration URL is invalid", async () => {
+    const row = assignmentRow();
+    const treatment = integrationTreatment({ integrationUrlValid: false });
+
+    mountRow({ row, treatment });
+
+    await openMenu();
+
+    expect(findItem("Preview").classList.contains("v-list-item--disabled")).toBe(true);
+
+    await clickItem("Edit");
 
     expect(wrapper.emitted("edit-treatment")).toBeTruthy();
     expect(wrapper.emitted("edit-treatment")[0][0]).toEqual({ row, treatment });
@@ -196,51 +233,32 @@ describe("TreatmentRow", () => {
     expect(wrapper.findComponent({ name: "VChip" }).exists()).toBe(false);
   });
 
-  it("renders a dots menu with a Preview link for an integration treatment when displayTreatmentMenu is true", () => {
-    mountRow({
-      row: assignmentRow(),
-      treatment: integrationTreatment(),
-      displayTreatmentMenu: true
-    });
-
-    expect(wrapper.find('[aria-label="treatment actions"]').exists()).toBe(true);
-    // the plain Preview v-btn should not be rendered when the menu variant is used
-    const buttons = wrapper.findAllComponents({ name: "VBtn" });
-
-    expect(buttons.some(btn => btn.text().includes("Preview"))).toBe(false);
-  });
-
-  it("disables the dots menu activator when the underlying preview is disabled, matching the non-menu button", () => {
-    mountRow({
-      row: assignmentRow(),
-      treatment: integrationTreatment({ integrationUrlValid: false }),
-      displayTreatmentMenu: true
-    });
-
-    const activator = wrapper.find('[aria-label="treatment actions"]');
-
-    expect(activator.attributes("disabled")).toBeDefined();
-  });
-
-  it("shows the message icon and status-driven label for a message treatment", () => {
+  it("shows the message icon in the message icon-circle and status-driven label for a message treatment", () => {
     mountRow({
       row: messageTreatmentRow(),
       treatment: messageTreatment(messageStatus.ready)
     });
 
     expect(wrapper.find(".component-icon").classes()).toContain("mdi-message-text-outline");
+    expect(wrapper.find(".icon-circle").classes()).toContain("icon-circle-message");
     expect(wrapper.find(".label-treatment-complete").exists()).toBe(true);
-    expect(wrapper.find(".btn-treatment-edit").text()).toContain("Edit");
   });
 
-  it("shows View instead of Edit for a message treatment that has already been sent", () => {
+  it("shows Edit for a not-yet-sent message treatment and View for a sent one", async () => {
+    mountRow({
+      row: messageTreatmentRow(),
+      treatment: messageTreatment(messageStatus.ready)
+    });
+    await openMenu();
+    expect(itemTitles().some(text => text.includes("Edit"))).toBe(true);
+    wrapper.unmount();
+
     mountRow({
       row: messageTreatmentRow(),
       treatment: messageTreatment(messageStatus.sent)
     });
-
-    expect(wrapper.find(".btn-treatment-edit").text()).toContain("View");
-    expect(wrapper.find(".label-treatment-complete").exists()).toBe(true);
+    await openMenu();
+    expect(itemTitles().some(text => text.includes("View"))).toBe(true);
   });
 
   it("marks an incomplete message treatment status (e.g. incomplete) with the incomplete label and tooltip", () => {
@@ -253,14 +271,14 @@ describe("TreatmentRow", () => {
     expect(wrapper.findComponent({ name: "ToolTip" }).exists()).toBe(true);
   });
 
-  it("does not show a plain Preview button for a message treatment", () => {
+  it("hides Preview entirely (only Edit/View) for a message treatment", async () => {
     mountRow({
       row: messageTreatmentRow(),
       treatment: messageTreatment(messageStatus.ready)
     });
 
-    const buttons = wrapper.findAllComponents({ name: "VBtn" });
+    await openMenu();
 
-    expect(buttons.some(btn => btn.text().includes("Preview"))).toBe(false);
+    expect(itemTitles().some(text => text.includes("Preview"))).toBe(false);
   });
 });

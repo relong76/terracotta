@@ -5,9 +5,11 @@
     <div
       class="treatment-info-group ml-8"
     >
-      <v-icon class="mr-1 component-icon">
-        {{ rowTreatmentsIcon }}
-      </v-icon>
+      <div class="icon-circle" :class="rowTreatmentsIconCircleClass">
+        <v-icon class="component-icon">
+          {{ rowTreatmentsIcon }}
+        </v-icon>
+      </div>
       <ToolTip
         v-if="showTreatmentRowTooltip"
         :content="treatmentRowTooltipText"
@@ -32,63 +34,46 @@
       </v-chip>
     </div>
     <div class="treatment-btn-group">
-      <v-btn
-        variant="text"
-        class="btn-treatment-edit"
-        @click="$emit('edit-treatment', { row, treatment })"
-      >
-        <v-icon>{{ editTreatmentIcon }}</v-icon>
-        <span class="btn-edit">{{ editTreatmentText }}</span>
-      </v-btn>
-
-      <v-btn
-        v-if="isIntegrationAssignment && !displayTreatmentMenu"
-        :href="integrationsPreviewLaunchUrl(treatment.assessmentDto.integrationPreviewUrl)"
-        :disabled="!treatment.assessmentDto.questions.length || !treatment.assessmentDto.integrationUrlValid"
-        target="_blank"
-        variant="text"
-      >
-        <v-icon>mdi-eye-outline</v-icon>
-        <span class="treatment-btn">Preview</span>
-      </v-btn>
-
-      <v-btn
-        v-if="!isMessage && !treatment.assessmentDto.integration"
-        :disabled="!treatment.assessmentDto.questions.length"
-        variant="text"
-        @click="$emit('preview-treatment', treatment)"
-      >
-        <v-icon>mdi-eye-outline</v-icon>
-        <span class="treatment-btn">Preview</span>
-      </v-btn>
-
-      <v-menu
-        v-if="isIntegrationAssignment && displayTreatmentMenu"
-        :disabled="!treatment.assessmentDto.questions.length || !treatment.assessmentDto.integrationUrlValid"
-        location="start"
-      >
+      <v-menu location="start">
         <template #activator="{ props: menuProps }">
           <v-btn
             v-bind="menuProps"
-            :disabled="!treatment.assessmentDto.questions.length || !treatment.assessmentDto.integrationUrlValid"
-            aria-label="treatment actions"
+            :aria-label="`treatment actions for ${row.title}`"
             icon="mdi-dots-horizontal"
             variant="text"
           />
         </template>
 
         <v-list>
-          <v-list-item aria-label="preview integration">
-            <v-list-item-title>
+          <v-list-item
+            class="btn-treatment-edit"
+            @click="$emit('edit-treatment', { row, treatment })"
+          >
+            <v-list-item-title class="d-flex justify-content-center">
+              <v-icon>{{ editTreatmentIcon }}</v-icon>
+              <span class="btn-edit">{{ editTreatmentText }}</span>
+            </v-list-item-title>
+          </v-list-item>
+
+          <v-list-item
+            v-if="!isMessage"
+            :disabled="previewDisabled"
+            @click="!isIntegrationAssignment && $emit('preview-treatment', treatment)"
+          >
+            <v-list-item-title class="d-flex justify-content-center">
               <v-icon>mdi-eye-outline</v-icon>
               <span class="treatment-btn">
                 <a
+                  v-if="isIntegrationAssignment"
                   :href="integrationsPreviewLaunchUrl(treatment.assessmentDto.integrationPreviewUrl)"
                   target="_blank"
                   class="integration-preview-link"
                 >
                   Preview
                 </a>
+                <template v-else>
+                  Preview
+                </template>
               </span>
             </v-list-item-title>
           </v-list-item>
@@ -127,10 +112,6 @@ const props = defineProps({
   singleConditionExperiment: {
     type: Boolean,
     default: false
-  },
-  displayTreatmentMenu: {
-    type: Boolean,
-    default: false
   }
 });
 
@@ -165,6 +146,30 @@ const rowTreatmentsIcon = computed(() => {
   }
 
   return "";
+});
+
+const rowTreatmentsIconCircleClass = computed(() => {
+  if (isIntegrationAssignment.value) {
+    return "icon-circle-code";
+  }
+
+  if (props.row.type === rowType.assignment) {
+    return "icon-circle-control";
+  }
+
+  if (props.row.type === rowType.message) {
+    return "icon-circle-message";
+  }
+
+  return "";
+});
+
+const previewDisabled = computed(() => {
+  if (!props.treatment.assessmentDto.questions.length) {
+    return true;
+  }
+
+  return isIntegrationAssignment.value && !props.treatment.assessmentDto.integrationUrlValid;
 });
 
 const conditionForTreatment = computed(() => {
@@ -263,3 +268,38 @@ const integrationsPreviewLaunchUrl = (url = "http://localhost") => {
   return `/integrations/preview?url=${btoa(url)}`;
 };
 </script>
+
+<style lang="scss" scoped>
+.icon-circle {
+  width: 24px;
+  height: 24px;
+  min-width: 24px;
+  border-radius: 50%;
+  text-align: center;
+  align-content: center;
+  display: inline-block;
+  margin-right: 8px;
+
+  > .v-icon {
+    font-size: 14px;
+  }
+
+  &.icon-circle-control {
+    border: 1px solid map.get($yellow, "base");
+    background-color: rgba(255, 179, 0, 0.2);
+    > .v-icon { color: map.get($yellow, "base") !important; }
+  }
+
+  &.icon-circle-code {
+    border: 1px solid map.get($light-blue, "base");
+    background-color: rgba(3, 169, 244, 0.2);
+    > .v-icon { color: map.get($light-blue, "base") !important; }
+  }
+
+  &.icon-circle-message {
+    border: 1px solid map.get($orange, "base");
+    background-color: rgba(245, 124, 0, 0.2);
+    > .v-icon { color: map.get($orange, "base") !important; }
+  }
+}
+</style>

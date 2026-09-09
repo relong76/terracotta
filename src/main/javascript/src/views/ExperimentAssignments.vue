@@ -84,7 +84,6 @@
                   :conditions="conditions"
                   :condition-color-mapping="conditionColorMapping"
                   :single-condition-experiment="singleConditionExperiment"
-                  :display-treatment-menu="displayTreatmentMenu"
                   :can-delete-assignment="canDeleteAssignment"
                   :exposure-count="exposures.length"
                   :alert-statuses="alertStatuses"
@@ -97,6 +96,7 @@
                   @unpublish="handleUnpublishComponent(exposure.exposureId, $event)"
                   @edit-treatment="handleEditTreatment"
                   @preview-treatment="handleTreatmentPreview"
+                  @add-treatment="handleAddTreatment"
                 />
               </template>
 
@@ -116,7 +116,6 @@
 <script setup>
 import { ref, computed, onMounted, nextTick, createApp, toRaw } from "vue";
 import { useRouter } from "vue-router";
-import { useDisplay } from "vuetify";
 import Swal from "sweetalert2";
 
 import { message as messageStatus } from "@/helpers/messaging/status.js";
@@ -136,9 +135,13 @@ import ExposureDesignCard from "@/components/experiment-assignments/ExposureDesi
 
 import vuetify from "@/plugins/vuetify";
 
+import { treatmentService } from "@/services";
+
 import { experiment as experimentModule } from "@/store/experiment.module";
 import { exposures as exposuresModule } from "@/store/exposures.module";
 import { assignment as assignmentModule } from "@/store/assignment.module";
+import { treatment as treatmentModule } from "@/store/treatment.module";
+import { assessment as assessmentModule } from "@/store/assessment.module";
 import { condition as conditionModule } from "@/store/condition.module";
 import { api as apiModule } from "@/store/api.module";
 import { configuration as configurationModule } from "@/store/configuration.module";
@@ -162,11 +165,12 @@ const props = defineProps({
 });
 
 const router = useRouter();
-const { name: displayName } = useDisplay();
 
 const experimentStore = experimentModule();
 const exposuresStore = exposuresModule();
 const assignmentStore = assignmentModule();
+const treatmentStore = treatmentModule();
+const assessmentStore = assessmentModule();
 const conditionStore = conditionModule();
 const apiStore = apiModule();
 const configurationStore = configurationModule();
@@ -198,7 +202,6 @@ const singleConditionExperiment = computed(() => conditions.value.length === 1);
 const defaultCondition = computed(() => conditions.value.find(condition => condition.defaultCondition));
 const exposureRows = computed(() => rows.value[tab.value] || []);
 const isMessagingEnabled = computed(() => configurations.value?.messagingEnabled || false);
-const displayTreatmentMenu = computed(() => ["xs", "sm", "md"].includes(displayName.value));
 
 // a plain computed instead of deep-watched refs recalculated imperatively: Vue's reactivity
 // tracks exactly the fields read below, so it only recomputes when one of those fields
@@ -494,6 +497,59 @@ const handleEditTreatment = ({ row, treatment }) => {
   }
 
   return handleMessageAction(row.id, treatment.id);
+};
+
+// creates the missing treatment (and its assessment) for one condition on an
+// already-existing assignment, then hands off to the same builder Edit uses -
+// calls treatmentService directly rather than treatmentStore.createTreatment,
+// whose local cache check matches an existing treatment by assignmentId alone
+// (ignoring conditionId) - fine for that store method's original use (creating
+// every condition's treatment in parallel when an assignment is first made,
+// see CreateAssignment.vue), but it would incorrectly return an already-cached
+// treatment for a DIFFERENT condition on this same assignment if this handler
+// is used more than once across a session for the same assignment
+const handleAddTreatment = async ({ row, condition }) => {
+  if (row.type !== rowType.assignment) {
+    createStatusAlert(
+      statusAlert(alertStatuses.value.error, "Adding a treatment for this component type isn't supported yet")
+    );
+    return;
+  }
+
+  try {
+    const treatmentResponse = await treatmentService.create(
+      experimentId.value,
+      condition.conditionId,
+      row.assignmentId
+    );
+
+    if (treatmentResponse?.status !== 201) {
+      throw new Error("Failed to create treatment");
+    }
+
+    const createdTreatment = treatmentResponse.data;
+
+    treatmentStore.upsertTreatment(createdTreatment);
+
+    const assessmentResponse = await assessmentStore.createAssessment([
+      experimentId.value,
+      condition.conditionId,
+      createdTreatment.treatmentId
+    ]);
+
+    if (assessmentResponse?.status !== 201 && assessmentResponse?.status !== 200) {
+      throw new Error("Failed to create assessment");
+    }
+
+    createdTreatment.assessmentDto = assessmentResponse.data;
+
+    return goToBuilder(createdTreatment, row.assignmentId, row.exposureId);
+  } catch (error) {
+    console.error("handleAddTreatment | catch", error);
+    createStatusAlert(
+      statusAlert(alertStatuses.value.error, "There was a problem creating the treatment")
+    );
+  }
 };
 
 const handleTreatmentPreview = treatment => {
@@ -895,6 +951,15 @@ onMounted(async () => {
 }
 
 .v-btn--disabled {
+  .treatment-btn {
+    color: rgba(0, 0, 0, 0.26) !important;
+  }
+}
+
+// Preview moved from a v-btn into a v-list-item (the treatment-row actions
+// menu) - Vuetify puts the disabled state on the list item itself, not a
+// v-btn, so the rule above no longer matches it there
+.v-list-item--disabled {
   .treatment-btn {
     color: rgba(0, 0, 0, 0.26) !important;
   }

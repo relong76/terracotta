@@ -27,7 +27,9 @@
       </template>
 
       <template #item.title="{ item: row }">
-        <v-icon>{{ rowIcon(row) }}</v-icon>
+        <div class="icon-circle" :class="rowIconCircleClass(row)">
+          <v-icon>{{ rowIcon(row) }}</v-icon>
+        </div>
         {{ row.title }}
 
         <v-chip
@@ -48,24 +50,62 @@
             :colspan="columns.length"
             class="treatments-table-container"
           >
+            <div
+              v-if="!singleConditionExperiment"
+              class="treatments-section-label"
+            >
+              TREATMENTS - {{ row.treatments.length }} of {{ conditions.length }} added
+            </div>
+
             <v-data-table
               :headers="treatmentHeaders"
-              :items="row.treatments"
+              :items="treatmentTableItems(row)"
               :items-per-page="-1"
               item-value="treatmentId"
               :class="['treatment-row', 'bg-grey-lighten-5', { 'treatment-row--mobile': isMobile }]"
               hide-default-header
               hide-default-footer
             >
-              <template #item.title="{ item: treatment }">
+              <template #item.title="{ item }">
+                <div
+                  v-if="item.isPlaceholder"
+                  class="treatment-row-content treatment-add-row d-flex align-center justify-space-between"
+                >
+                  <div class="treatment-info-group ml-8 d-flex align-center">
+                    <div class="icon-circle" :class="placeholderIconCircleClass(row)">
+                      <v-icon>{{ placeholderIcon(row) }}</v-icon>
+                    </div>
+                    <span class="treatment-add-condition-name mr-2">{{ item.condition.conditionName }}</span>
+                    <button
+                      type="button"
+                      class="treatment-add-box d-flex align-center"
+                      :aria-label="`add treatment for ${item.condition.conditionName}`"
+                      @click="$emit('add-treatment', { row, condition: item.condition })"
+                    >
+                      <v-icon class="mr-1">mdi-plus</v-icon>
+                      Click to add treatment
+                    </button>
+                  </div>
+
+                  <v-chip
+                    label
+                    variant="outlined"
+                    color="error"
+                    density="compact"
+                    class="status-pill"
+                  >
+                    Needs attention
+                  </v-chip>
+                </div>
+
                 <TreatmentRow
+                  v-else
                   :row="row"
-                  :treatment="treatment"
+                  :treatment="item"
                   :exposure="exposure"
                   :conditions="conditions"
                   :condition-color-mapping="conditionColorMapping"
                   :single-condition-experiment="singleConditionExperiment"
-                  :display-treatment-menu="displayTreatmentMenu"
                   @edit-treatment="$emit('edit-treatment', $event)"
                   @preview-treatment="$emit('preview-treatment', $event)"
                 />
@@ -77,17 +117,17 @@
 
       <template #item.treatments="{ item: row }">
         <span :class="rowTreatmentsColumnClass(row)">
-          {{ row.treatments.length }} / {{ row.treatments.length }}
+          {{ row.treatments.length }} of {{ conditions.length }}
 
           <ToolTip
             v-if="hasIncompleteTreatments(row)"
             :content="showRowTreatmentsColumnTooltipText(row)"
             :ref="`tooltip-component-${row.assignmentId}`"
             aria-label="incomplete treatments explanation tooltip"
-            icon="mdi-alert-circle-outline"
+            icon="mdi-circle"
             alignment="top"
             activator-type="icon"
-            activator-class="label-treatment-incomplete"
+            activator-class="label-treatment-incomplete treatment-ratio-dot"
           />
         </span>
       </template>
@@ -99,9 +139,15 @@
       </template>
 
       <template #item.published="{ item: row }">
-        <span :class="rowPublishedColumnClass(row)">
+        <v-chip
+          label
+          variant="outlined"
+          :color="statusPillColor(row)"
+          density="compact"
+          class="status-pill"
+        >
           {{ rowPublishedColumnText(row) }}
-        </span>
+        </v-chip>
       </template>
 
       <template #item.dueDate="{ item: row }">
@@ -160,10 +206,6 @@ const props = defineProps({
     type: Boolean,
     default: false
   },
-  displayTreatmentMenu: {
-    type: Boolean,
-    default: false
-  },
   canDeleteAssignment: {
     type: Boolean,
     default: false
@@ -183,7 +225,8 @@ defineEmits([
   "publish",
   "unpublish",
   "edit-treatment",
-  "preview-treatment"
+  "preview-treatment",
+  "add-treatment"
 ]);
 
 const tableRoot = ref(null);
@@ -204,10 +247,10 @@ const isMobile = computed(() => width.value < mobileBreakpoint);
 const assignmentHeaders = computed(() => {
   const headers = [
     { title: "", align: "start", sortable: false, key: "drag" },
-    { title: "Component Name", align: "start", sortable: false, key: "title" },
-    { title: "Treatments", sortable: false, key: "treatments" },
-    { title: "Due Date", sortable: false, key: "dueDate" },
-    { title: "Status", sortable: false, key: "published" },
+    { title: "NAME", align: "start", sortable: false, key: "title" },
+    { title: "TREATMENTS", sortable: false, key: "treatments" },
+    { title: "DUE", sortable: false, key: "dueDate" },
+    { title: "STATUS", sortable: false, key: "published" },
     { title: "Actions", align: "center", sortable: false, key: "actions" },
     { title: "", sortable: false, key: "data-table-expand" }
   ];
@@ -279,6 +322,63 @@ const rowIcon = row => {
   return "";
 };
 
+const rowIconCircleClass = row => {
+  if (row.type === rowType.assignment) {
+    return "icon-circle-document";
+  }
+
+  if (row.type === rowType.message) {
+    return "icon-circle-message";
+  }
+
+  return "";
+};
+
+// the icon/circle an add-treatment placeholder shows, matching what the
+// eventual real TreatmentRow would use for this row's type once created
+// (TreatmentRow.vue's own wrench/message icon convention)
+const placeholderIcon = row => {
+  if (row.type === rowType.assignment) {
+    return "mdi-wrench-outline";
+  }
+
+  if (row.type === rowType.message) {
+    return treatmentIcon.message;
+  }
+
+  return "";
+};
+
+const placeholderIconCircleClass = row => {
+  if (row.type === rowType.assignment) {
+    return "icon-circle-control";
+  }
+
+  if (row.type === rowType.message) {
+    return "icon-circle-message";
+  }
+
+  return "";
+};
+
+// conditions with no matching treatment yet (by conditionId) - rendered as
+// "click to add treatment" placeholder rows alongside the real treatments
+const missingConditionsForRow = row => {
+  return props.conditions.filter(condition =>
+    !row.treatments.some(treatment => treatment.conditionId === condition.conditionId)
+  );
+};
+
+const treatmentTableItems = row => {
+  const placeholders = missingConditionsForRow(row).map(condition => ({
+    isPlaceholder: true,
+    condition,
+    treatmentId: `missing-treatment-${row.assignmentId}-${condition.conditionId}`
+  }));
+
+  return [...row.treatments, ...placeholders];
+};
+
 const dueDate = row => {
   return row.dueDate
     ? dayjs(row.dueDate).format("MMM D, YYYY hh:mma")
@@ -287,6 +387,10 @@ const dueDate = row => {
 
 const hasIncompleteTreatments = row => {
   if (row.type === rowType.assignment) {
+    if (row.treatments.length < props.conditions.length) {
+      return true;
+    }
+
     if (
       row.treatments.some(
         treatment => treatment.assessmentDto.integration && !treatment.assessmentDto.integrationUrlValid
@@ -327,17 +431,21 @@ const showRowTreatmentsColumnTooltipText = row => {
   return "";
 };
 
-const rowPublishedColumnClass = row => {
+const statusPillColor = row => {
   if (row.type === rowType.assignment) {
-    return row.published
-      ? "label-treatment-complete"
-      : "label-treatment-incomplete";
+    return row.published ? "success" : "warning";
   }
 
   if (row.type === rowType.message) {
-    return !(row.published || row.sent) || hasIncompleteTreatments(row) || row.error
-      ? "label-treatment-incomplete"
-      : "label-treatment-complete";
+    if (row.error) {
+      return "error";
+    }
+
+    if (row.sent) {
+      return "info";
+    }
+
+    return row.published ? "success" : "warning";
   }
 
   return "";
@@ -363,6 +471,83 @@ onMounted(initSortable);
 </script>
 
 <style lang="scss" scoped>
+.icon-circle {
+  width: 28px;
+  height: 28px;
+  min-width: 28px;
+  border-radius: 50%;
+  text-align: center;
+  align-content: center;
+  display: inline-block;
+  margin-right: 8px;
+
+  > .v-icon {
+    font-size: 16px;
+  }
+
+  &.icon-circle-document {
+    border: 1px solid map.get($blue, "primary");
+    background-color: rgba(0, 119, 210, 0.2);
+    color: map.get($blue, "primary");
+    > .v-icon { color: map.get($blue, "primary") !important; }
+  }
+
+  &.icon-circle-message {
+    border: 1px solid map.get($orange, "base");
+    background-color: rgba(245, 124, 0, 0.2);
+    color: map.get($orange, "base");
+    > .v-icon { color: map.get($orange, "base") !important; }
+  }
+
+  &.icon-circle-control {
+    border: 1px solid map.get($yellow, "base");
+    background-color: rgba(255, 179, 0, 0.2);
+    color: map.get($yellow, "base");
+    > .v-icon { color: map.get($yellow, "base") !important; }
+  }
+}
+
+.treatment-add-condition-name {
+  font-weight: 600;
+}
+
+// the treatments column's incomplete-indicator is now a small dot rather
+// than a large circled-alert glyph - mdi-circle renders large by default
+.treatment-ratio-dot {
+  font-size: 10px !important;
+}
+
+.treatments-section-label {
+  padding: 10px 16px 4px;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: map.get($grey, "darker");
+}
+
+.status-pill {
+  text-transform: none;
+}
+
+.treatment-add-row {
+  padding: 0 16px;
+}
+
+.treatment-add-box {
+  background: none;
+  border: 2px dashed map.get($grey, "lighter");
+  border-radius: 8px;
+  padding: 6px 12px;
+  cursor: pointer;
+  font-size: inherit;
+  color: inherit;
+
+  &:hover {
+    border-color: map.get($grey, "darker");
+  }
+}
+
 .treatment-row {
   :deep(.v-table__wrapper) {
     border: none !important;
@@ -513,8 +698,12 @@ onMounted(initSortable);
       // mobile view this would draw a stray 1px line floating in the middle
       // of the white gap between cards; the gap and rounded corners already
       // tell them apart there.
+      //
+      // 2px (vs. the nested treatments table's own default ~1px/0.12-opacity
+      // row borders) so the group-to-group boundary reads as more pronounced
+      // than the divider between treatment sub-rows within one group.
       &.v-data-table__tr--expanded:not(.expanded-row--mobile) > td {
-        border-bottom: 1px solid rgba(0, 0, 0, 0.2);
+        border-bottom: 2px solid rgba(0, 0, 0, 0.2);
       }
 
       &:last-child > td {

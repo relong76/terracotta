@@ -14,6 +14,13 @@ vi.mock("@/services", () => ({
     deleteContainer: vi.fn(),
     move: vi.fn(),
     duplicate: vi.fn()
+  },
+  treatmentService: {
+    create: vi.fn()
+  },
+  assessmentService: {
+    fetchAssessments: vi.fn(),
+    createAssessment: vi.fn()
   }
 }));
 
@@ -33,7 +40,9 @@ import { createPinia, setActivePinia } from "pinia";
 import { mountComponent } from "@/test-utils/mount";
 import {
   assignmentService,
-  messageContainerService
+  messageContainerService,
+  treatmentService,
+  assessmentService
 } from "@/services";
 import { experiment as experimentModule } from "@/store/experiment.module";
 import { exposures as exposuresModule } from "@/store/exposures.module";
@@ -363,5 +372,69 @@ describe("ExperimentAssignments", () => {
     );
 
     openSpy.mockRestore();
+  });
+
+  it("creates a treatment and assessment for a missing condition, then navigates to the builder like Edit does", async () => {
+    treatmentService.create.mockResolvedValue({
+      status: 201,
+      data: { treatmentId: 55, conditionId: 2, assignmentId: 100 }
+    });
+    assessmentService.fetchAssessments.mockResolvedValue({ data: [] });
+    assessmentService.createAssessment.mockResolvedValue({
+      status: 201,
+      data: { assessmentId: 77 }
+    });
+
+    const wrapper = mountAssignments();
+    await wrapper.vm.$nextTick();
+    await wrapper.vm.$nextTick();
+
+    const table = wrapper.findComponent({ name: "ComponentTable" });
+    const row = table.props("rows").find(item => item.type === "assignment");
+
+    table.vm.$emit("add-treatment", { row, condition: { conditionId: 2 } });
+
+    await vi.waitFor(() => {
+      expect(treatmentService.create).toHaveBeenCalledWith(3, 2, 100);
+    });
+
+    await vi.waitFor(() => {
+      expect(assessmentService.createAssessment).toHaveBeenCalledWith(3, 2, 55);
+    });
+
+    await vi.waitFor(() => {
+      expect(push).toHaveBeenCalledWith(
+        expect.objectContaining({
+          name: "TerracottaBuilder",
+          params: expect.objectContaining({
+            conditionId: 2,
+            treatmentId: 55,
+            assessmentId: 77
+          })
+        })
+      );
+    });
+  });
+
+  it("shows an error alert and does not navigate when creating the treatment fails", async () => {
+    treatmentService.create.mockResolvedValue({ status: 500 });
+
+    const wrapper = mountAssignments();
+    await wrapper.vm.$nextTick();
+    await wrapper.vm.$nextTick();
+
+    const table = wrapper.findComponent({ name: "ComponentTable" });
+    const row = table.props("rows").find(item => item.type === "assignment");
+
+    table.vm.$emit("add-treatment", { row, condition: { conditionId: 2 } });
+
+    await vi.waitFor(() => {
+      expect(treatmentService.create).toHaveBeenCalled();
+    });
+
+    expect(assessmentService.createAssessment).not.toHaveBeenCalled();
+    expect(push).not.toHaveBeenCalledWith(
+      expect.objectContaining({ name: "TerracottaBuilder" })
+    );
   });
 });

@@ -53,7 +53,7 @@ const assignmentRow = overrides => ({
   assignmentOrder: 1,
   published: true,
   dueDate: "2024-05-01T12:00:00Z",
-  treatments: [completeTreatment(10), completeTreatment(11)],
+  treatments: [completeTreatment(10, 1), completeTreatment(11, 2)],
   ...overrides
 });
 
@@ -82,7 +82,6 @@ const mountTable = (rows, props = {}) => {
       conditions,
       conditionColorMapping,
       singleConditionExperiment: false,
-      displayTreatmentMenu: false,
       canDeleteAssignment: true,
       exposureCount: 2,
       ...props
@@ -119,16 +118,88 @@ describe("ComponentTable", () => {
     mountTable([assignmentRow()]);
 
     expect(wrapper.find(".label-treatment-complete").exists()).toBe(true);
-    expect(wrapper.text()).toContain("2 / 2");
+    expect(wrapper.text()).toContain("2 of 2");
   });
 
-  it("marks the treatments column incomplete and shows a tooltip when a treatment is missing content", () => {
+  it("shows the real treatments ratio (not a no-op) when a row has fewer treatments than conditions", () => {
     mountTable([
-      assignmentRow({ treatments: [completeTreatment(10), incompleteTreatment(11)] })
+      assignmentRow({ treatments: [completeTreatment(10, 1)] })
+    ]);
+
+    expect(wrapper.text()).toContain("1 of 2");
+    expect(wrapper.find(".label-treatment-incomplete").exists()).toBe(true);
+  });
+
+  it("marks the treatments column incomplete and shows a small-dot tooltip when a treatment is missing content", () => {
+    mountTable([
+      assignmentRow({ treatments: [completeTreatment(10, 1), incompleteTreatment(11, 2)] })
     ]);
 
     expect(wrapper.find(".label-treatment-incomplete").exists()).toBe(true);
-    expect(wrapper.findComponent({ name: "ToolTip" }).exists()).toBe(true);
+
+    const tooltip = wrapper.findComponent({ name: "ToolTip" });
+    expect(tooltip.exists()).toBe(true);
+    expect(tooltip.props("icon")).toBe("mdi-circle");
+  });
+
+  it("renders the 'TREATMENTS - X of Y added' section label for a multi-condition row", () => {
+    mountTable([assignmentRow()]);
+    expect(wrapper.text()).toContain("TREATMENTS - 2 of 2 added");
+  });
+
+  it("suppresses the 'TREATMENTS - X of Y added' section label for a single-condition experiment", () => {
+    mountTable([assignmentRow()], { singleConditionExperiment: true });
+    expect(wrapper.find(".treatments-section-label").exists()).toBe(false);
+  });
+
+  it("renders an add-treatment placeholder for each condition missing a treatment, and clicking it emits add-treatment", async () => {
+    mountTable([
+      assignmentRow({ treatments: [completeTreatment(10, 1)] })
+    ]);
+
+    const addBox = wrapper.find(".treatment-add-box");
+    expect(addBox.exists()).toBe(true);
+    expect(wrapper.text()).toContain("Click to add treatment");
+    expect(wrapper.text()).toContain("Needs attention");
+
+    await addBox.trigger("click");
+
+    expect(wrapper.emitted("add-treatment")).toBeTruthy();
+    expect(wrapper.emitted("add-treatment")[0][0]).toMatchObject({
+      condition: { conditionId: 2, conditionName: "Condition B" }
+    });
+  });
+
+  it("renders no add-treatment placeholder when every condition already has a treatment", () => {
+    mountTable([assignmentRow()]);
+
+    expect(wrapper.find(".treatment-add-box").exists()).toBe(false);
+  });
+
+  it("shows the status pill with the theme color matching each row's status", () => {
+    mountTable([
+      assignmentRow({ published: true }),
+      assignmentRow({ assignmentId: 2, published: false }),
+      messageRow({ assignmentId: 3, sent: true, published: false }),
+      messageRow({ assignmentId: 4, error: true })
+    ]);
+
+    const pills = wrapper.findAllComponents({ name: "VChip" })
+      .filter(chip => ["Published", "Unpublished", "Sent", "Error"].includes(chip.text()));
+
+    expect(pills.find(chip => chip.text() === "Published").props("color")).toBe("success");
+    expect(pills.find(chip => chip.text() === "Unpublished").props("color")).toBe("warning");
+    expect(pills.find(chip => chip.text() === "Sent").props("color")).toBe("info");
+    expect(pills.find(chip => chip.text() === "Error").props("color")).toBe("error");
+  });
+
+  it("renders the shortened, all-caps column headers", () => {
+    mountTable([assignmentRow()]);
+
+    expect(wrapper.text()).toContain("NAME");
+    expect(wrapper.text()).toContain("DUE");
+    expect(wrapper.text()).toContain("TREATMENTS");
+    expect(wrapper.text()).toContain("STATUS");
   });
 
   it("formats the due date for assignment rows and leaves it blank when absent", () => {
