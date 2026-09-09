@@ -13,7 +13,6 @@
       :row-props="() => ({ class: 'assignment-row' })"
       item-value="assignmentId"
       class="v-data-table-alt v-data-table--sorted data-table-assignments mx-3 mb-5 mt-3"
-      density="compact"
       hide-default-footer
       show-expand
     >
@@ -27,21 +26,22 @@
       </template>
 
       <template #item.title="{ item: row }">
-        <div class="icon-circle" :class="rowIconCircleClass(row)">
-          <v-icon>{{ rowIcon(row) }}</v-icon>
-        </div>
-        <span class="row-title">{{ row.title }}</span>
+        <div class="title-cell d-flex align-center">
+          <div class="icon-circle" :class="rowIconCircleClass(row)">
+            <v-icon>{{ rowIcon(row) }}</v-icon>
+          </div>
+          <span class="row-title">{{ row.title }}</span>
 
-        <v-chip
-          v-if="row.treatments.length === 1"
-          color="#d3d3d3"
-          class="v-chip--only-one"
-          variant="flat"
-          density="compact"
-          label
-        >
-          Only One Version
-        </v-chip>
+          <v-chip
+            v-if="row.treatments.length === 1"
+            color="#d3d3d3"
+            variant="tonal"
+            density="compact"
+            class="only-one-version-chip ml-2"
+          >
+            Only One Version
+          </v-chip>
+        </div>
       </template>
 
       <template #expanded-row="{ item: row, columns }">
@@ -664,24 +664,33 @@ onBeforeUnmount(() => {
   text-align: center;
   align-content: center;
   display: inline-block;
+  // inline-block defaults to vertical-align: baseline, which lines its BOTTOM edge up
+  // with the surrounding text's baseline rather than centering it - since the row's
+  // line-box height varies (an expand caret, an "Only One Version" chip, an expanded
+  // vs. collapsed row all change it), that produced a different, inconsistent-looking
+  // top/bottom gap around the circle from row to row. vertical-align: middle centers
+  // it against the line instead, so the gap stays visually even regardless of what
+  // else is in the row.
+  vertical-align: middle;
   margin-right: 8px;
 
   > .v-icon {
     font-size: 16px;
   }
 
+  // solid fill with a white icon (not the pastel-fill/colored-icon treatment used
+  // below for treatment-level icon-circles) - these are the top-level assignment/
+  // message row icons, and the mockup renders them noticeably more solid; colors
+  // pixel-sampled directly from the mockup rather than reusing $blue/$orange (which
+  // read too saturated next to the mockup's muted swatch)
   &.icon-circle-document {
-    border: 1px solid map.get($blue, "primary");
-    background-color: rgba(0, 119, 210, 0.2);
-    color: map.get($blue, "primary");
-    > .v-icon { color: map.get($blue, "primary") !important; }
+    background-color: #6789ab;
+    > .v-icon { color: white !important; }
   }
 
   &.icon-circle-message {
-    border: 1px solid map.get($orange, "base");
-    background-color: rgba(245, 124, 0, 0.2);
-    color: map.get($orange, "base");
-    > .v-icon { color: map.get($orange, "base") !important; }
+    background-color: #df9d7a;
+    > .v-icon { color: white !important; }
   }
 
   &.icon-circle-control {
@@ -706,10 +715,17 @@ onBeforeUnmount(() => {
   font-weight: 600;
 }
 
-// the treatments column's incomplete-indicator is now a small dot rather
-// than a large circled-alert glyph - mdi-circle renders large by default
-.treatment-ratio-dot {
+// small relative to the "X of Y" text next to it (confirmed against a direct
+// reference screenshot), colored to match the "Needs attention" pill's own error icon
+// rather than the muted red _global.scss applies to .label-treatment-incomplete text
+// generally - that rule (.v-data-table-alt.data-table-assignments
+// .label-treatment-incomplete) has two chained classes, so a single
+// .treatment-ratio-dot class only ties its specificity and loses on source order -
+// qualifying with the same ancestor classes used elsewhere in this file is what
+// reliably beats it.
+.v-data-table-alt.data-table-assignments .treatment-ratio-dot {
   font-size: 6px !important;
+  color: rgb(var(--v-theme-error)) !important;
 }
 
 .treatments-section-label {
@@ -744,6 +760,16 @@ onBeforeUnmount(() => {
 .v-data-table-alt.data-table-assignments .treatments-table-container .treatments-section-label {
   background-color: white !important;
   border-bottom: 1px solid rgba(0, 0, 0, 0.2);
+}
+
+// deliberately its own class, not .status-pill, even though it wants the exact same
+// shape/text-transform - measureColumnOffsets() (see the script section above) selects
+// the real Status column's pill via `.status-pill:not(.treatment-add-status-pill)`,
+// and this chip sits earlier in the row (inside the NAME column), so sharing that
+// class made querySelector grab this one instead of the real status pill, throwing
+// the "Needs attention" pill/actions-menu positioning off by hundreds of pixels.
+.only-one-version-chip {
+  text-transform: none;
 }
 
 .status-pill {
@@ -968,8 +994,15 @@ onBeforeUnmount(() => {
       // Mobile's own rounded-card top corner comes from the existing
       // .v-data-table__tr--mobile.assignment-row rule further below, which already
       // covers every mobile component row including the first.
+      // padding-bottom mirrors padding-top here (not just breathing room against the
+      // border above) - td's vertical-align: middle centers content within the cell's
+      // own padding box, so a one-sided padding-top with no matching padding-bottom
+      // grows the row asymmetrically and visibly shifts the icon-circle/title down
+      // off-center from the row's actual middle. Matching it on both sides keeps the
+      // extra breathing room without throwing off centering.
       &:first-child:not(.v-data-table__tr--mobile) > td {
         padding-top: 8px !important;
+        padding-bottom: 8px !important;
         border-top: 2px solid rgba(0, 0, 0, 0.4);
       }
 
@@ -1023,7 +1056,11 @@ onBeforeUnmount(() => {
       // nested wrapper's own border-radius, see .treatment-row--mobile above and
       // .expanded-row--mobile below) is a different mechanism entirely and doesn't
       // need this border at all.
+      // padding-top mirrors padding-bottom for the same reason as the :first-child
+      // rule above - keeps this row's content vertically centered instead of pushed
+      // up by a one-sided padding-bottom.
       &:last-child:not(.v-data-table__tr--mobile) > td {
+        padding-top: 8px !important;
         padding-bottom: 8px !important;
         border-bottom: 2px solid rgba(0, 0, 0, 0.4);
       }

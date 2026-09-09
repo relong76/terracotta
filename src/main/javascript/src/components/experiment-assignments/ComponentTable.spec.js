@@ -115,14 +115,14 @@ describe("ComponentTable", () => {
       assignmentRow({ treatments: [completeTreatment(10)] })
     ]);
 
-    expect(wrapper.find(".v-chip--only-one").exists()).toBe(true);
+    expect(wrapper.find(".only-one-version-chip").exists()).toBe(true);
     expect(wrapper.text()).toContain("Only One Version");
   });
 
   it("does not show the 'Only One Version' chip when there is more than one treatment", () => {
     mountTable([assignmentRow()]);
 
-    expect(wrapper.find(".v-chip--only-one").exists()).toBe(false);
+    expect(wrapper.find(".only-one-version-chip").exists()).toBe(false);
   });
 
   it("shows the treatments count as complete/complete when all treatments are filled in", () => {
