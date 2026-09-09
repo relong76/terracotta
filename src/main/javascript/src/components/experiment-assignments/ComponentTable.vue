@@ -540,19 +540,22 @@ onMounted(initSortable);
 
 .treatments-section-label {
   padding: 10px 16px 4px;
-  font-size: 12px;
-  font-weight: 600;
-  letter-spacing: 0.04em;
+  font-size: 15px;
+  font-weight: 400;
 }
 
 // Home.vue has an unscoped, app-wide `.v-data-table *:not(.v-icon) { color: black
 // !important; }` rule (see _global.scss's comment on the equivalent
-// .label-treatment-incomplete override for the full explanation). A single class here
-// (even with Vue's scoped-style data-v attribute added) only ties that rule's
-// specificity and loses on source order - qualifying with the ancestor
-// .treatments-table-container class too is what reliably beats it.
+// .label-treatment-incomplete override for the full explanation). It happens to
+// already produce close to the right color here (pure black vs. the mockup's
+// pixel-sampled rgba(0,0,0,0.87)) - set explicitly anyway, matching this app's own
+// existing high-emphasis-text convention (see .v-card-text in _global.scss), rather
+// than relying on an unrelated global rule by coincidence. A single class here (even
+// with Vue's scoped-style data-v attribute added) only ties that rule's specificity
+// and loses on source order - qualifying with the ancestor .treatments-table-container
+// class too is what reliably beats it.
 .treatments-table-container .treatments-section-label {
-  color: map.get($grey, "darker") !important;
+  color: rgba(0, 0, 0, 0.87) !important;
 }
 
 .status-pill {
