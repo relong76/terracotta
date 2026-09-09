@@ -558,6 +558,20 @@ onMounted(initSortable);
   color: rgba(0, 0, 0, 0.87) !important;
 }
 
+// ExperimentAssignments.vue has its own unscoped rule (search that file for
+// "tr.v-data-table__tr--expanded") painting the WHOLE treatments-table-container <td>
+// grey, to match the nested treatments table's own background - this label sits in
+// that same <td> as a sibling of the nested table, so it inherits that grey too. The
+// mockup wants it on plain white instead, with its own divider separating it from the
+// (still grey) treatments below. That competing rule's selector is unusually long
+// (4 class-level segments), so beating it needs real qualification, not just one
+// ancestor class - .v-data-table-alt and .data-table-assignments are this table's own
+// two identifying classes (see the root <v-data-table> class list above).
+.v-data-table-alt.data-table-assignments .treatments-table-container .treatments-section-label {
+  background-color: white !important;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.2);
+}
+
 .status-pill {
   text-transform: none;
 
@@ -666,6 +680,33 @@ onMounted(initSortable);
   content: none;
 }
 
+// _tables.scss's shared `.v-data-table-alt` rule independently draws its OWN left/right
+// borders and rounded corners on every `.v-data-table-alt` table (this one included, since
+// it carries that class alongside data-table-assignments) - that's the rounded-card look
+// other .v-data-table-alt tables want, but this table's own rules above/below already
+// establish a different, plain full-bleed desktop list per the mockup, so the shared
+// version needs disabling here specifically, not just left to coexist. Not scoped to
+// desktop only: this table's own dedicated mobile rules (the .v-data-table__tr--mobile
+// selectors above/below, plus .treatment-row--mobile's nested-wrapper radius) already
+// fully cover mobile's card look independently, so disabling the shared version doesn't
+// lose anything there - it's redundant with those, not required by them.
+:deep(.data-table-assignments > .v-table__wrapper > table > tbody > tr) {
+  &:not(.v-data-table__tr--mobile) {
+    > td:first-child,
+    > td:last-child {
+      border-left: none !important;
+      border-right: none !important;
+    }
+
+    &:first-child > td:first-child,
+    &:first-child > td:last-child,
+    &:last-child > td:first-child,
+    &:last-child > td:last-child {
+      border-radius: 0 !important;
+    }
+  }
+}
+
 :deep(.data-table-assignments > .v-table__wrapper > table) {
   > thead > tr > th {
     border-bottom: none !important;
@@ -683,53 +724,36 @@ onMounted(initSortable);
     padding-right: 0;
   }
 
-  // real per-cell borders (not outline+border-radius on the tbody itself) so the
-  // rounded card border renders reliably across browsers - table-row-group boxes
-  // don't consistently honor border-radius on an outline
+  // real per-cell borders (table-row-group boxes don't consistently honor
+  // border-radius/outline across browsers). Desktop is a plain full-bleed list per
+  // the mockup - no left/right border, no rounded corners - only horizontal dividers
+  // (see the bold group-boundary rule further down). Mobile still uses a genuine
+  // rounded-card look, since each component's stacked fields need their own visual
+  // boundary there; that's unrelated to and unaffected by the desktop styling here.
   > tbody {
     > tr {
       &:hover {
         background: unset !important;
       }
 
-      > td:first-child {
-        border-left: 1px solid rgba(0, 0, 0, 0.2);
-      }
-
-      > td:last-child {
-        border-right: 1px solid rgba(0, 0, 0, 0.2);
-      }
-
       // in mobile view every field is its own full-width stacked block, not
-      // a column sharing the row's left/right edge with its siblings - the
-      // two rules above only reach the row's structurally-first/last td
-      // (Component Name at the top, the expand chevron at the bottom),
-      // leaving Treatments/Due Date/Status/Actions in between with no side
-      // border at all. Every mobile td needs its own left/right border for
-      // the card's sides to read as one continuous line down the stack.
+      // a column sharing the row's left/right edge with its siblings, so (unlike
+      // desktop) every mobile td needs its own explicit left/right border for the
+      // card's sides to read as one continuous line down the stack.
       &.v-data-table__tr--mobile > td {
         border-left: 1px solid rgba(0, 0, 0, 0.2);
         border-right: 1px solid rgba(0, 0, 0, 0.2);
       }
 
-      &:first-child > td {
+      // desktop: bold top edge under the header, matching the same weight as the
+      // group-to-group divider further down (mockup pixel-sampled, see that rule's
+      // comment) - no corner radius, this is a plain full-bleed list, not a card.
+      // Mobile's own rounded-card top corner comes from the existing
+      // .v-data-table__tr--mobile.assignment-row rule further below, which already
+      // covers every mobile component row including the first.
+      &:first-child:not(.v-data-table__tr--mobile) > td {
         padding-top: 8px !important;
-        border-top: 1px solid rgba(0, 0, 0, 0.2);
-
-        &:first-child {
-          border-top-left-radius: 10px;
-        }
-      }
-
-      // desktop only: rounds the top-right corner of the table's very first
-      // row. In mobile view that same row is "Component Name" - already
-      // rounded (both corners, since it's the only visually full-width
-      // element at the top of the stack) by the per-component rule below.
-      // Applying this there instead rounded the expand chevron's own small
-      // box, since that's the row's structurally-last td in mobile - a
-      // stray rounded corner with nothing else around it to make sense of.
-      &:first-child:not(.v-data-table__tr--mobile) > td:last-child {
-        border-top-right-radius: 10px;
+        border-top: 2px solid rgba(0, 0, 0, 0.4);
       }
 
       // in mobile view, one component's row-of-fields (Component Name,
@@ -776,17 +800,15 @@ onMounted(initSortable);
         border-bottom: 2px solid rgba(0, 0, 0, 0.4);
       }
 
-      &:last-child > td {
+      // desktop: bold bottom edge closing out the list, same weight as the top edge
+      // and the group dividers - no corner radius, matching the plain full-bleed
+      // list the mockup wants. Mobile's own card spacing/rounding (padding + the
+      // nested wrapper's own border-radius, see .treatment-row--mobile above and
+      // .expanded-row--mobile below) is a different mechanism entirely and doesn't
+      // need this border at all.
+      &:last-child:not(.v-data-table__tr--mobile) > td {
         padding-bottom: 8px !important;
-        border-bottom: 1px solid rgba(0, 0, 0, 0.2);
-
-        &:first-child {
-          border-bottom-left-radius: 10px;
-        }
-
-        &:last-child {
-          border-bottom-right-radius: 10px;
-        }
+        border-bottom: 2px solid rgba(0, 0, 0, 0.4);
       }
 
       // mobile only: space every component's card apart (not just relying
