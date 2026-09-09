@@ -15,7 +15,8 @@ const exposure = {
   exposureId: 1,
   groupConditionList: [
     { conditionId: 1, conditionName: "Condition A" },
-    { conditionId: 2, conditionName: "Condition B" }
+    { conditionId: 2, conditionName: "Condition B" },
+    { conditionId: 3, conditionName: "Condition C" }
   ]
 };
 
@@ -53,7 +54,7 @@ const assignmentRow = overrides => ({
   assignmentOrder: 1,
   published: true,
   dueDate: "2024-05-01T12:00:00Z",
-  treatments: [completeTreatment(10, 1), completeTreatment(11, 2)],
+  treatments: [completeTreatment(10, 1), completeTreatment(11, 2), completeTreatment(12, 3)],
   ...overrides
 });
 
@@ -69,7 +70,8 @@ const messageRow = overrides => ({
   configuration: { status: messageStatus.ready },
   treatments: [
     { treatmentId: 20, conditionId: 1, configuration: { status: messageStatus.ready } },
-    { treatmentId: 21, conditionId: 2, configuration: { status: messageStatus.ready } }
+    { treatmentId: 21, conditionId: 2, configuration: { status: messageStatus.ready } },
+    { treatmentId: 22, conditionId: 3, configuration: { status: messageStatus.ready } }
   ],
   ...overrides
 });
@@ -118,21 +120,21 @@ describe("ComponentTable", () => {
     mountTable([assignmentRow()]);
 
     expect(wrapper.find(".label-treatment-complete").exists()).toBe(true);
-    expect(wrapper.text()).toContain("2 of 2");
+    expect(wrapper.text()).toContain("3 of 3");
   });
 
-  it("shows the real treatments ratio (not a no-op) when a row has fewer treatments than conditions", () => {
+  it("shows the real treatments ratio (not a no-op) when a genuinely multi-version row has fewer treatments than conditions", () => {
     mountTable([
-      assignmentRow({ treatments: [completeTreatment(10, 1)] })
+      assignmentRow({ treatments: [completeTreatment(10, 1), completeTreatment(11, 2)] })
     ]);
 
-    expect(wrapper.text()).toContain("1 of 2");
+    expect(wrapper.text()).toContain("2 of 3");
     expect(wrapper.find(".label-treatment-incomplete").exists()).toBe(true);
   });
 
   it("marks the treatments column incomplete and shows a small-dot tooltip when a treatment is missing content", () => {
     mountTable([
-      assignmentRow({ treatments: [completeTreatment(10, 1), incompleteTreatment(11, 2)] })
+      assignmentRow({ treatments: [completeTreatment(10, 1), completeTreatment(11, 2), incompleteTreatment(12, 3)] })
     ]);
 
     expect(wrapper.find(".label-treatment-incomplete").exists()).toBe(true);
@@ -144,7 +146,7 @@ describe("ComponentTable", () => {
 
   it("renders the 'TREATMENTS - X of Y added' section label for a multi-condition row", () => {
     mountTable([assignmentRow()]);
-    expect(wrapper.text()).toContain("TREATMENTS - 2 of 2 added");
+    expect(wrapper.text()).toContain("TREATMENTS - 3 of 3 added");
   });
 
   it("suppresses the 'TREATMENTS - X of Y added' section label for a single-condition experiment", () => {
@@ -154,7 +156,7 @@ describe("ComponentTable", () => {
 
   it("renders an add-treatment placeholder for each condition missing a treatment, and clicking it emits add-treatment", async () => {
     mountTable([
-      assignmentRow({ treatments: [completeTreatment(10, 1)] })
+      assignmentRow({ treatments: [completeTreatment(10, 1), completeTreatment(11, 2)] })
     ]);
 
     const addBox = wrapper.find(".treatment-add-box");
@@ -166,13 +168,39 @@ describe("ComponentTable", () => {
 
     expect(wrapper.emitted("add-treatment")).toBeTruthy();
     expect(wrapper.emitted("add-treatment")[0][0]).toMatchObject({
-      condition: { conditionId: 2, conditionName: "Condition B" }
+      condition: { conditionId: 3, conditionName: "Condition C" }
     });
   });
 
   it("renders no add-treatment placeholder when every condition already has a treatment", () => {
     mountTable([assignmentRow()]);
 
+    expect(wrapper.find(".treatment-add-box").exists()).toBe(false);
+  });
+
+  // there's no persisted signal distinguishing "deliberately single-version" from
+  // "multi-version but still incomplete" (both are just treatments.length === 1) -
+  // matching the pre-remodel app's behavior, a row showing "Only One Version" is
+  // always treated as complete against its own treatment count, not total conditions
+  it("treats an 'Only One Version' row as complete against its own count, not total conditions - no placeholder, no incomplete dot", () => {
+    mountTable([
+      assignmentRow({ treatments: [completeTreatment(10, 1)] })
+    ]);
+
+    expect(wrapper.text()).toContain("Only One Version");
+    expect(wrapper.text()).toContain("1 of 1");
+    expect(wrapper.find(".treatment-add-box").exists()).toBe(false);
+    expect(wrapper.find(".label-treatment-incomplete").exists()).toBe(false);
+  });
+
+  it("still marks an 'Only One Version' row incomplete when its own single treatment has no content", () => {
+    mountTable([
+      assignmentRow({ treatments: [incompleteTreatment(10, 1)] })
+    ]);
+
+    expect(wrapper.text()).toContain("Only One Version");
+    expect(wrapper.text()).toContain("1 of 1");
+    expect(wrapper.find(".label-treatment-incomplete").exists()).toBe(true);
     expect(wrapper.find(".treatment-add-box").exists()).toBe(false);
   });
 
@@ -264,7 +292,7 @@ describe("ComponentTable", () => {
   it("re-initializes expandedRows when the rows prop changes", async () => {
     mountTable([assignmentRow()]);
 
-    expect(wrapper.findAllComponents({ name: "TreatmentRow" }).length).toBe(2);
+    expect(wrapper.findAllComponents({ name: "TreatmentRow" }).length).toBe(3);
 
     await wrapper.setProps({ rows: [assignmentRow(), messageRow()] });
 

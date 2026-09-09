@@ -54,7 +54,7 @@
               v-if="!singleConditionExperiment"
               class="treatments-section-label"
             >
-              TREATMENTS - {{ row.treatments.length }} of {{ conditions.length }} added
+              TREATMENTS - {{ row.treatments.length }} of {{ treatmentsTotalForRow(row) }} added
             </div>
 
             <v-data-table
@@ -117,7 +117,7 @@
 
       <template #item.treatments="{ item: row }">
         <span :class="rowTreatmentsColumnClass(row)">
-          {{ row.treatments.length }} of {{ conditions.length }}
+          {{ row.treatments.length }} of {{ treatmentsTotalForRow(row) }}
 
           <ToolTip
             v-if="hasIncompleteTreatments(row)"
@@ -268,6 +268,15 @@ const treatmentIcon = {
   message: "mdi-message-text-outline"
 };
 
+// there's no persisted signal for "this assignment was deliberately created as
+// single-version" (backend AssignmentService.isSingleVersion() computes the exact same
+// thing from treatments.size() <= 1, without ever storing intent) - reuses the same
+// condition the "Only One Version" chip already uses (row.treatments.length === 1)
+// above, so both stay consistent with each other and with the pre-remodel behavior,
+// where the Treatments column always showed a self-referential N/N (never compared
+// against total conditions), making a single-version row trivially "complete".
+const isSingleVersionRow = row => row.treatments.length === 1;
+
 watch(
   () => props.rows,
   rows => {
@@ -361,11 +370,24 @@ const placeholderIconCircleClass = row => {
 };
 
 // conditions with no matching treatment yet (by conditionId) - rendered as
-// "click to add treatment" placeholder rows alongside the real treatments
+// "click to add treatment" placeholder rows alongside the real treatments. Skipped
+// entirely for a single-version row - it was never meant to cover every condition,
+// so the other conditions aren't "missing" from it.
 const missingConditionsForRow = row => {
+  if (isSingleVersionRow(row)) {
+    return [];
+  }
+
   return props.conditions.filter(condition =>
     !row.treatments.some(treatment => treatment.conditionId === condition.conditionId)
   );
+};
+
+// the Treatments column's denominator, and the "TREATMENTS - X of Y added" label's Y -
+// a single-version row is always shown against its own treatment count (so "1 of 1"),
+// not the experiment's total conditions
+const treatmentsTotalForRow = row => {
+  return isSingleVersionRow(row) ? row.treatments.length : props.conditions.length;
 };
 
 const treatmentTableItems = row => {
@@ -386,7 +408,7 @@ const dueDate = row => {
 
 const hasIncompleteTreatments = row => {
   if (row.type === rowType.assignment) {
-    if (row.treatments.length < props.conditions.length) {
+    if (!isSingleVersionRow(row) && row.treatments.length < props.conditions.length) {
       return true;
     }
 
