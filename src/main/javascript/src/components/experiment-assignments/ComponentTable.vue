@@ -32,15 +32,24 @@
           </div>
           <span class="row-title">{{ row.title }}</span>
 
-          <v-chip
+          <v-tooltip
             v-if="row.treatments.length === 1"
-            color="#d3d3d3"
-            variant="tonal"
-            density="compact"
-            class="only-one-version-chip ml-2"
+            location="top"
+            content-class="tool-tip-content"
           >
-            Only One Version
-          </v-chip>
+            <template #activator="{ props: tooltipProps }">
+              <v-chip
+                v-bind="tooltipProps"
+                color="#d3d3d3"
+                variant="tonal"
+                density="compact"
+                class="only-one-version-chip ml-2"
+              >
+                Only One Version
+              </v-chip>
+            </template>
+            This component has the same content for all students.
+          </v-tooltip>
         </div>
       </template>
 
@@ -93,16 +102,25 @@
                     </a>
                   </div>
 
-                  <v-chip
-                    variant="tonal"
-                    color="error"
-                    density="compact"
-                    class="status-pill treatment-add-status-pill"
-                    :style="columnOffsetStyle(columnOffsets.status)"
+                  <v-tooltip
+                    location="top"
+                    content-class="tool-tip-content"
                   >
-                    <v-icon start>mdi-alert-circle</v-icon>
-                    Needs attention
-                  </v-chip>
+                    <template #activator="{ props: tooltipProps }">
+                      <v-chip
+                        v-bind="tooltipProps"
+                        variant="tonal"
+                        color="error"
+                        density="compact"
+                        class="status-pill treatment-add-status-pill"
+                        :style="columnOffsetStyle(columnOffsets.status)"
+                      >
+                        <v-icon start>mdi-alert-circle</v-icon>
+                        Needs attention
+                      </v-chip>
+                    </template>
+                    There are versions of this component that have not yet been created. Be sure to create all versions before publishing.
+                  </v-tooltip>
 
                   <v-menu location="start">
                     <template #activator="{ props: menuProps }">
@@ -113,6 +131,7 @@
                         class="treatment-add-actions-btn"
                         icon="mdi-dots-vertical"
                         variant="text"
+                        density="compact"
                       />
                     </template>
 
@@ -173,7 +192,26 @@
       </template>
 
       <template #item.published="{ item: row }">
+        <v-tooltip
+          v-if="statusTooltipText(row)"
+          location="top"
+          content-class="tool-tip-content"
+        >
+          <template #activator="{ props: tooltipProps }">
+            <v-chip
+              v-bind="tooltipProps"
+              variant="tonal"
+              :color="statusPillColor(row)"
+              density="compact"
+              class="status-pill"
+            >
+              {{ rowPublishedColumnText(row) }}
+            </v-chip>
+          </template>
+          {{ statusTooltipText(row) }}
+        </v-tooltip>
         <v-chip
+          v-else
           variant="tonal"
           :color="statusPillColor(row)"
           density="compact"
@@ -184,7 +222,19 @@
       </template>
 
       <template #item.dueDate="{ item: row }">
-        {{ dueDate(row) }}
+        <v-tooltip
+          v-if="row.dueDate"
+          location="top"
+          content-class="tool-tip-content"
+        >
+          <template #activator="{ props: tooltipProps }">
+            <span v-bind="tooltipProps">{{ dueDate(row) }}</span>
+          </template>
+          A due date has been set for this component in the LMS.
+        </v-tooltip>
+        <template v-else>
+          {{ dueDate(row) }}
+        </template>
       </template>
 
       <template #item.actions="{ item: row }">
@@ -657,6 +707,21 @@ const rowPublishedColumnText = row => {
   }
 
   return "Unpublished";
+};
+
+// only Published/Unpublished have copy in the design - Sent/Error (message-only
+// states) aren't covered there, so those pills fall back to no tooltip rather than
+// guessing unreviewed wording for them.
+const statusTooltipText = row => {
+  if (row.published) {
+    return "This component has been published in the LMS.";
+  }
+
+  if (!row.sent && !row.error) {
+    return "This component has not yet been published in the LMS, and cannot be accessed by students.";
+  }
+
+  return "";
 };
 
 onMounted(() => {

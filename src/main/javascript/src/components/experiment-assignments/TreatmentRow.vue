@@ -34,6 +34,7 @@
             class="treatment-actions-btn"
             icon="mdi-dots-vertical"
             variant="text"
+            density="compact"
           />
         </template>
 

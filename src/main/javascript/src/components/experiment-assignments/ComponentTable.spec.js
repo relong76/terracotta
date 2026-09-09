@@ -402,6 +402,37 @@ describe("ComponentTable", () => {
     expect(wrapper.text()).toContain("Error");
   });
 
+  // VTooltip's content is teleported to document.body (like v-menu's, see this
+  // file's own convention above) rather than staying under wrapper's own root, so
+  // wrapper.text() alone won't see it - it's rendered there statically regardless of
+  // open state, so no hover interaction is needed to assert it's wired up correctly.
+  it("wires up hover-help tooltips explaining the Only One Version chip, due date, and Published/Unpublished/Needs attention pills", () => {
+    mountTable([
+      assignmentRow({ published: true, dueDate: "2024-05-01T12:00:00Z", treatments: [completeTreatment(10)] }),
+      assignmentRow({ assignmentId: 2, published: false, treatments: [] })
+    ]);
+
+    const text = document.body.textContent;
+
+    expect(text).toContain("This component has the same content for all students.");
+    expect(text).toContain("A due date has been set for this component in the LMS.");
+    expect(text).toContain("This component has been published in the LMS.");
+    expect(text).toContain("This component has not yet been published in the LMS, and cannot be accessed by students.");
+    expect(text).toContain("There are versions of this component that have not yet been created. Be sure to create all versions before publishing.");
+  });
+
+  it("skips the status tooltip for Sent/Error message rows, which have no reviewed copy", () => {
+    mountTable([
+      messageRow({ sent: true, published: false }),
+      messageRow({ assignmentId: 3, error: true })
+    ]);
+
+    const text = document.body.textContent;
+
+    expect(text).not.toContain("This component has been published in the LMS.");
+    expect(text).not.toContain("This component has not yet been published in the LMS, and cannot be accessed by students.");
+  });
+
   it("renders an actions menu button per row", () => {
     mountTable([assignmentRow(), messageRow()]);
 
