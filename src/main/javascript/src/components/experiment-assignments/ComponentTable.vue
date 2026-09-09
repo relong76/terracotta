@@ -88,12 +88,12 @@
                   </div>
 
                   <v-chip
-                    label
-                    variant="outlined"
+                    variant="tonal"
                     color="error"
                     density="compact"
                     class="status-pill"
                   >
+                    <v-icon start>mdi-alert-circle</v-icon>
                     Needs attention
                   </v-chip>
                 </div>
@@ -140,8 +140,7 @@
 
       <template #item.published="{ item: row }">
         <v-chip
-          label
-          variant="outlined"
+          variant="tonal"
           :color="statusPillColor(row)"
           density="compact"
           class="status-pill"
@@ -540,48 +539,37 @@ onMounted(initSortable);
   // same Home.vue override as .treatments-section-label above, but per Vuetify's
   // "text-<color>" utility class so each status keeps its own theme color instead of
   // every pill flattening to black. Home.vue's rule (`*:not(.v-icon)`) matches the
-  // chip's own inner .v-chip__content span directly, not just this outer element - a
-  // color set only here would be inherited, and a direct match always beats an
-  // inherited value regardless of specificity, so .v-chip__content needs its own
-  // explicit override too. That span is rendered by Vuetify's own VChip component,
-  // not by this file's template, so Vue's scoped-style data-v attribute never
-  // reaches it and a plain nested selector silently never matches - :deep() is
-  // required to actually target it (matching this file's existing :deep(...) use
-  // for the same child-component-internals reason elsewhere).
+  // chip's own inner .v-chip__content span (the visible text) AND its .v-chip__underlay
+  // span (the tonal variant's tinted background, painted via `background: currentColor`)
+  // directly, not just this outer element - a color set only here would be inherited,
+  // and a direct match always beats an inherited value regardless of specificity, so
+  // both need their own explicit override too. Neither span is rendered by this file's
+  // template (they're VChip's own internals), so Vue's scoped-style data-v attribute
+  // never reaches them and a plain nested selector silently never matches - :deep() is
+  // required to actually target them (matching this file's existing :deep(...) use for
+  // the same child-component-internals reason elsewhere).
   &.text-success,
-  &.text-success :deep(.v-chip__content) {
+  &.text-success :deep(.v-chip__content),
+  &.text-success :deep(.v-chip__underlay) {
     color: rgb(var(--v-theme-success)) !important;
   }
 
   &.text-warning,
-  &.text-warning :deep(.v-chip__content) {
+  &.text-warning :deep(.v-chip__content),
+  &.text-warning :deep(.v-chip__underlay) {
     color: rgb(var(--v-theme-warning)) !important;
   }
 
   &.text-error,
-  &.text-error :deep(.v-chip__content) {
+  &.text-error :deep(.v-chip__content),
+  &.text-error :deep(.v-chip__underlay) {
     color: rgb(var(--v-theme-error)) !important;
   }
 
   &.text-info,
-  &.text-info :deep(.v-chip__content) {
+  &.text-info :deep(.v-chip__content),
+  &.text-info :deep(.v-chip__underlay) {
     color: rgb(var(--v-theme-info)) !important;
-  }
-
-  &.text-success {
-    border-color: rgb(var(--v-theme-success)) !important;
-  }
-
-  &.text-warning {
-    border-color: rgb(var(--v-theme-warning)) !important;
-  }
-
-  &.text-error {
-    border-color: rgb(var(--v-theme-error)) !important;
-  }
-
-  &.text-info {
-    border-color: rgb(var(--v-theme-info)) !important;
   }
 }
 
