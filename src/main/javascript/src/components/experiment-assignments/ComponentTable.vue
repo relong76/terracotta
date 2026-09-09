@@ -71,7 +71,7 @@
                   v-if="item.isPlaceholder"
                   class="treatment-row-content treatment-add-row d-flex align-center"
                 >
-                  <div class="treatment-info-group ml-8 d-flex align-center">
+                  <div class="treatment-info-group d-flex align-center">
                     <div class="icon-circle" :class="placeholderIconCircleClass(row, item.treatment)">
                       <v-icon>{{ placeholderIcon(row, item.treatment) }}</v-icon>
                     </div>
@@ -139,6 +139,7 @@
                   :row="row"
                   :treatment="item"
                   :exposure="exposure"
+                  :actions-offset="columnOffsets.actions"
                   @edit-treatment="$emit('edit-treatment', $event)"
                   @preview-treatment="$emit('preview-treatment', $event)"
                 />
@@ -332,6 +333,28 @@ const measureColumnOffsets = () => {
     status: (statusPill.getBoundingClientRect().left - rowLeft) / scaleX,
     actions: (actionsBtn.getBoundingClientRect().left - rowLeft) / scaleX
   };
+
+  // lines every nested treatment/placeholder row's icon-circle up under the real
+  // row-title icon-circle above it. A fixed margin can't do this: the row-title
+  // icon's distance from the left edge depends on the outer table's own drag/expand
+  // column widths, which (confirmed against a real running page, not just this
+  // component in isolation) don't match a simple fixed offset - they shift with
+  // real column content in a way a plain "ml-8" utility class can't track. Same
+  // scale-corrected screen-space diffing as status/actions above, applied to the
+  // .treatment-info-group's CURRENT margin (rather than to a from-scratch left
+  // value) so it works the same way regardless of which row's group happens to be
+  // measured first.
+  const outerIcon = table.querySelector("tbody > tr.assignment-row .icon-circle");
+  const treatmentGroup = tableRoot.value.querySelector(".treatment-info-group");
+
+  if (outerIcon && treatmentGroup) {
+    const currentMarginLeft = parseFloat(getComputedStyle(treatmentGroup).marginLeft) || 0;
+    const groupLeft = treatmentGroup.getBoundingClientRect().left;
+    const targetLeft = outerIcon.getBoundingClientRect().left;
+    const neededMarginLeft = currentMarginLeft + (targetLeft - groupLeft) / scaleX;
+
+    tableRoot.value.style.setProperty("--treatment-indent", `${neededMarginLeft}px`);
+  }
 };
 
 const columnOffsetStyle = offset => {
@@ -715,15 +738,33 @@ onBeforeUnmount(() => {
   font-weight: 600;
 }
 
+// see measureColumnOffsets()'s comment (in the script section above) and
+// TreatmentRow.vue's matching rule - this shared custom property lines this
+// placeholder's icon-circle up under the real row-title icon-circle, measured live
+// since a fixed margin can't track the outer table's actual column widths.
+.treatment-info-group {
+  margin-left: var(--treatment-indent, 32px);
+}
+
 // small relative to the "X of Y" text next to it (confirmed against a direct
 // reference screenshot), colored to match the "Needs attention" pill's own error icon
 // rather than the muted red _global.scss applies to .label-treatment-incomplete text
-// generally - that rule (.v-data-table-alt.data-table-assignments
-// .label-treatment-incomplete) has two chained classes, so a single
-// .treatment-ratio-dot class only ties its specificity and loses on source order -
-// qualifying with the same ancestor classes used elsewhere in this file is what
-// reliably beats it.
-.v-data-table-alt.data-table-assignments .treatment-ratio-dot {
+// generally. Two things this rule has to beat, both requiring more than the obvious
+// selector:
+// 1. This dot's <v-icon> is rendered deep inside ToolTip.vue's own activator slot (not
+//    written in this file's own template), so it carries ToolTip.vue's scope
+//    attribute, not this file's - a plain scoped selector's last segment silently never
+//    matches it at all (confirmed via devtools: the compiled rule required this file's
+//    own data-v attribute on .treatment-ratio-dot itself, which the real element
+//    doesn't have). :deep() is required to drop that requirement, matching this file's
+//    existing :deep() use for the same "child-component-internals" reason elsewhere.
+// 2. Even once it matches, _global.scss's .label-treatment-incomplete color rule
+//    (.v-data-table-alt.data-table-assignments .label-treatment-incomplete) sits at
+//    the exact same specificity (two ancestor classes + one class) - a tie decided by
+//    source order, which this dot lost in practice. Chaining .label-treatment-incomplete
+//    onto this selector too (the element carries both classes at once) adds a 4th
+//    class, so this rule wins outright instead of depending on load order.
+.v-data-table-alt.data-table-assignments :deep(.treatment-ratio-dot.label-treatment-incomplete) {
   font-size: 6px !important;
   color: rgb(var(--v-theme-error)) !important;
 }

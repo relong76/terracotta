@@ -1,9 +1,9 @@
 <template>
   <div
-    class="treatment-row-content d-flex align-center justify-space-between"
+    class="treatment-row-content d-flex align-center"
   >
     <div
-      class="treatment-info-group ml-8 d-flex align-center"
+      class="treatment-info-group d-flex align-center"
     >
       <div class="icon-circle" :class="rowTreatmentsIconCircleClass">
         <v-icon class="component-icon">
@@ -30,6 +30,8 @@
           <v-btn
             v-bind="menuProps"
             :aria-label="`treatment actions for ${row.title}`"
+            :style="actionsOffset == null ? {} : { left: `${actionsOffset}px` }"
+            class="treatment-actions-btn"
             icon="mdi-dots-vertical"
             variant="text"
           />
@@ -91,6 +93,15 @@ const props = defineProps({
   exposure: {
     type: Object,
     required: true
+  },
+  // measured live by ComponentTable.vue's measureColumnOffsets() - see that file's
+  // comment for why: this row's actions button needs to line up with the outer
+  // table's real Actions column, which a plain right-aligned flex layout can't track
+  // (that column isn't flush with this nested table's own right edge, and its exact
+  // position shifts with viewport/content). null before the first measurement runs.
+  actionsOffset: {
+    type: Number,
+    default: null
   }
 });
 
@@ -282,5 +293,36 @@ const integrationsPreviewLaunchUrl = (url = "http://localhost") => {
 
 .treatment-condition-name {
   font-weight: 600;
+}
+
+// --treatment-indent is set on the shared ancestor by ComponentTable.vue's
+// measureColumnOffsets() - see that file's comment for why this needs to be measured
+// in JS rather than a fixed margin: the goal is to line this row's icon-circle up
+// directly under the top-level assignment/message row's own icon-circle, and how far
+// that sits from this nested table's own left edge depends on the outer table's real
+// column widths, which shift with viewport/content in ways a fixed margin can't track.
+// CSS custom properties inherit straight through Vue's scoped-style component
+// boundaries (this component and ComponentTable.vue's placeholder version - see that
+// file - both key off the exact same variable), so no prop-drilling is needed here.
+// The fallback (32px, this file's original hardcoded ml-8 value) only matters for a
+// brief instant before the first measurement runs.
+.treatment-info-group {
+  margin-left: var(--treatment-indent, 32px);
+}
+
+// positioning context for .treatment-actions-btn's absolute "left" below - mirrors
+// ComponentTable.vue's .treatment-add-row, which needs the same thing for the same
+// reason (see that file's comment on measureColumnOffsets).
+.treatment-row-content {
+  position: relative;
+}
+
+// lines this row's actions button up with the outer table's real Actions column via
+// the actionsOffset prop (see that prop's comment) instead of the plain right-aligned
+// flex position it used to have.
+.treatment-actions-btn {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
 }
 </style>
