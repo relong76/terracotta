@@ -436,8 +436,14 @@ const measureColumnOffsets = () => {
 // and piling every such element in the row on top of each other. Falling back to
 // position: static (an inline style, so it wins over the class's non-!important
 // position: absolute without a specificity fight) keeps it in normal flow instead.
+// The static fallback also gets the same left indent the row-title icon/condition
+// name use (--treatment-indent, see measureColumnOffsets' comment) so that when this
+// wraps onto its own line (narrow width, long condition name/link text), it lines up
+// under that content instead of sitting flush against the row's own left edge.
 const columnOffsetStyle = offset => {
-  return offset == null ? { position: "static" } : { left: `${offset}px` };
+  return offset == null
+    ? { position: "static", marginLeft: "var(--treatment-indent, 32px)" }
+    : { left: `${offset}px` };
 };
 
 const mobileBreakpoint = 636;
@@ -990,8 +996,11 @@ onBeforeUnmount(() => {
   // columnOffsetStyle's comment above) instead of being pulled out of it via
   // position: absolute - lets the status pill/actions button wrap onto their own line
   // instead of overflowing the viewport when the row's content is too wide to fit on
-  // one line at a narrow width.
+  // one line at a narrow width. row-gap (rather than a per-element margin-top) only
+  // adds space between wrapped lines - it's a no-op when everything fits on one line,
+  // so it doesn't disturb this row's normal desktop/single-line vertical centering.
   flex-wrap: wrap;
+  row-gap: 8px;
 }
 
 .treatment-add-status-pill,

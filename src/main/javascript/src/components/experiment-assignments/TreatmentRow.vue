@@ -30,7 +30,9 @@
           <v-btn
             v-bind="menuProps"
             :aria-label="`treatment actions for ${row.title}`"
-            :style="actionsOffset == null ? { position: 'static' } : { left: `${actionsOffset}px` }"
+            :style="actionsOffset == null
+              ? { position: 'static', marginLeft: 'var(--treatment-indent, 32px)' }
+              : { left: `${actionsOffset}px` }"
             class="treatment-actions-btn"
             icon="mdi-dots-vertical"
             variant="text"
