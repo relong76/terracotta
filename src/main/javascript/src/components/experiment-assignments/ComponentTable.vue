@@ -539,24 +539,48 @@ onMounted(initSortable);
 
   // same Home.vue override as .treatments-section-label above, but per Vuetify's
   // "text-<color>" utility class so each status keeps its own theme color instead of
-  // every pill flattening to black
-  &.text-success {
+  // every pill flattening to black. Home.vue's rule (`*:not(.v-icon)`) matches the
+  // chip's own inner .v-chip__content span directly, not just this outer element - a
+  // color set only here would be inherited, and a direct match always beats an
+  // inherited value regardless of specificity, so .v-chip__content needs its own
+  // explicit override too. That span is rendered by Vuetify's own VChip component,
+  // not by this file's template, so Vue's scoped-style data-v attribute never
+  // reaches it and a plain nested selector silently never matches - :deep() is
+  // required to actually target it (matching this file's existing :deep(...) use
+  // for the same child-component-internals reason elsewhere).
+  &.text-success,
+  &.text-success :deep(.v-chip__content) {
     color: rgb(var(--v-theme-success)) !important;
+  }
+
+  &.text-warning,
+  &.text-warning :deep(.v-chip__content) {
+    color: rgb(var(--v-theme-warning)) !important;
+  }
+
+  &.text-error,
+  &.text-error :deep(.v-chip__content) {
+    color: rgb(var(--v-theme-error)) !important;
+  }
+
+  &.text-info,
+  &.text-info :deep(.v-chip__content) {
+    color: rgb(var(--v-theme-info)) !important;
+  }
+
+  &.text-success {
     border-color: rgb(var(--v-theme-success)) !important;
   }
 
   &.text-warning {
-    color: rgb(var(--v-theme-warning)) !important;
     border-color: rgb(var(--v-theme-warning)) !important;
   }
 
   &.text-error {
-    color: rgb(var(--v-theme-error)) !important;
     border-color: rgb(var(--v-theme-error)) !important;
   }
 
   &.text-info {
-    color: rgb(var(--v-theme-info)) !important;
     border-color: rgb(var(--v-theme-info)) !important;
   }
 }
