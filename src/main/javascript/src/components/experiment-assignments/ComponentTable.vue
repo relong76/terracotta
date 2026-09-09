@@ -764,11 +764,13 @@ onMounted(initSortable);
       // of the white gap between cards; the gap and rounded corners already
       // tell them apart there.
       //
-      // 2px (vs. the nested treatments table's own default ~1px/0.12-opacity
-      // row borders) so the group-to-group boundary reads as more pronounced
-      // than the divider between treatment sub-rows within one group.
+      // 2px at 0.4 opacity (vs. the nested treatments table's own default ~1px/0.12-opacity
+      // row borders) so the group-to-group boundary reads as solidly grey and clearly more
+      // pronounced than the divider between treatment sub-rows within one group - pixel-
+      // sampled directly off the mockup (a solid rgb(155,155,155) on white, matching ~0.4
+      // black opacity), since 0.2 alone rendered too faint to read as a real divider.
       &.v-data-table__tr--expanded:not(.expanded-row--mobile) > td {
-        border-bottom: 2px solid rgba(0, 0, 0, 0.2);
+        border-bottom: 2px solid rgba(0, 0, 0, 0.4);
       }
 
       &:last-child > td {
