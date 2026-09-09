@@ -178,6 +178,39 @@ describe("ComponentTable", () => {
     expect(wrapper.find(".treatment-add-box").exists()).toBe(false);
   });
 
+  it("also emits add-treatment when the 'Click to add treatment' link itself is clicked, and shows an actions menu with Edit enabled and Preview disabled", async () => {
+    mountTable([
+      assignmentRow({ treatments: [completeTreatment(10, 1), completeTreatment(11, 2)] })
+    ]);
+
+    const link = wrapper.find(".treatment-add-link");
+    expect(link.exists()).toBe(true);
+
+    await link.trigger("click");
+
+    expect(wrapper.emitted("add-treatment")).toBeTruthy();
+
+    const menuActivator = wrapper.find('[aria-label="treatment actions for Condition C"]');
+    expect(menuActivator.exists()).toBe(true);
+
+    await menuActivator.trigger("click");
+
+    const editItem = Array.from(document.body.querySelectorAll(".v-list-item")).find(
+      el => el.textContent.includes("Edit")
+    );
+    const previewItem = Array.from(document.body.querySelectorAll(".v-list-item")).find(
+      el => el.textContent.includes("Preview")
+    );
+
+    expect(editItem.classList.contains("v-list-item--disabled")).toBe(false);
+    expect(previewItem.classList.contains("v-list-item--disabled")).toBe(true);
+
+    editItem.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    await wrapper.vm.$nextTick();
+
+    expect(wrapper.emitted("add-treatment")).toHaveLength(2);
+  });
+
   // there's no persisted signal distinguishing "deliberately single-version" from
   // "multi-version but still incomplete" (both are just treatments.length === 1) -
   // matching the pre-remodel app's behavior, a row showing "Only One Version" is

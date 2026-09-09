@@ -78,26 +78,59 @@
                     <span class="treatment-add-condition-name mr-2">{{ item.condition.conditionName }}</span>
                     <button
                       type="button"
-                      class="treatment-add-box d-flex align-center"
+                      class="treatment-add-box"
                       :aria-label="`add treatment for ${item.condition.conditionName}`"
-                      @click="item.treatment
-                        ? $emit('edit-treatment', { row, treatment: item.treatment })
-                        : $emit('add-treatment', { row, condition: item.condition })"
+                      @click="handlePlaceholderEdit(row, item)"
                     >
-                      <v-icon class="mr-1">mdi-plus</v-icon>
-                      Click to add treatment
+                      <v-icon>mdi-plus</v-icon>
                     </button>
+                    <a
+                      href="#"
+                      class="treatment-add-link ml-2"
+                      @click.prevent="handlePlaceholderEdit(row, item)"
+                    >
+                      Click to add treatment
+                    </a>
                   </div>
 
-                  <v-chip
-                    variant="tonal"
-                    color="error"
-                    density="compact"
-                    class="status-pill"
-                  >
-                    <v-icon start>mdi-alert-circle</v-icon>
-                    Needs attention
-                  </v-chip>
+                  <div class="treatment-btn-group d-flex align-center">
+                    <v-chip
+                      variant="tonal"
+                      color="error"
+                      density="compact"
+                      class="status-pill mr-4"
+                    >
+                      <v-icon start>mdi-alert-circle</v-icon>
+                      Needs attention
+                    </v-chip>
+
+                    <v-menu location="start">
+                      <template #activator="{ props: menuProps }">
+                        <v-btn
+                          v-bind="menuProps"
+                          :aria-label="`treatment actions for ${item.condition.conditionName}`"
+                          icon="mdi-dots-horizontal"
+                          variant="text"
+                        />
+                      </template>
+
+                      <v-list>
+                        <v-list-item @click="handlePlaceholderEdit(row, item)">
+                          <v-list-item-title class="d-flex justify-content-center">
+                            <v-icon>mdi-pencil</v-icon>
+                            <span>Edit</span>
+                          </v-list-item-title>
+                        </v-list-item>
+
+                        <v-list-item disabled>
+                          <v-list-item-title class="d-flex justify-content-center">
+                            <v-icon>mdi-eye-outline</v-icon>
+                            <span>Preview</span>
+                          </v-list-item-title>
+                        </v-list-item>
+                      </v-list>
+                    </v-menu>
+                  </div>
                 </div>
 
                 <TreatmentRow
@@ -217,7 +250,7 @@ const props = defineProps({
   }
 });
 
-defineEmits([
+const emit = defineEmits([
   "save-order",
   "move",
   "edit",
@@ -373,6 +406,18 @@ const placeholderIconCircleClass = (row, treatment) => {
   }
 
   return "";
+};
+
+// the add-treatment placeholder's own edit action: if a treatment already exists
+// (just incomplete) this is really an edit, not a create - creating one would leave
+// a duplicate behind
+const handlePlaceholderEdit = (row, item) => {
+  if (item.treatment) {
+    emit("edit-treatment", { row, treatment: item.treatment });
+    return;
+  }
+
+  emit("add-treatment", { row, condition: item.condition });
 };
 
 // a treatment that exists but lacks content yet (no questions, invalid integration
@@ -626,17 +671,42 @@ onMounted(initSortable);
   padding: 0 16px;
 }
 
+// just the "+" square - the "Click to add treatment" text is a separate link
+// alongside it, not inside the dashed box
 .treatment-add-box {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
   background: none;
   border: 2px dashed map.get($grey, "lighter");
   border-radius: 8px;
-  padding: 6px 12px;
+  padding: 0;
   cursor: pointer;
-  font-size: inherit;
   color: inherit;
+
+  > .v-icon {
+    font-size: 18px;
+  }
 
   &:hover {
     border-color: map.get($grey, "darker");
+  }
+}
+
+// Home.vue's global `.v-data-table *:not(.v-icon) { color: black !important; }` rule
+// (see the .treatments-section-label comment above for the full explanation) ties
+// with a single class here (even with Vue's scoped-style data-v attribute) and loses
+// on source order - same fix as .treatments-section-label, qualify with the ancestor
+// .treatments-table-container class too. Also needed here to reliably beat the
+// browser's own default anchor styling (blue, underlined) in the first place.
+.treatments-table-container .treatment-add-link {
+  color: rgba(0, 0, 0, 0.87) !important;
+  text-decoration: underline;
+
+  &:hover {
+    color: map.get($blue, "primary") !important;
   }
 }
 
