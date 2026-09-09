@@ -126,7 +126,7 @@
                     </div>
                   </v-tooltip>
 
-                  <v-menu location="start">
+                  <v-menu location="top start">
                     <template #activator="{ props: menuProps }">
                       <v-btn
                         v-bind="menuProps"
@@ -367,6 +367,19 @@ const measureColumnOffsets = () => {
     return;
   }
 
+  // on mobile, the outer table collapses into stacked label:value cards (see
+  // isMobile/assignmentHeaders below) - there's no side-by-side Status/Actions column
+  // for these measurements to mean anything relative to, and forcing this row's pill/
+  // menu into position:absolute anyway (with a stale or nonsensical "left") pulled them
+  // out of the row's normal flow and piled them on top of each other. Falling back to
+  // null (columnOffsetStyle below then renders them in normal static flow) instead of
+  // computing a desktop-shaped offset that doesn't apply here.
+  if (isMobile.value) {
+    columnOffsets.value = { status: null, actions: null };
+    tableRoot.value.style.removeProperty("--treatment-indent");
+    return;
+  }
+
   // measuring the header cells' own edges doesn't work for Actions: that column is
   // center-aligned (see assignmentHeaders' align: "center"), so the real "..." button
   // sits somewhere in the middle of the column, not at its left edge, and how far in
@@ -415,8 +428,16 @@ const measureColumnOffsets = () => {
   }
 };
 
+// the base CSS for these elements is position: absolute (see .treatment-add-status-pill
+// /.treatment-add-actions-btn below) so a measured "left" places them precisely - but
+// with no real offset to place them at (mobile, or before the first measurement),
+// position: absolute is actively harmful: it pulls the element out of the row's normal
+// flow with no "left" to replace that with, collapsing the space it would have taken
+// and piling every such element in the row on top of each other. Falling back to
+// position: static (an inline style, so it wins over the class's non-!important
+// position: absolute without a specificity fight) keeps it in normal flow instead.
 const columnOffsetStyle = offset => {
-  return offset == null ? {} : { left: `${offset}px` };
+  return offset == null ? { position: "static" } : { left: `${offset}px` };
 };
 
 const mobileBreakpoint = 636;
@@ -965,6 +986,12 @@ onBeforeUnmount(() => {
 // absolutely within this row, which needs the positioning context here.
 .treatment-add-row {
   position: relative;
+  // only matters on mobile, where these children fall back to normal static flow (see
+  // columnOffsetStyle's comment above) instead of being pulled out of it via
+  // position: absolute - lets the status pill/actions button wrap onto their own line
+  // instead of overflowing the viewport when the row's content is too wide to fit on
+  // one line at a narrow width.
+  flex-wrap: wrap;
 }
 
 .treatment-add-status-pill,

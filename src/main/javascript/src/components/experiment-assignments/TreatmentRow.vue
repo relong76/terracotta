@@ -25,12 +25,12 @@
       </span>
     </div>
     <div class="treatment-btn-group">
-      <v-menu location="start">
+      <v-menu location="top start">
         <template #activator="{ props: menuProps }">
           <v-btn
             v-bind="menuProps"
             :aria-label="`treatment actions for ${row.title}`"
-            :style="actionsOffset == null ? {} : { left: `${actionsOffset}px` }"
+            :style="actionsOffset == null ? { position: 'static' } : { left: `${actionsOffset}px` }"
             class="treatment-actions-btn"
             icon="mdi-dots-vertical"
             variant="text"
