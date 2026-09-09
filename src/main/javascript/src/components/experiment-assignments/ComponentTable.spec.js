@@ -178,6 +178,15 @@ describe("ComponentTable", () => {
     expect(wrapper.find(".treatment-add-box").exists()).toBe(false);
   });
 
+  it("falls back to 'No condition name' for the add-treatment placeholder when a condition has no name (should never happen, but isn't silently blank if it does)", () => {
+    mountTable(
+      [assignmentRow({ treatments: [completeTreatment(10, 1), completeTreatment(11, 2)] })],
+      { conditions: [...conditions.slice(0, 2), { conditionId: 3, conditionName: "" }] }
+    );
+
+    expect(wrapper.text()).toContain("No condition name");
+  });
+
   it("also emits add-treatment when the 'Click to add treatment' link itself is clicked, and shows an actions menu with Edit enabled and Preview disabled", async () => {
     mountTable([
       assignmentRow({ treatments: [completeTreatment(10, 1), completeTreatment(11, 2)] })

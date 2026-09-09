@@ -75,11 +75,11 @@
                     <div class="icon-circle" :class="placeholderIconCircleClass(row, item.treatment)">
                       <v-icon>{{ placeholderIcon(row, item.treatment) }}</v-icon>
                     </div>
-                    <span class="treatment-add-condition-name mr-2">{{ item.condition.conditionName }}</span>
+                    <span class="treatment-add-condition-name mr-2">{{ conditionDisplayName(item.condition) }}</span>
                     <button
                       type="button"
                       class="treatment-add-box"
-                      :aria-label="`add treatment for ${item.condition.conditionName}`"
+                      :aria-label="`add treatment for ${conditionDisplayName(item.condition)}`"
                       @click="handlePlaceholderEdit(row, item)"
                     >
                       <v-icon>mdi-plus</v-icon>
@@ -108,7 +108,7 @@
                       <template #activator="{ props: menuProps }">
                         <v-btn
                           v-bind="menuProps"
-                          :aria-label="`treatment actions for ${item.condition.conditionName}`"
+                          :aria-label="`treatment actions for ${conditionDisplayName(item.condition)}`"
                           icon="mdi-dots-horizontal"
                           variant="text"
                         />
@@ -313,6 +313,10 @@ const treatmentIcon = {
 // where the Treatments column always showed a self-referential N/N (never compared
 // against total conditions), making a single-version row trivially "complete".
 const isSingleVersionRow = row => row.treatments.length === 1;
+
+// every condition should have a name - this is a fallback for the case where one
+// somehow doesn't, not an expected/normal state
+const conditionDisplayName = condition => condition.conditionName || "No condition name";
 
 watch(
   () => props.rows,

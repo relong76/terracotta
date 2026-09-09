@@ -178,7 +178,9 @@ const conditionForTreatment = computed(() => {
   );
 });
 
-const conditionName = computed(() => conditionForTreatment.value?.conditionName || "");
+// every condition should have a name - this fallback is for the case where one
+// somehow doesn't, not an expected/normal state
+const conditionName = computed(() => conditionForTreatment.value?.conditionName || "No condition name");
 const showConditionChip = computed(() => {
   return !props.singleConditionExperiment &&
     props.row.treatments.length === props.conditions?.length;

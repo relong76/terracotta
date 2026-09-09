@@ -214,6 +214,18 @@ describe("TreatmentRow", () => {
     expect(chip.text()).toBe("Condition A");
   });
 
+  it("falls back to 'No condition name' when a condition has no name (should never happen, but isn't silently blank if it does)", () => {
+    mountRow({
+      row: assignmentRow(2),
+      treatment: fileTreatment(),
+      exposure: {
+        groupConditionList: [{ conditionId: 1, conditionName: "" }, exposure.groupConditionList[1]]
+      }
+    });
+
+    expect(wrapper.findComponent({ name: "VChip" }).text()).toBe("No condition name");
+  });
+
   it("hides the condition chip for a single condition experiment", () => {
     mountRow({
       row: assignmentRow(2),
