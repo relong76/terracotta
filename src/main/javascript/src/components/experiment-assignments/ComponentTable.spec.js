@@ -20,7 +20,16 @@ const exposure = {
   ]
 };
 
-const conditions = exposure.groupConditionList;
+// deliberately a SEPARATE array/shape from exposure.groupConditionList above - the
+// real `conditions` prop comes from experimentStore.conditions, whose items use
+// "name" (see ComponentTable.vue's conditionDisplayName comment), not "conditionName"
+// like the exposure DTO's groupConditionList. Using the same array for both here
+// would hide exactly the field-name bug this fixture split now catches.
+const conditions = [
+  { conditionId: 1, name: "Condition A" },
+  { conditionId: 2, name: "Condition B" },
+  { conditionId: 3, name: "Condition C" }
+];
 
 const conditionColorMapping = {
   "Condition A": "blue",
@@ -168,7 +177,7 @@ describe("ComponentTable", () => {
 
     expect(wrapper.emitted("add-treatment")).toBeTruthy();
     expect(wrapper.emitted("add-treatment")[0][0]).toMatchObject({
-      condition: { conditionId: 3, conditionName: "Condition C" }
+      condition: { conditionId: 3, name: "Condition C" }
     });
   });
 
@@ -181,7 +190,7 @@ describe("ComponentTable", () => {
   it("falls back to 'No condition name' for the add-treatment placeholder when a condition has no name (should never happen, but isn't silently blank if it does)", () => {
     mountTable(
       [assignmentRow({ treatments: [completeTreatment(10, 1), completeTreatment(11, 2)] })],
-      { conditions: [...conditions.slice(0, 2), { conditionId: 3, conditionName: "" }] }
+      { conditions: [...conditions.slice(0, 2), { conditionId: 3, name: "" }] }
     );
 
     expect(wrapper.text()).toContain("No condition name");

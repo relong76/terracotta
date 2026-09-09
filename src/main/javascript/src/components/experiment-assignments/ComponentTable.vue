@@ -316,7 +316,13 @@ const isSingleVersionRow = row => row.treatments.length === 1;
 
 // every condition should have a name - this is a fallback for the case where one
 // somehow doesn't, not an expected/normal state
-const conditionDisplayName = condition => condition.conditionName || "No condition name";
+// props.conditions comes straight from experimentStore.conditions, whose items use
+// "name" (see Conditions.vue's own orderedCondition.name, editing this exact same
+// store data) - NOT "conditionName", which is a different field on the differently-
+// shaped exposure.groupConditionList items TreatmentRow.vue's own condition chip
+// reads from instead. Every condition should have a name; this is a fallback for the
+// case where one somehow doesn't, not an expected/normal state.
+const conditionDisplayName = condition => condition.name || "No condition name";
 
 watch(
   () => props.rows,
