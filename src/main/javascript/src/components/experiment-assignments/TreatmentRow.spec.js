@@ -14,11 +14,6 @@ afterEach(() => {
   wrapper = undefined;
 });
 
-const conditionColorMapping = {
-  "Condition A": "blue",
-  "Condition B": "red"
-};
-
 const exposure = {
   groupConditionList: [
     { conditionId: 1, conditionName: "Condition A" },
@@ -71,10 +66,7 @@ const messageTreatment = status => ({
 const mountRow = props => {
   wrapper = mountComponent(TreatmentRow, {
     props: {
-      conditions: exposure.groupConditionList,
-      conditionColorMapping,
       exposure,
-      singleConditionExperiment: false,
       ...props
     }
   });
@@ -202,16 +194,13 @@ describe("TreatmentRow", () => {
     expect(wrapper.emitted("edit-treatment")[0][0]).toEqual({ row, treatment });
   });
 
-  it("shows a condition chip only when treatments count matches conditions count and not single-condition", () => {
+  it("shows the condition name as the row's label for a complete treatment", () => {
     mountRow({
       row: assignmentRow(2),
       treatment: fileTreatment()
     });
 
-    const chip = wrapper.findComponent({ name: "VChip" });
-
-    expect(chip.exists()).toBe(true);
-    expect(chip.text()).toBe("Condition A");
+    expect(wrapper.find(".treatment-condition-name").text()).toBe("Condition A");
   });
 
   it("falls back to 'No condition name' when a condition has no name (should never happen, but isn't silently blank if it does)", () => {
@@ -223,26 +212,7 @@ describe("TreatmentRow", () => {
       }
     });
 
-    expect(wrapper.findComponent({ name: "VChip" }).text()).toBe("No condition name");
-  });
-
-  it("hides the condition chip for a single condition experiment", () => {
-    mountRow({
-      row: assignmentRow(2),
-      treatment: fileTreatment(),
-      singleConditionExperiment: true
-    });
-
-    expect(wrapper.findComponent({ name: "VChip" }).exists()).toBe(false);
-  });
-
-  it("hides the condition chip when treatment count does not match condition count", () => {
-    mountRow({
-      row: assignmentRow(1),
-      treatment: fileTreatment()
-    });
-
-    expect(wrapper.findComponent({ name: "VChip" }).exists()).toBe(false);
+    expect(wrapper.find(".treatment-condition-name").text()).toBe("No condition name");
   });
 
   it("shows the message icon in the message icon-circle and status-driven label for a message treatment", () => {

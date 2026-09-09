@@ -20,18 +20,9 @@
         activator-type="icon"
         activator-class="icon-treatment-incomplete"
       />
-      <span :class="treatmentRowClass">
-        Treatment
-      </span>
-      <v-chip
-        v-if="showConditionChip"
-        :color="conditionColorMapping[conditionName]"
-        variant="flat"
-        density="compact"
-        label
-      >
+      <span class="treatment-condition-name" :class="treatmentRowClass">
         {{ conditionName }}
-      </v-chip>
+      </span>
     </div>
     <div class="treatment-btn-group">
       <v-menu location="start">
@@ -100,18 +91,6 @@ const props = defineProps({
   exposure: {
     type: Object,
     required: true
-  },
-  conditions: {
-    type: Array,
-    required: true
-  },
-  conditionColorMapping: {
-    type: Object,
-    required: true
-  },
-  singleConditionExperiment: {
-    type: Boolean,
-    default: false
   }
 });
 
@@ -181,10 +160,6 @@ const conditionForTreatment = computed(() => {
 // every condition should have a name - this fallback is for the case where one
 // somehow doesn't, not an expected/normal state
 const conditionName = computed(() => conditionForTreatment.value?.conditionName || "No condition name");
-const showConditionChip = computed(() => {
-  return !props.singleConditionExperiment &&
-    props.row.treatments.length === props.conditions?.length;
-});
 
 const showTreatmentRowTooltip = computed(() => {
   if (props.row.type === rowType.assignment) {
@@ -303,5 +278,9 @@ const integrationsPreviewLaunchUrl = (url = "http://localhost") => {
     background-color: rgba(245, 124, 0, 0.2);
     > .v-icon { color: map.get($orange, "base") !important; }
   }
+}
+
+.treatment-condition-name {
+  font-weight: 600;
 }
 </style>

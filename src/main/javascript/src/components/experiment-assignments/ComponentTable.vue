@@ -54,7 +54,7 @@
               v-if="!singleConditionExperiment"
               class="treatments-section-label"
             >
-              TREATMENTS - {{ row.treatments.length }} of {{ treatmentsTotalForRow(row) }} added
+              TREATMENTS - {{ completeTreatmentsCountForRow(row) }} of {{ treatmentsTotalForRow(row) }} added
             </div>
 
             <v-data-table
@@ -138,9 +138,6 @@
                   :row="row"
                   :treatment="item"
                   :exposure="exposure"
-                  :conditions="conditions"
-                  :condition-color-mapping="conditionColorMapping"
-                  :single-condition-experiment="singleConditionExperiment"
                   @edit-treatment="$emit('edit-treatment', $event)"
                   @preview-treatment="$emit('preview-treatment', $event)"
                 />
@@ -152,7 +149,7 @@
 
       <template #item.treatments="{ item: row }">
         <span :class="rowTreatmentsColumnClass(row)">
-          {{ row.treatments.length }} of {{ treatmentsTotalForRow(row) }}
+          {{ completeTreatmentsCountForRow(row) }} of {{ treatmentsTotalForRow(row) }}
 
           <ToolTip
             v-if="hasIncompleteTreatments(row)"
@@ -457,6 +454,13 @@ const treatmentsTotalForRow = row => {
   return isSingleVersionRow(row) ? row.treatments.length : props.conditions.length;
 };
 
+// the Treatments column's numerator, and the "TREATMENTS - X of Y added" label's X -
+// a treatment record existing isn't the same as it being done: one that's incomplete
+// renders as an add-treatment placeholder rather than counting toward "added"
+const completeTreatmentsCountForRow = row => {
+  return row.treatments.filter(treatment => !isTreatmentIncomplete(row, treatment)).length;
+};
+
 // one entry per relevant condition: the real treatment when it exists and has
 // content, or an add-treatment placeholder when the condition has no treatment at
 // all OR its treatment exists but is incomplete - a single-version row only ever
@@ -590,6 +594,16 @@ onMounted(initSortable);
     background-color: rgba(255, 179, 0, 0.2);
     color: map.get($yellow, "base");
     > .v-icon { color: map.get($yellow, "base") !important; }
+  }
+
+  // used by placeholderIconCircleClass for an incomplete integration treatment -
+  // matches TreatmentRow.vue's own icon-circle-code variant (Vue's scoped styles
+  // don't share across components, so this needs its own copy here too)
+  &.icon-circle-code {
+    border: 1px solid map.get($light-blue, "base");
+    background-color: rgba(3, 169, 244, 0.2);
+    color: map.get($light-blue, "base");
+    > .v-icon { color: map.get($light-blue, "base") !important; }
   }
 }
 

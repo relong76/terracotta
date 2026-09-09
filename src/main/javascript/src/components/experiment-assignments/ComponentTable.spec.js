@@ -153,6 +153,17 @@ describe("ComponentTable", () => {
     expect(tooltip.props("icon")).toBe("mdi-circle");
   });
 
+  it("counts a treatment record that exists but lacks content as NOT added yet, in both the ratio and the section label", () => {
+    mountTable([
+      assignmentRow({ treatments: [completeTreatment(10, 1), completeTreatment(11, 2), incompleteTreatment(12, 3)] })
+    ]);
+
+    // 3 treatment records exist, but only 2 have real content - the ratio and label
+    // should both read "2 of 3", not "3 of 3"
+    expect(wrapper.text()).toContain("2 of 3");
+    expect(wrapper.text()).toContain("TREATMENTS - 2 of 3 added");
+  });
+
   it("renders the 'TREATMENTS - X of Y added' section label for a multi-condition row", () => {
     mountTable([assignmentRow()]);
     expect(wrapper.text()).toContain("TREATMENTS - 3 of 3 added");
@@ -250,7 +261,9 @@ describe("ComponentTable", () => {
     mountTable([row]);
 
     expect(wrapper.text()).toContain("Only One Version");
-    expect(wrapper.text()).toContain("1 of 1");
+    // the ratio's numerator counts complete treatments, not just treatment records -
+    // this one exists but has no content yet, so it doesn't count as "added"
+    expect(wrapper.text()).toContain("0 of 1");
     expect(wrapper.find(".label-treatment-incomplete").exists()).toBe(true);
 
     const addBox = wrapper.find(".treatment-add-box");
@@ -282,6 +295,27 @@ describe("ComponentTable", () => {
       treatment: { treatmentId: 12, conditionId: 3 }
     });
     expect(wrapper.emitted("add-treatment")).toBeFalsy();
+  });
+
+  it("shows the code icon-circle for an incomplete integration treatment's placeholder", () => {
+    const incompleteIntegrationTreatment = (id, conditionId) => ({
+      treatmentId: id,
+      conditionId,
+      assessmentDto: { integration: true, integrationUrlValid: true, questions: [] }
+    });
+
+    mountTable([
+      assignmentRow({
+        treatments: [
+          completeTreatment(10, 1),
+          completeTreatment(11, 2),
+          incompleteIntegrationTreatment(12, 3)
+        ]
+      })
+    ]);
+
+    const placeholderIcon = wrapper.find(".treatment-add-row .icon-circle");
+    expect(placeholderIcon.classes()).toContain("icon-circle-code");
   });
 
   it("shows the add-treatment placeholder for an existing-but-incomplete message treatment, and clicking it emits edit-treatment", async () => {
