@@ -173,3 +173,24 @@ export function pickMenuLocation(buttonEl, estimatedMenuHeight) {
     ? "bottom start"
     : "top start";
 }
+
+// belt-and-suspenders on top of pickMenuLocation (which only predicts a location
+// before the menu opens): confirmed on a real deployed page that a v-menu can still
+// render clipped above the viewport even with that pre-emptive pick in place - rather
+// than chase exactly why the prediction didn't hold, this checks the ACTUAL rendered
+// position once the menu is open, which can't be wrong for the same reason the
+// prediction was. v-menu's activator gets aria-controls pointing at the teleported
+// overlay's id (Vuetify sets both from the same internal id, regardless of how many
+// other menu instances exist elsewhere on the page - e.g. one per row in a table),
+// so this doesn't need a per-instance Vue template ref to find the right one; a plain
+// DOM lookup from the button that was actually clicked is enough.
+export function isMenuOverlayClippedAbove(buttonEl) {
+  const overlayId = buttonEl?.getAttribute("aria-controls");
+  const overlayEl = overlayId ? document.getElementById(overlayId) : null;
+
+  if (!overlayEl) {
+    return false;
+  }
+
+  return overlayEl.getBoundingClientRect().top < 0;
+}

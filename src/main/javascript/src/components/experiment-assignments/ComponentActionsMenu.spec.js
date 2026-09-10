@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { flushPromises } from "@vue/test-utils";
 
 import { mountComponent } from "@/test-utils/mount";
 import ComponentActionsMenu from "./ComponentActionsMenu.vue";
@@ -206,5 +207,79 @@ describe("ComponentActionsMenu", () => {
     await wrapper.setProps({ modelValue: false });
 
     expect(wrapper.props("modelValue")).toBe(false);
+  });
+
+  // a real deployed page showed the menu still rendering clipped above the viewport
+  // even with the pre-emptive "top start" vs "bottom start" pick (made on pointerdown,
+  // before the menu opens) in place - this is the safety net that checks the ACTUAL
+  // rendered position once open and corrects it directly, so it can't be wrong for
+  // whatever reason the prediction was.
+  it("flips to bottom start if the rendered menu is actually clipped above the viewport", async () => {
+    const original = Element.prototype.getBoundingClientRect;
+    // the button itself reports plenty of room (so the pre-emptive pointerdown pick
+    // alone would leave it "top start") - only the teleported overlay (.v-overlay)
+    // reports clipped, isolating that it's specifically the post-open correction
+    // catching what the prediction missed, matching the real bug this guards against.
+    Element.prototype.getBoundingClientRect = function () {
+      if (this.classList?.contains("v-overlay")) {
+        return { top: -40, bottom: 200, left: 0, right: 100, width: 100, height: 240 };
+      }
+
+      return { top: 300, bottom: 340, left: 0, right: 100, width: 40, height: 40 };
+    };
+
+    try {
+      wrapper = mountComponent(ComponentActionsMenu, {
+        props: {
+          modelValue: false,
+          row: assignmentRow,
+          canDeleteAssignment: false,
+          exposureCount: 1,
+          hasIncompleteTreatments: vi.fn(() => false)
+        }
+      });
+      await wrapper.vm.$nextTick();
+
+      // pointerdown first, matching real usage - this is what records which button
+      // (and so which teleported overlay, via its aria-controls) to check once open
+      await wrapper.find('[aria-label="actions"]').trigger("pointerdown");
+      await wrapper.setProps({ modelValue: true });
+      await flushPromises();
+
+      expect(wrapper.findComponent({ name: "VMenu" }).props("location")).toBe("bottom start");
+    } finally {
+      Element.prototype.getBoundingClientRect = original;
+    }
+  });
+
+  it("leaves the location alone when the rendered menu is not actually clipped", async () => {
+    const original = Element.prototype.getBoundingClientRect;
+    // top comfortably clears both the pre-emptive estimate (pickMenuLocation, run on
+    // pointerdown) and the post-open clipped check (isMenuOverlayClippedAbove) - this
+    // is asserting NEITHER mechanism flips it, not just the second one
+    Element.prototype.getBoundingClientRect = function () {
+      return { top: 300, bottom: 540, left: 0, right: 100, width: 100, height: 240 };
+    };
+
+    try {
+      wrapper = mountComponent(ComponentActionsMenu, {
+        props: {
+          modelValue: false,
+          row: assignmentRow,
+          canDeleteAssignment: false,
+          exposureCount: 1,
+          hasIncompleteTreatments: vi.fn(() => false)
+        }
+      });
+      await wrapper.vm.$nextTick();
+
+      await wrapper.find('[aria-label="actions"]').trigger("pointerdown");
+      await wrapper.setProps({ modelValue: true });
+      await flushPromises();
+
+      expect(wrapper.findComponent({ name: "VMenu" }).props("location")).toBe("top start");
+    } finally {
+      Element.prototype.getBoundingClientRect = original;
+    }
   });
 });

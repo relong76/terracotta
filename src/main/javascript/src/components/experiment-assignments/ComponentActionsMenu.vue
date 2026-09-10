@@ -84,9 +84,9 @@
 </template>
 
 <script setup>
-import { computed, ref } from "vue";
+import { computed, ref, nextTick, watch } from "vue";
 import { message as messageStatus } from "@/helpers/messaging/status.js";
-import { pickMenuLocation } from "@/helpers/ui-utils.js";
+import { isMenuOverlayClippedAbove, pickMenuLocation } from "@/helpers/ui-utils.js";
 
 const props = defineProps({
   modelValue: {
@@ -140,10 +140,28 @@ const menuLocation = ref("top start");
 // the last two are mutually exclusive) - a generous upper bound, see pickMenuLocation's
 // own comment for why erring generous here is harmless.
 const MENU_HEIGHT_ESTIMATE = 280;
+const activatorEl = ref(null);
 
 const pickMenuLocationForThisMenu = buttonEl => {
+  activatorEl.value = buttonEl;
   menuLocation.value = pickMenuLocation(buttonEl, MENU_HEIGHT_ESTIMATE);
 };
+
+// belt-and-suspenders on top of pickMenuLocationForThisMenu (set before the menu
+// opens, on pointerdown) - see isMenuOverlayClippedAbove's own comment (in
+// ui-utils.js) for why: a real deployed page showed this menu still rendering
+// clipped above the viewport even with that pre-emptive pick in place.
+watch(isOpen, async open => {
+  if (!open) {
+    return;
+  }
+
+  await nextTick();
+
+  if (isMenuOverlayClippedAbove(activatorEl.value)) {
+    menuLocation.value = "bottom start";
+  }
+});
 
 const showMoveAction = computed(() => {
   if (props.exposureCount <= 1) {
