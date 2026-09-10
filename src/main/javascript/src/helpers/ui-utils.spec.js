@@ -14,8 +14,7 @@ import {
   handleTooltipOpening,
   statusAlert,
   createStatusAlert,
-  showSkipLink,
-  pickMenuLocation
+  showSkipLink
 } from "./ui-utils";
 import { alert as alertStore } from "@/store/alert.module";
 import { configuration as configurationStore } from "@/store/configuration.module";
@@ -332,39 +331,5 @@ describe("showSkipLink", () => {
 
     const store = configurationStore();
     expect(store.configurations.showSkipLink).toBe(false);
-  });
-});
-
-describe("pickMenuLocation", () => {
-  const fakeButton = (top, bottom) => ({ getBoundingClientRect: () => ({ top, bottom }) });
-
-  afterEach(() => {
-    window.innerHeight = 768;
-  });
-
-  // reproduces a real bug: a v-menu with location="top start" opened above a button
-  // near the top of a scrolled page and rendered clipped behind the browser's own
-  // chrome instead of flipping to open below, despite Vuetify's own "connected"
-  // location strategy supposedly auto-flipping when there isn't enough room.
-  it("flips to bottom when there isn't enough room above but there is below", () => {
-    window.innerHeight = 800;
-
-    expect(pickMenuLocation(fakeButton(81, 109), 280)).toBe("bottom start");
-  });
-
-  it("defaults to top when there's plenty of room above", () => {
-    window.innerHeight = 800;
-
-    expect(pickMenuLocation(fakeButton(500, 530), 280)).toBe("top start");
-  });
-
-  it("stays top when neither direction has enough room but above still has more", () => {
-    window.innerHeight = 300;
-
-    expect(pickMenuLocation(fakeButton(150, 178), 280)).toBe("top start");
-  });
-
-  it("returns top start when no button element is given yet", () => {
-    expect(pickMenuLocation(null, 280)).toBe("top start");
   });
 });

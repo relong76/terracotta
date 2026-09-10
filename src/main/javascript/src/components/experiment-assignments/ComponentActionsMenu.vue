@@ -2,7 +2,7 @@
   <v-menu
     v-model="isOpen"
     class="component-actions-menu"
-    :location="menuLocation"
+    location="top start"
   >
     <template #activator="{ props: menuProps }">
       <v-btn
@@ -11,7 +11,6 @@
         icon="mdi-dots-vertical"
         variant="text"
         density="compact"
-        @pointerdown="pickMenuLocationForThisMenu($event.currentTarget)"
       />
     </template>
 
@@ -84,9 +83,8 @@
 </template>
 
 <script setup>
-import { computed, ref } from "vue";
+import { computed } from "vue";
 import { message as messageStatus } from "@/helpers/messaging/status.js";
-import { pickMenuLocation } from "@/helpers/ui-utils.js";
 
 const props = defineProps({
   modelValue: {
@@ -134,16 +132,6 @@ const isOpen = computed({
     emit("update:modelValue", value);
   }
 });
-
-const menuLocation = ref("top start");
-// up to 5 items can show at once (Move, Edit, Duplicate, Delete, Publish/Unpublish -
-// the last two are mutually exclusive) - a generous upper bound, see pickMenuLocation's
-// own comment for why erring generous here is harmless.
-const MENU_HEIGHT_ESTIMATE = 280;
-
-const pickMenuLocationForThisMenu = buttonEl => {
-  menuLocation.value = pickMenuLocation(buttonEl, MENU_HEIGHT_ESTIMATE);
-};
 
 const showMoveAction = computed(() => {
   if (props.exposureCount <= 1) {
