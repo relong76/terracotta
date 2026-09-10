@@ -266,9 +266,12 @@ const integrationsPreviewLaunchUrl = (url = "http://localhost") => {
 
 <style lang="scss" scoped>
 .icon-circle {
-  width: 24px;
-  height: 24px;
-  min-width: 24px;
+  // matches ComponentTable.vue's own .icon-circle (the top-level component row
+  // icon) - this one was smaller (24px/14px vs. 28px/16px), which visibly read as
+  // a size mismatch between a component's icon and its own treatments' icons.
+  width: 28px;
+  height: 28px;
+  min-width: 28px;
   border-radius: 50%;
   // text-align/align-content on a plain inline-block box don't reliably center an
   // icon glyph both ways (align-content in particular has no effect here at all -
@@ -280,7 +283,7 @@ const integrationsPreviewLaunchUrl = (url = "http://localhost") => {
   margin-right: 8px;
 
   > .v-icon {
-    font-size: 14px;
+    font-size: 16px;
   }
 
   // icon colors pixel-sampled off the mockup rather than the shared
