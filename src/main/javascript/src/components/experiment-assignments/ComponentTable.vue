@@ -128,7 +128,7 @@
                     </v-tooltip>
                   </div>
 
-                  <v-menu location="top start">
+                  <v-menu :location="placeholderMenuLocation">
                     <template #activator="{ props: menuProps }">
                       <v-btn
                         v-bind="menuProps"
@@ -138,6 +138,7 @@
                         icon="mdi-dots-vertical"
                         variant="text"
                         density="compact"
+                        @pointerdown="placeholderMenuLocation = pickMenuLocation($event.currentTarget, PLACEHOLDER_MENU_HEIGHT_ESTIMATE)"
                       />
                     </template>
 
@@ -273,7 +274,7 @@ import Sortable from "sortablejs";
 import dayjs from "@/plugins/dayjs";
 
 import { message as messageStatus } from "@/helpers/messaging/status.js";
-import { deleteAttributesFromElement } from "@/helpers/ui-utils.js";
+import { deleteAttributesFromElement, pickMenuLocation } from "@/helpers/ui-utils.js";
 import ToolTip from "@/components/ToolTip.vue";
 import TreatmentRow from "./TreatmentRow.vue";
 import ComponentActionsMenu from "./ComponentActionsMenu.vue";
@@ -325,6 +326,13 @@ const emit = defineEmits([
 const tableRoot = ref(null);
 const expandedRows = ref([]);
 const actionsMenuOpen = ref({});
+
+// see pickMenuLocation's own comment (in ui-utils.js) for why this measures and picks
+// explicitly rather than trusting v-menu's own location prop to auto-flip.
+const placeholderMenuLocation = ref("top start");
+// 2 items (Edit, always-disabled Preview) - generous upper bound, not exact, see
+// pickMenuLocation's comment for why that's fine.
+const PLACEHOLDER_MENU_HEIGHT_ESTIMATE = 140;
 
 // there's no real Status/Actions column in the nested one-column treatments table for
 // the add-treatment placeholder's pill/menu to sit in, and a fixed CSS split can't

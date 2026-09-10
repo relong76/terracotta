@@ -147,3 +147,29 @@ export function showSkipLink(show) {
     value: show
   });
 }
+
+// Vuetify's own v-menu "location" prop is supposed to auto-flip when there's not
+// enough room in the preferred direction, but that didn't hold up in practice (a
+// menu opening "top start" near the top of a scrolled page rendered clipped behind
+// the browser's own chrome instead of flipping to open below - confirmed on a real
+// page, not just a synthetic reproduction). Measuring available space ourselves on
+// pointerdown (fires before the click v-menu's own activator listens for, so this
+// runs first regardless of Vue's event-listener merge order for two listeners on the
+// same "click" event) and picking the location explicitly sidesteps trusting that
+// heuristic at all. estimatedMenuHeight only needs to be a reasonable upper bound for
+// the specific menu calling this (its real content isn't in the DOM to measure until
+// it's open) - a bit too generous just means it flips to "bottom" a little more
+// readily than strictly necessary, which is harmless, unlike a clipped menu.
+export function pickMenuLocation(buttonEl, estimatedMenuHeight) {
+  if (!buttonEl) {
+    return "top start";
+  }
+
+  const rect = buttonEl.getBoundingClientRect();
+  const spaceAbove = rect.top;
+  const spaceBelow = window.innerHeight - rect.bottom;
+
+  return spaceAbove < estimatedMenuHeight && spaceBelow > spaceAbove
+    ? "bottom start"
+    : "top start";
+}

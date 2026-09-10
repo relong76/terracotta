@@ -25,7 +25,7 @@
       </span>
     </div>
     <div class="treatment-btn-group">
-      <v-menu location="top start">
+      <v-menu :location="menuLocation">
         <template #activator="{ props: menuProps }">
           <v-btn
             v-bind="menuProps"
@@ -37,6 +37,7 @@
             icon="mdi-dots-vertical"
             variant="text"
             density="compact"
+            @pointerdown="menuLocation = pickMenuLocation($event.currentTarget, MENU_HEIGHT_ESTIMATE)"
           />
         </template>
 
@@ -80,8 +81,9 @@
 </template>
 
 <script setup>
-import { computed } from "vue";
+import { computed, ref } from "vue";
 import { message as messageStatus } from "@/helpers/messaging/status.js";
+import { pickMenuLocation } from "@/helpers/ui-utils.js";
 import ToolTip from "@/components/ToolTip.vue";
 
 const props = defineProps({
@@ -113,6 +115,13 @@ const props = defineProps({
 });
 
 defineEmits(["edit-treatment", "preview-treatment"]);
+
+// see pickMenuLocation's own comment (in ui-utils.js) for why this measures and picks
+// explicitly rather than trusting v-menu's own location prop to auto-flip.
+const menuLocation = ref("top start");
+// at most 2 items (Edit, Preview - the latter hidden for message rows) - generous
+// upper bound, not exact, see pickMenuLocation's comment for why that's fine.
+const MENU_HEIGHT_ESTIMATE = 140;
 
 const rowType = {
   assignment: "assignment",
