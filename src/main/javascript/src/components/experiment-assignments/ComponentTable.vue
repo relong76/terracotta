@@ -118,7 +118,7 @@
                           class="status-pill treatment-add-status-pill"
                           :style="statusPillOffsetStyle(columnOffsets.status)"
                         >
-                          <v-icon start>mdi-alert-circle</v-icon>
+                          <v-icon start>mdi-alert-circle-outline</v-icon>
                           Needs attention
                         </v-chip>
                       </template>
@@ -857,13 +857,16 @@ onBeforeUnmount(() => {
     > .v-icon { color: white !important; }
   }
 
-  // icon/border color pixel-sampled off the mockup directly rather than reusing
-  // $yellow's shared "base" (#ffb300) - that reads much more saturated/vivid next to
-  // the mockup's muted olive-gold, the same kind of mismatch already fixed once for
-  // the status pills (see the AskUserQuestion decision on that: scope color fixes
+  // icon color pixel-sampled off the mockup directly rather than reusing $yellow's
+  // shared "base" (#ffb300) - that reads much more saturated/vivid next to the
+  // mockup's muted olive-gold, the same kind of mismatch already fixed once for the
+  // status pills (see the AskUserQuestion decision on that: scope color fixes
   // locally, don't retune shared theme tokens other unrelated UI still relies on).
+  // border-color matches background-color exactly (same value, not just a similar
+  // shade) so the border doesn't read as a separate, darker ring around the pastel
+  // fill - the mockup's circles have no visible edge at all.
   &.icon-circle-control {
-    border: 1px solid #b29a57;
+    border: 1px solid rgba(255, 179, 0, 0.2);
     background-color: rgba(255, 179, 0, 0.2);
     color: #b29a57;
     > .v-icon { color: #b29a57 !important; }
@@ -872,10 +875,11 @@ onBeforeUnmount(() => {
   // used by placeholderIconCircleClass for an incomplete integration treatment -
   // matches TreatmentRow.vue's own icon-circle-code variant (Vue's scoped styles
   // don't share across components, so this needs its own copy here too). Same
-  // pixel-sampled-vs-shared-token reasoning as icon-circle-control above - $light-blue
-  // base (#03a9f4) is far more saturated than the mockup's muted dusty blue.
+  // pixel-sampled-vs-shared-token and border-matches-background reasoning as
+  // icon-circle-control above - $light-blue base (#03a9f4) is far more saturated
+  // than the mockup's muted dusty blue.
   &.icon-circle-code {
-    border: 1px solid #65a5d3;
+    border: 1px solid rgba(3, 169, 244, 0.2);
     background-color: rgba(3, 169, 244, 0.2);
     color: #65a5d3;
     > .v-icon { color: #65a5d3 !important; }
@@ -918,7 +922,10 @@ onBeforeUnmount(() => {
 }
 
 .treatments-section-label {
-  padding: 10px 16px 4px;
+  // symmetric top/bottom padding - this used to be 10px/4px, which visibly pushed
+  // the text off-center within its own row instead of centering it between the
+  // divider above and the treatments table below.
+  padding: 8px 16px;
   font-size: 15px;
   font-weight: 400;
 }

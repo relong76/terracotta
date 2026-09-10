@@ -283,25 +283,35 @@ const integrationsPreviewLaunchUrl = (url = "http://localhost") => {
     font-size: 14px;
   }
 
-  // icon/border colors pixel-sampled off the mockup rather than the shared
-  // $yellow/$light-blue "base" tokens - see the matching fix (and its fuller
-  // comment) in ComponentTable.vue's own icon-circle-control/icon-circle-code.
+  // icon colors pixel-sampled off the mockup rather than the shared
+  // $yellow/$light-blue "base" tokens, and border-color matching background-color
+  // exactly (not just a similar shade) so it doesn't read as a separate, darker ring
+  // - see the matching fix (and its fuller comment) in ComponentTable.vue's own
+  // icon-circle-control/icon-circle-code.
   &.icon-circle-control {
-    border: 1px solid #b29a57;
+    border: 1px solid rgba(255, 179, 0, 0.2);
     background-color: rgba(255, 179, 0, 0.2);
     > .v-icon { color: #b29a57 !important; }
   }
 
   &.icon-circle-code {
-    border: 1px solid #65a5d3;
+    border: 1px solid rgba(3, 169, 244, 0.2);
     background-color: rgba(3, 169, 244, 0.2);
     > .v-icon { color: #65a5d3 !important; }
   }
 
+  // solid fill with a white icon, matching ComponentTable.vue's top-level message
+  // icon-circle exactly (not the pastel-fill/colored-icon treatment used above for
+  // icon-circle-control/icon-circle-code) - this one identifies message ROWS
+  // (row.type === "message", see rowTreatmentsIconCircleClass above), the same
+  // concept the top-level icon already represents, not an assignment content
+  // sub-type the way control/code distinguish plain-vs-integration assignments. Was
+  // still on the old pastel/$orange-base style from before that top-level fix -
+  // never got the equivalent update since Vue's scoped styles don't share across
+  // components (this file needs its own copy either way).
   &.icon-circle-message {
-    border: 1px solid map.get($orange, "base");
-    background-color: rgba(245, 124, 0, 0.2);
-    > .v-icon { color: map.get($orange, "base") !important; }
+    background-color: #df9d7a;
+    > .v-icon { color: white !important; }
   }
 }
 
