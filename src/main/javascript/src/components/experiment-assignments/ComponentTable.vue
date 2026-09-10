@@ -17,12 +17,14 @@
       show-expand
     >
       <template #item.data-table-expand="{ internalItem, isExpanded, toggleExpand }">
-        <v-icon
+        <v-btn
           :aria-label="`Expand component row ${internalItem.raw.title}`"
+          :aria-expanded="isExpanded(internalItem) ? 'true' : 'false'"
+          :icon="isExpanded(internalItem) ? 'mdi-chevron-up' : 'mdi-chevron-down'"
+          variant="text"
+          density="compact"
           @click="toggleExpand(internalItem)"
-        >
-          {{ isExpanded(internalItem) ? "mdi-chevron-up" : "mdi-chevron-down" }}
-        </v-icon>
+        />
       </template>
 
       <template #item.title="{ item: row }">
@@ -40,7 +42,7 @@
             <template #activator="{ props: tooltipProps }">
               <v-chip
                 v-bind="tooltipProps"
-                color="#d3d3d3"
+                color="#616161"
                 variant="tonal"
                 density="compact"
                 class="only-one-version-chip ml-2"
@@ -96,13 +98,13 @@
                       >
                         <v-icon>mdi-plus</v-icon>
                       </button>
-                      <a
-                        href="#"
+                      <button
+                        type="button"
                         class="treatment-add-link ml-2"
-                        @click.prevent="handlePlaceholderEdit(row, item)"
+                        @click="handlePlaceholderEdit(row, item)"
                       >
                         Click to add treatment
-                      </a>
+                      </button>
                     </div>
 
                     <v-tooltip
@@ -388,7 +390,7 @@ const measureColumnOffsets = () => {
   // depends on the column's width - which is exactly what changes with viewport width.
   // Measuring an actual rendered row's real content instead sidesteps that entirely.
   const statusPill = table.querySelector("tbody .status-pill:not(.treatment-add-status-pill)");
-  const actionsBtn = table.querySelector('tbody [aria-label="actions"]');
+  const actionsBtn = table.querySelector("tbody .component-actions-btn");
 
   if (!statusPill || !actionsBtn) {
     return;
@@ -994,12 +996,15 @@ onBeforeUnmount(() => {
   // background regardless of source order, so it has to be hidden outright (opacity:
   // 0) rather than left semi-transparent, or it would still tint the fill underneath.
   &.text-success {
-    color: #468650 !important;
+    // darkened from the mockup's pixel-sampled #468650 (4.22:1 against the fill below,
+    // just short of WCAG's 4.5:1 for normal text) to #3a7040 (5.65:1) - same green
+    // family, still reads as the same "softer 3-tone look" described above.
+    color: #3a7040 !important;
     background-color: #f3fdf5 !important;
     border: 1px solid #cbf5d7;
 
     :deep(.v-chip__content) {
-      color: #468650 !important;
+      color: #3a7040 !important;
     }
 
     :deep(.v-chip__underlay) {
@@ -1090,13 +1095,22 @@ onBeforeUnmount(() => {
   }
 }
 
-// Home.vue's global `.v-data-table *:not(.v-icon) { color: black !important; }` rule
-// (see the .treatments-section-label comment above for the full explanation) ties
-// with a single class here (even with Vue's scoped-style data-v attribute) and loses
-// on source order - same fix as .treatments-section-label, qualify with the ancestor
-// .treatments-table-container class too. Also needed here to reliably beat the
-// browser's own default anchor styling (blue, underlined) in the first place.
+// a <button> (not an <a href="#">) since this only ever triggers a JS action and
+// never navigates - a real link's semantics/keyboard behavior (activates on Enter,
+// not Space, and screen readers announce a destination that doesn't exist) don't
+// fit. Home.vue's global `.v-data-table *:not(.v-icon) { color: black !important; }`
+// rule (see the .treatments-section-label comment above for the full explanation)
+// ties with a single class here (even with Vue's scoped-style data-v attribute) and
+// loses on source order - same fix as .treatments-section-label, qualify with the
+// ancestor .treatments-table-container class too. The rest of the rule strips the
+// browser's default <button> chrome (background/border/font) so it reads visually
+// identical to the plain text link it replaced.
 .treatments-table-container .treatment-add-link {
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
+  cursor: pointer;
   color: rgba(0, 0, 0, 0.87) !important;
   text-decoration: none;
 

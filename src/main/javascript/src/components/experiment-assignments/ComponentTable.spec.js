@@ -433,12 +433,15 @@ describe("ComponentTable", () => {
     expect(text).not.toContain("This component has not yet been published in the LMS, and cannot be accessed by students.");
   });
 
-  it("renders an actions menu button per row", () => {
+  it("renders an actions menu button per row, with a row-specific aria-label", () => {
     mountTable([assignmentRow(), messageRow()]);
 
-    const actionButtons = wrapper.findAll('[aria-label="actions"]');
+    const actionButtons = wrapper.findAll(".component-actions-btn");
 
     expect(actionButtons.length).toBe(2);
+    actionButtons.forEach(btn => {
+      expect(btn.attributes("aria-label")).toMatch(/^actions for .+/);
+    });
   });
 
   it("expands all rows by default (expandedRows initialized from rows)", () => {
