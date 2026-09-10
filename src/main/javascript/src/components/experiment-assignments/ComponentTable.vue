@@ -1098,7 +1098,7 @@ onBeforeUnmount(() => {
 // browser's own default anchor styling (blue, underlined) in the first place.
 .treatments-table-container .treatment-add-link {
   color: rgba(0, 0, 0, 0.87) !important;
-  text-decoration: underline;
+  text-decoration: none;
 
   &:hover {
     color: map.get($blue, "primary") !important;
