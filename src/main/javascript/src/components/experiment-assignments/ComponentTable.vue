@@ -816,16 +816,25 @@ onBeforeUnmount(() => {
   height: 28px;
   min-width: 28px;
   border-radius: 50%;
-  text-align: center;
-  align-content: center;
-  display: inline-block;
-  // inline-block defaults to vertical-align: baseline, which lines its BOTTOM edge up
-  // with the surrounding text's baseline rather than centering it - since the row's
-  // line-box height varies (an expand caret, an "Only One Version" chip, an expanded
-  // vs. collapsed row all change it), that produced a different, inconsistent-looking
-  // top/bottom gap around the circle from row to row. vertical-align: middle centers
-  // it against the line instead, so the gap stays visually even regardless of what
-  // else is in the row.
+  // text-align/align-content on a plain inline-block box don't reliably center an
+  // icon glyph both ways (align-content in particular has no effect here at all -
+  // it only applies to multi-line flex/grid containers) - the icon rendered visibly
+  // off-center, down and to the right of the circle's true middle. inline-flex +
+  // align-items/justify-content centers it deterministically on both axes,
+  // regardless of the icon glyph's own font metrics.
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  // inline-flex is still an inline-level box, so vertical-align still controls how
+  // the circle ITSELF sits among row siblings (unaffected by the flex properties
+  // above, which only govern the icon's position INSIDE the circle) - see below for
+  // why middle specifically. inline-block defaults to vertical-align: baseline,
+  // which lines its BOTTOM edge up with the surrounding text's baseline rather than
+  // centering it - since the row's line-box height varies (an expand caret, an
+  // "Only One Version" chip, an expanded vs. collapsed row all change it), that
+  // produced a different, inconsistent-looking top/bottom gap around the circle
+  // from row to row. vertical-align: middle centers it against the line instead, so
+  // the gap stays visually even regardless of what else is in the row.
   vertical-align: middle;
   margin-right: 8px;
 
@@ -848,21 +857,28 @@ onBeforeUnmount(() => {
     > .v-icon { color: white !important; }
   }
 
+  // icon/border color pixel-sampled off the mockup directly rather than reusing
+  // $yellow's shared "base" (#ffb300) - that reads much more saturated/vivid next to
+  // the mockup's muted olive-gold, the same kind of mismatch already fixed once for
+  // the status pills (see the AskUserQuestion decision on that: scope color fixes
+  // locally, don't retune shared theme tokens other unrelated UI still relies on).
   &.icon-circle-control {
-    border: 1px solid map.get($yellow, "base");
+    border: 1px solid #b29a57;
     background-color: rgba(255, 179, 0, 0.2);
-    color: map.get($yellow, "base");
-    > .v-icon { color: map.get($yellow, "base") !important; }
+    color: #b29a57;
+    > .v-icon { color: #b29a57 !important; }
   }
 
   // used by placeholderIconCircleClass for an incomplete integration treatment -
   // matches TreatmentRow.vue's own icon-circle-code variant (Vue's scoped styles
-  // don't share across components, so this needs its own copy here too)
+  // don't share across components, so this needs its own copy here too). Same
+  // pixel-sampled-vs-shared-token reasoning as icon-circle-control above - $light-blue
+  // base (#03a9f4) is far more saturated than the mockup's muted dusty blue.
   &.icon-circle-code {
-    border: 1px solid map.get($light-blue, "base");
+    border: 1px solid #65a5d3;
     background-color: rgba(3, 169, 244, 0.2);
-    color: map.get($light-blue, "base");
-    > .v-icon { color: map.get($light-blue, "base") !important; }
+    color: #65a5d3;
+    > .v-icon { color: #65a5d3 !important; }
   }
 }
 

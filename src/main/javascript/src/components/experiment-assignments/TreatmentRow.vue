@@ -270,25 +270,32 @@ const integrationsPreviewLaunchUrl = (url = "http://localhost") => {
   height: 24px;
   min-width: 24px;
   border-radius: 50%;
-  text-align: center;
-  align-content: center;
-  display: inline-block;
+  // text-align/align-content on a plain inline-block box don't reliably center an
+  // icon glyph both ways (align-content in particular has no effect here at all -
+  // it only applies to multi-line flex/grid containers) - see the matching fix
+  // (and its fuller comment) in ComponentTable.vue's own .icon-circle.
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   margin-right: 8px;
 
   > .v-icon {
     font-size: 14px;
   }
 
+  // icon/border colors pixel-sampled off the mockup rather than the shared
+  // $yellow/$light-blue "base" tokens - see the matching fix (and its fuller
+  // comment) in ComponentTable.vue's own icon-circle-control/icon-circle-code.
   &.icon-circle-control {
-    border: 1px solid map.get($yellow, "base");
+    border: 1px solid #b29a57;
     background-color: rgba(255, 179, 0, 0.2);
-    > .v-icon { color: map.get($yellow, "base") !important; }
+    > .v-icon { color: #b29a57 !important; }
   }
 
   &.icon-circle-code {
-    border: 1px solid map.get($light-blue, "base");
+    border: 1px solid #65a5d3;
     background-color: rgba(3, 169, 244, 0.2);
-    > .v-icon { color: map.get($light-blue, "base") !important; }
+    > .v-icon { color: #65a5d3 !important; }
   }
 
   &.icon-circle-message {
