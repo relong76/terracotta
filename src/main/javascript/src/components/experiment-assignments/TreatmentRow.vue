@@ -290,17 +290,20 @@ const integrationsPreviewLaunchUrl = (url = "http://localhost") => {
   // $yellow/$light-blue "base" tokens, and border-color matching background-color
   // exactly (not just a similar shade) so it doesn't read as a separate, darker ring
   // - see the matching fix (and its fuller comment) in ComponentTable.vue's own
-  // icon-circle-control/icon-circle-code.
+  // icon-circle-control/icon-circle-code. Icon colors darkened from the original
+  // pixel-sampled #b29a57/#65a5d3 (both under 2.5:1 against this pastel fill,
+  // short of WCAG 1.4.11's 3:1 for a graphical object) - see the same fix's fuller
+  // comment/contrast numbers in ComponentTable.vue.
   &.icon-circle-control {
     border: 1px solid rgba(255, 179, 0, 0.2);
     background-color: rgba(255, 179, 0, 0.2);
-    > .v-icon { color: #b29a57 !important; }
+    > .v-icon { color: #9a8446 !important; }
   }
 
   &.icon-circle-code {
     border: 1px solid rgba(3, 169, 244, 0.2);
     background-color: rgba(3, 169, 244, 0.2);
-    > .v-icon { color: #65a5d3 !important; }
+    > .v-icon { color: #3786bf !important; }
   }
 
   // solid fill with a white icon, matching ComponentTable.vue's top-level message
@@ -311,9 +314,11 @@ const integrationsPreviewLaunchUrl = (url = "http://localhost") => {
   // sub-type the way control/code distinguish plain-vs-integration assignments. Was
   // still on the old pastel/$orange-base style from before that top-level fix -
   // never got the equivalent update since Vue's scoped styles don't share across
-  // components (this file needs its own copy either way).
+  // components (this file needs its own copy either way). Darkened from #df9d7a to
+  // #d37747 for the same white-on-background contrast fix as ComponentTable.vue's
+  // own icon-circle-message (2.27:1 -> 3.23:1).
   &.icon-circle-message {
-    background-color: #df9d7a;
+    background-color: #d37747;
     > .v-icon { color: white !important; }
   }
 }

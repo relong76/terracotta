@@ -893,8 +893,12 @@ onBeforeUnmount(() => {
     > .v-icon { color: white !important; }
   }
 
+  // darkened from the mockup's pixel-sampled #df9d7a - a white icon on that
+  // background was only 2.27:1 (WCAG 1.4.11 requires 3:1 for graphical objects
+  // like an icon glyph); #d37747 clears it at 3.23:1 while staying in the same
+  // terracotta family.
   &.icon-circle-message {
-    background-color: #df9d7a;
+    background-color: #d37747;
     > .v-icon { color: white !important; }
   }
 
@@ -905,12 +909,14 @@ onBeforeUnmount(() => {
   // locally, don't retune shared theme tokens other unrelated UI still relies on).
   // border-color matches background-color exactly (same value, not just a similar
   // shade) so the border doesn't read as a separate, darker ring around the pastel
-  // fill - the mockup's circles have no visible edge at all.
+  // fill - the mockup's circles have no visible edge at all. Icon color darkened
+  // from the original #b29a57 sample (2.43:1 against this pastel fill, short of
+  // WCAG 1.4.11's 3:1) to #9a8446 (3.23:1).
   &.icon-circle-control {
     border: 1px solid rgba(255, 179, 0, 0.2);
     background-color: rgba(255, 179, 0, 0.2);
-    color: #b29a57;
-    > .v-icon { color: #b29a57 !important; }
+    color: #9a8446;
+    > .v-icon { color: #9a8446 !important; }
   }
 
   // used by placeholderIconCircleClass for an incomplete integration treatment -
@@ -918,12 +924,13 @@ onBeforeUnmount(() => {
   // don't share across components, so this needs its own copy here too). Same
   // pixel-sampled-vs-shared-token and border-matches-background reasoning as
   // icon-circle-control above - $light-blue base (#03a9f4) is far more saturated
-  // than the mockup's muted dusty blue.
+  // than the mockup's muted dusty blue. Icon color darkened from the original
+  // #65a5d3 sample (2.19:1 against this pastel fill) to #3786bf (3.24:1).
   &.icon-circle-code {
     border: 1px solid rgba(3, 169, 244, 0.2);
     background-color: rgba(3, 169, 244, 0.2);
-    color: #65a5d3;
-    > .v-icon { color: #65a5d3 !important; }
+    color: #3786bf;
+    > .v-icon { color: #3786bf !important; }
   }
 }
 
