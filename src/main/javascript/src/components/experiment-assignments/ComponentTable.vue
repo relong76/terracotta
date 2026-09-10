@@ -128,10 +128,7 @@
                     </v-tooltip>
                   </div>
 
-                  <v-menu
-                    :location="placeholderMenuLocation"
-                    @update:model-value="open => handlePlaceholderMenuVisibility(open)"
-                  >
+                  <v-menu :location="placeholderMenuLocation">
                     <template #activator="{ props: menuProps }">
                       <v-btn
                         v-bind="menuProps"
@@ -141,7 +138,7 @@
                         icon="mdi-dots-vertical"
                         variant="text"
                         density="compact"
-                        @pointerdown="pickPlaceholderMenuLocation($event.currentTarget)"
+                        @pointerdown="placeholderMenuLocation = pickMenuLocation($event.currentTarget, PLACEHOLDER_MENU_HEIGHT_ESTIMATE)"
                       />
                     </template>
 
@@ -277,7 +274,7 @@ import Sortable from "sortablejs";
 import dayjs from "@/plugins/dayjs";
 
 import { message as messageStatus } from "@/helpers/messaging/status.js";
-import { deleteAttributesFromElement, isMenuOverlayClippedAbove, pickMenuLocation } from "@/helpers/ui-utils.js";
+import { deleteAttributesFromElement, pickMenuLocation } from "@/helpers/ui-utils.js";
 import ToolTip from "@/components/ToolTip.vue";
 import TreatmentRow from "./TreatmentRow.vue";
 import ComponentActionsMenu from "./ComponentActionsMenu.vue";
@@ -331,39 +328,11 @@ const expandedRows = ref([]);
 const actionsMenuOpen = ref({});
 
 // see pickMenuLocation's own comment (in ui-utils.js) for why this measures and picks
-// explicitly rather than trusting v-menu's own location prop to auto-flip. Shared
-// across every placeholder row's own v-menu (there can be several rendered on the
-// page at once, one per missing/incomplete condition) rather than a per-row ref,
-// since only one can actually be mid-interaction at a time - pickPlaceholderMenuLocation
-// and handlePlaceholderMenuVisibility below both run synchronously off that same
-// specific row's own pointerdown/open, so there's no real risk of cross-talk between
-// rows despite the ref being shared.
+// explicitly rather than trusting v-menu's own location prop to auto-flip.
 const placeholderMenuLocation = ref("top start");
 // 2 items (Edit, always-disabled Preview) - generous upper bound, not exact, see
 // pickMenuLocation's comment for why that's fine.
 const PLACEHOLDER_MENU_HEIGHT_ESTIMATE = 140;
-const placeholderActivatorEl = ref(null);
-
-const pickPlaceholderMenuLocation = buttonEl => {
-  placeholderActivatorEl.value = buttonEl;
-  placeholderMenuLocation.value = pickMenuLocation(buttonEl, PLACEHOLDER_MENU_HEIGHT_ESTIMATE);
-};
-
-// belt-and-suspenders on top of pickPlaceholderMenuLocation above - see
-// isMenuOverlayClippedAbove's own comment (in ui-utils.js) for why: a real deployed
-// page showed a menu still rendering clipped above the viewport even with that
-// pre-emptive pick in place.
-const handlePlaceholderMenuVisibility = async open => {
-  if (!open) {
-    return;
-  }
-
-  await nextTick();
-
-  if (isMenuOverlayClippedAbove(placeholderActivatorEl.value)) {
-    placeholderMenuLocation.value = "bottom start";
-  }
-};
 
 // there's no real Status/Actions column in the nested one-column treatments table for
 // the add-treatment placeholder's pill/menu to sit in, and a fixed CSS split can't

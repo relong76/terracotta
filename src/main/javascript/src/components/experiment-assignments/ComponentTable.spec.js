@@ -1,5 +1,4 @@
 import { afterEach, describe, expect, it } from "vitest";
-import { flushPromises } from "@vue/test-utils";
 
 import { mountComponent } from "@/test-utils/mount";
 import ComponentTable from "./ComponentTable.vue";
@@ -239,44 +238,6 @@ describe("ComponentTable", () => {
     await wrapper.vm.$nextTick();
 
     expect(wrapper.emitted("add-treatment")).toHaveLength(2);
-  });
-
-  // a real deployed page showed a v-menu still rendering clipped above the viewport
-  // even with the pre-emptive "top start" vs "bottom start" pick (made on pointerdown,
-  // before it opens) in place - this is the safety net that checks the ACTUAL
-  // rendered position once open and corrects it. See ComponentActionsMenu.spec.js's
-  // matching test.
-  it("flips the add-treatment placeholder's actions menu to bottom start if it renders clipped above the viewport", async () => {
-    const original = Element.prototype.getBoundingClientRect;
-    // the button itself reports plenty of room (so the pre-emptive pointerdown pick
-    // alone would leave it "top start") - only the teleported overlay (.v-overlay)
-    // reports clipped, isolating that it's specifically the post-open correction
-    // catching what the prediction missed.
-    Element.prototype.getBoundingClientRect = function () {
-      if (this.classList?.contains("v-overlay")) {
-        return { top: -40, bottom: 200, left: 0, right: 100, width: 100, height: 240 };
-      }
-
-      return { top: 300, bottom: 340, left: 0, right: 100, width: 40, height: 40 };
-    };
-
-    try {
-      mountTable([
-        assignmentRow({ treatments: [completeTreatment(10, 1), completeTreatment(11, 2)] })
-      ]);
-
-      const menuActivator = wrapper.find('[aria-label="treatment actions for Condition C"]');
-      await menuActivator.trigger("pointerdown");
-      await menuActivator.trigger("click");
-      await flushPromises();
-
-      const menus = wrapper.findAllComponents({ name: "VMenu" });
-      const placeholderMenu = menus.find(menu => menu.props("location") === "bottom start");
-
-      expect(placeholderMenu).toBeTruthy();
-    } finally {
-      Element.prototype.getBoundingClientRect = original;
-    }
   });
 
   // there's no persisted signal distinguishing "deliberately single-version" from

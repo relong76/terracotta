@@ -25,10 +25,7 @@
       </span>
     </div>
     <div class="treatment-btn-group">
-      <v-menu
-        v-model="isMenuOpen"
-        :location="menuLocation"
-      >
+      <v-menu :location="menuLocation">
         <template #activator="{ props: menuProps }">
           <v-btn
             v-bind="menuProps"
@@ -40,7 +37,7 @@
             icon="mdi-dots-vertical"
             variant="text"
             density="compact"
-            @pointerdown="pickMenuLocationForThisMenu($event.currentTarget)"
+            @pointerdown="menuLocation = pickMenuLocation($event.currentTarget, MENU_HEIGHT_ESTIMATE)"
           />
         </template>
 
@@ -84,9 +81,9 @@
 </template>
 
 <script setup>
-import { computed, nextTick, ref, watch } from "vue";
+import { computed, ref } from "vue";
 import { message as messageStatus } from "@/helpers/messaging/status.js";
-import { isMenuOverlayClippedAbove, pickMenuLocation } from "@/helpers/ui-utils.js";
+import { pickMenuLocation } from "@/helpers/ui-utils.js";
 import ToolTip from "@/components/ToolTip.vue";
 
 const props = defineProps({
@@ -125,29 +122,6 @@ const menuLocation = ref("top start");
 // at most 2 items (Edit, Preview - the latter hidden for message rows) - generous
 // upper bound, not exact, see pickMenuLocation's comment for why that's fine.
 const MENU_HEIGHT_ESTIMATE = 140;
-const isMenuOpen = ref(false);
-const activatorEl = ref(null);
-
-const pickMenuLocationForThisMenu = buttonEl => {
-  activatorEl.value = buttonEl;
-  menuLocation.value = pickMenuLocation(buttonEl, MENU_HEIGHT_ESTIMATE);
-};
-
-// belt-and-suspenders on top of pickMenuLocationForThisMenu above - see
-// isMenuOverlayClippedAbove's own comment (in ui-utils.js) for why: a real deployed
-// page showed this menu still rendering clipped above the viewport even with that
-// pre-emptive pick in place.
-watch(isMenuOpen, async open => {
-  if (!open) {
-    return;
-  }
-
-  await nextTick();
-
-  if (isMenuOverlayClippedAbove(activatorEl.value)) {
-    menuLocation.value = "bottom start";
-  }
-});
 
 const rowType = {
   assignment: "assignment",
