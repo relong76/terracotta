@@ -1,5 +1,11 @@
 <template>
   <div id="terracotta-main" tabindex="-1">
+    <!-- lives here, not inside ComponentTable, because saveOrder's componentTableKey
+    bump (see below) remounts ComponentTable entirely on every reorder - a live region
+    inside it would remount along with it and most screen readers won't reliably
+    announce a region that didn't exist a moment ago. -->
+    <div class="sr-only" aria-live="polite" role="status">{{ dragAnnouncement }}</div>
+
     <div v-if="!loaded" class="spinner-container-assignment">
       <Spinner height="50px" width="50px" />
     </div>
@@ -181,6 +187,7 @@ const messagingContainerStore = messagingContainerModule();
 const tab = ref(0);
 const loaded = ref(false);
 const componentTableKey = ref(0);
+const dragAnnouncement = ref("");
 
 const rowType = {
   assignment: "assignment",
@@ -286,6 +293,20 @@ const saveOrder = async (event, exposureRows, exposure) => {
   createStatusAlert(
     statusAlert(alertStatuses.value.success, "Component order saved")
   );
+
+  dragAnnouncement.value =
+    `${moved.title} moved to position ${event.newDraggableIndex + 1} of ${exposureRows.length}.`;
+
+  // only set for a keyboard-triggered move (see ComponentTable.vue's
+  // handleDragKeydown) - componentTableKey's bump above just remounted the whole
+  // table, which drops DOM focus back to the document body, so a keyboard user
+  // loses their place unless it's explicitly restored to the same row's handle.
+  if (event.focusAssignmentId) {
+    await nextTick();
+    document
+      .querySelector(`[data-drag-handle="${event.focusAssignmentId}"]`)
+      ?.focus();
+  }
 };
 
 const handleCreateAssignment = async (exposureId, conditionIds) => {

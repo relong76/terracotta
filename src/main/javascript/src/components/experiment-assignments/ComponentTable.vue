@@ -193,10 +193,16 @@
         </span>
       </template>
 
-      <template #item.drag>
-        <span class="dragger">
+      <template #item.drag="{ item: row, index }">
+        <button
+          type="button"
+          class="dragger"
+          :data-drag-handle="row.assignmentId"
+          :aria-label="`Reorder ${row.title}. Position ${index + 1} of ${rows.length}. Use the up and down arrow keys to move this row.`"
+          @keydown="handleDragKeydown($event, row, index)"
+        >
           <v-icon>mdi-drag</v-icon>
-        </span>
+        </button>
       </template>
 
       <template #item.published="{ item: row }">
@@ -558,6 +564,39 @@ watch(
   },
   { deep: true }
 );
+
+// SortableJS only binds pointer/touch events to .dragger, so arrow-key reordering
+// needs its own path - dispatching the same "sorted" CustomEvent shape SortableJS's
+// onUpdate below already produces (oldDraggableIndex/newDraggableIndex) means
+// ExperimentAssignments.vue's saveOrder handler doesn't need to know which input
+// method triggered the move. focusAssignmentId is the one addition: saveOrder uses
+// it to refocus this same row's handle after componentTableKey's forced remount
+// (see that file's comment), which a mouse drag doesn't need since the mouse was
+// never keyboard-focused to begin with.
+const handleDragKeydown = (event, row, index) => {
+  if (event.key !== "ArrowUp" && event.key !== "ArrowDown") {
+    return;
+  }
+
+  event.preventDefault();
+
+  const newIndex = event.key === "ArrowUp" ? index - 1 : index + 1;
+
+  if (newIndex < 0 || newIndex >= props.rows.length) {
+    return;
+  }
+
+  tableRoot.value.dispatchEvent(
+    new CustomEvent("sorted", {
+      detail: {
+        oldDraggableIndex: index,
+        newDraggableIndex: newIndex,
+        focusAssignmentId: row.assignmentId
+      },
+      bubbles: true
+    })
+  );
+};
 
 const initSortable = async () => {
   await nextTick();
@@ -1069,6 +1108,21 @@ onBeforeUnmount(() => {
   position: absolute;
   top: 50%;
   transform: translateY(-50%);
+}
+
+// a <button> (not a bare <v-icon>/<span>) so the row-reorder handle is keyboard-
+// focusable and operable (arrow-up/down, see handleDragKeydown) - was previously
+// SortableJS-only, with no way to reorder rows without a mouse or touch input at
+// all. Reset to plain button chrome so it still reads as just the drag icon.
+.dragger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: grab;
+  color: inherit;
 }
 
 // just the "+" square - the "Click to add treatment" text is a separate link

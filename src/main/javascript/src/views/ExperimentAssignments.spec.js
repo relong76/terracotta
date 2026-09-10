@@ -108,7 +108,7 @@ const seedStores = ({
 // seeded state ends up on an orphaned instance the mounted component never sees.
 let pinia;
 
-const mountAssignments = (props = {}) => mountComponent(ExperimentAssignments, {
+const mountAssignments = (props = {}, options = {}) => mountComponent(ExperimentAssignments, {
   props: {
     experiment,
     balanced: true,
@@ -116,7 +116,8 @@ const mountAssignments = (props = {}) => mountComponent(ExperimentAssignments, {
     ...props
   },
   global: { stubs },
-  pinia
+  pinia,
+  ...options
 });
 
 describe("ExperimentAssignments", () => {
@@ -354,6 +355,48 @@ describe("ExperimentAssignments", () => {
     expect(experimentId).toBe(3);
     expect(exposureId).toBe(50);
     expect(updated.map(row => row.assignmentId)).toEqual([101, 100]);
+  });
+
+  // ComponentTable.vue's own handleDragKeydown (tested in ComponentTable.spec.js)
+  // is what supplies focusAssignmentId - this test covers the other half of that
+  // contract: saveOrder using it to put focus back on the right row's drag handle
+  // after componentTableKey's forced remount drops focus to the document body.
+  // ComponentTable is stubbed in this file (see `stubs` above), so there's no real
+  // drag-handle button to refocus - a standalone element with the matching
+  // data-drag-handle attribute, attached to document.body, stands in for it.
+  it("restores focus to the moved row's drag handle after a keyboard-triggered reorder, and announces the new position", async () => {
+    seedStores({
+      assignments: [
+        { ...assignmentRow, assignmentId: 100, assignmentOrder: 1, title: "First" },
+        { ...assignmentRow, assignmentId: 101, assignmentOrder: 2, title: "Second" }
+      ]
+    });
+    assignmentService.updateAssignments.mockResolvedValue([]);
+    messageContainerService.updateAll.mockResolvedValue([]);
+
+    const handleStandIn = document.createElement("button");
+    handleStandIn.setAttribute("data-drag-handle", "100");
+    document.body.appendChild(handleStandIn);
+
+    const wrapper = mountAssignments({}, { attachTo: document.body });
+    await wrapper.vm.$nextTick();
+    await wrapper.vm.$nextTick();
+
+    const table = wrapper.findComponent({ name: "ComponentTable" });
+
+    table.vm.$emit(
+      "save-order",
+      { oldDraggableIndex: 0, newDraggableIndex: 1, focusAssignmentId: 100 }
+    );
+
+    await vi.waitFor(() => {
+      expect(document.activeElement).toBe(handleStandIn);
+    });
+
+    expect(wrapper.text()).toContain("First moved to position 2 of 2.");
+
+    wrapper.unmount();
+    handleStandIn.remove();
   });
 
   it("opens a preview window for a treatment", async () => {

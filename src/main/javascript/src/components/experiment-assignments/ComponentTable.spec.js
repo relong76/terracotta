@@ -502,6 +502,45 @@ describe("ComponentTable", () => {
     expect(wrapper.emitted("save-order")[0][0]).toBe(detail);
   });
 
+  it("labels each drag handle with the row's title and position, and moving it with arrow keys emits save-order", async () => {
+    mountTable([assignmentRow(), messageRow()]);
+
+    const handles = wrapper.findAll(".dragger");
+    expect(handles).toHaveLength(2);
+    expect(handles[0].attributes("aria-label")).toContain("Assignment 1");
+    expect(handles[0].attributes("aria-label")).toContain("Position 1 of 2");
+
+    await handles[0].trigger("keydown", { key: "ArrowDown" });
+
+    expect(wrapper.emitted("save-order")).toBeTruthy();
+    expect(wrapper.emitted("save-order")[0][0]).toEqual({
+      oldDraggableIndex: 0,
+      newDraggableIndex: 1,
+      focusAssignmentId: 1
+    });
+  });
+
+  it("does not emit save-order when arrowing past either end of the list", async () => {
+    mountTable([assignmentRow(), messageRow()]);
+
+    const handles = wrapper.findAll(".dragger");
+
+    await handles[0].trigger("keydown", { key: "ArrowUp" });
+    await handles[1].trigger("keydown", { key: "ArrowDown" });
+
+    expect(wrapper.emitted("save-order")).toBeFalsy();
+  });
+
+  it("ignores keys other than the arrow keys on the drag handle", async () => {
+    mountTable([assignmentRow(), messageRow()]);
+
+    const handles = wrapper.findAll(".dragger");
+
+    await handles[0].trigger("keydown", { key: "Enter" });
+
+    expect(wrapper.emitted("save-order")).toBeFalsy();
+  });
+
   it("renders no rows when given an empty rows array", () => {
     mountTable([]);
 
