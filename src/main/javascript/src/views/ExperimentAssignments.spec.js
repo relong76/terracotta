@@ -132,15 +132,14 @@ describe("ExperimentAssignments", () => {
   it("shows a loading spinner with a wait message until mount finishes, then shows the exposure content", async () => {
     const wrapper = mountAssignments();
 
-    const pageLoading = wrapper.findComponent({ name: "PageLoading" });
-    expect(pageLoading.props("display")).toBe(true);
-    expect(pageLoading.props("message")).toBe("Please wait while we load your experiment components.");
+    expect(wrapper.find(".spinner-container-assignment").exists()).toBe(true);
+    expect(wrapper.text()).toContain("Please wait while we load your experiment components.");
     expect(wrapper.findComponent({ name: "ExposureTabs" }).exists()).toBe(false);
 
     await wrapper.vm.$nextTick();
     await wrapper.vm.$nextTick();
 
-    expect(pageLoading.props("display")).toBe(false);
+    expect(wrapper.find(".spinner-container-assignment").exists()).toBe(false);
     expect(wrapper.findComponent({ name: "ExposureTabs" }).exists()).toBe(true);
   });
 
