@@ -1,6 +1,7 @@
 <template>
   <v-app
     :style="appStyle"
+    :class="{ 'app--embedded': isEmbedded }"
     tabindex="0"
   >
     <SkipTo
@@ -165,6 +166,7 @@ const StudentConsent = defineAsyncComponent(() => import("@/views/student/Studen
 
 import { api as apiModule } from "@/store/api.module";
 import { configuration as configurationModule } from "@/store/configuration.module";
+import { isEmbeddedInAnIframe } from "@/helpers/ui-utils.js";
 
 defineOptions({
   name: "App"
@@ -225,6 +227,15 @@ const configuration = computed(
 const appStyle = computed(() => {
   return route.meta.appStyle;
 });
+
+// Distinguishes the real embedded LTI tool (where App.vue's own resize reporting
+// resizes an outer iframe to fit, so this app's content should be allowed to be
+// shorter than a full viewport) from a plain top-level page like the treatment
+// preview window (opened via window.open, not embedded - see
+// ExperimentAssignments.vue's handleTreatmentPreview) or /oauth2-redirect, where a
+// normal page filling at least the browser's own viewport is exactly what's wanted.
+// See the .app--embedded rule in _global.scss for the other half of this.
+const isEmbedded = isEmbeddedInAnIframe();
 
 const isIntegration = computed(() => {
   return props.integrationData != null;
@@ -323,16 +334,6 @@ const clearStaleStorageExceptDrafts = () => {
 // public/js/integrations/resize/ already use on the OTHER side of a similar handshake
 // (an embedded integration tool reporting ITS size to Terracotta), for consistency.
 let frameResizeObserver = null;
-
-const isEmbeddedInAnIframe = () => {
-  try {
-    return window.self !== window.top;
-  } catch {
-    // a cross-origin parent throws on window.top access in some browsers - if we
-    // can't tell, assume embedded, since that's the case this exists for
-    return true;
-  }
-};
 
 const notifyParentOfHeight = () => {
   const height = Math.max(document.body.offsetHeight, document.documentElement.offsetHeight);

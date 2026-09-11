@@ -31,6 +31,22 @@ body {
   }
 }
 
+// Vuetify defaults .v-application to at least a full viewport tall, which made sense
+// when this app's outer iframe was a fixed/default height Canvas picked on its own.
+// Now that App.vue actively measures and reports document.body's real height so Canvas
+// can size that iframe to fit (see notifyParentOfHeight), this floor becomes
+// self-reinforcing instead: body can never report shorter than whatever height the
+// iframe already has, so a short page (e.g. the assignment/message editors) can never
+// shrink the iframe back down, leaving blank space below its real content.
+//
+// Scoped to .app--embedded (see App.vue's isEmbedded) - a plain top-level page like
+// the treatment preview window (window.open, not embedded) still wants the normal
+// full-viewport-filling default; removing it there just leaves a short page floating
+// in a mostly-blank browser tab instead of fixing anything.
+.app--embedded .v-application__wrap {
+  min-height: unset !important;
+}
+
 .v-tab__slider {
   background: #e0e0e0 !important;
 }
