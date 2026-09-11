@@ -203,6 +203,38 @@ describe("ExperimentSummary", () => {
     ).toMatchObject({ experimentId: 8 });
   });
 
+  // `loaded` (computed from isLoading) waits on the full fetchExperiment/
+  // fetchExposures/fetchAssignmentsByExposure/messageContainerService.getAll
+  // chain, not just the experiment itself - that's real network time, and until
+  // it resolves the components tab's content area was otherwise just blank
+  // where the components table would appear.
+  it("shows a loading spinner in place of the components table while assignments/messages are still loading", async () => {
+    let resolveAssignments;
+    assignmentService.fetchAssignmentsByExposure.mockReturnValue(
+      new Promise(resolve => { resolveAssignments = resolve; })
+    );
+
+    const wrapper = mountSummary();
+
+    await vi.waitFor(() => {
+      expect(wrapper.text()).toContain("My Experiment");
+    });
+
+    // "components" is the default tab (see the test below), so its content is
+    // already mounted without needing switchTab.
+    expect(wrapper.find(".spinner-container-assignments").exists()).toBe(true);
+    expect(wrapper.text()).toContain("Please wait while we load your experiment components.");
+    expect(wrapper.findComponent({ name: "ExperimentAssignments" }).exists()).toBe(false);
+
+    resolveAssignments([]);
+
+    await vi.waitFor(() => {
+      expect(wrapper.findComponent({ name: "ExperimentAssignments" }).exists()).toBe(true);
+    });
+
+    expect(wrapper.find(".spinner-container-assignments").exists()).toBe(false);
+  });
+
   it("defaults to the components tab and exposure set 0 without a saved edit mode", async () => {
     const wrapper = mountSummary();
 

@@ -6,21 +6,6 @@
     announce a region that didn't exist a moment ago. -->
     <div class="sr-only" aria-live="polite" role="status">{{ dragAnnouncement }}</div>
 
-    <!-- PageLoading's position: fixed overlay doesn't work here - this view is
-    rendered inside ExperimentSummary.vue's <v-window><v-window-item>, and Vuetify's
-    tab-enter transition briefly applies a transform to that ancestor. A transform
-    on an ancestor turns position: fixed into position: absolute relative to THAT
-    ancestor instead of the viewport, and .v-window's own overflow: hidden then
-    clips it away entirely - exactly during the moment this is meant to show,
-    since that's also when the tab (and this view) is first mounting. A plain
-    in-flow spinner has no such ancestor-dependent failure mode. -->
-    <div v-if="!loaded" class="spinner-container-assignment">
-      <Spinner height="50px" width="50px" />
-      <p class="spinner-container-assignment__message">
-        Please wait while we load your experiment components.
-      </p>
-    </div>
-
     <v-container v-if="loaded && experiment" class="px-0" fluid>
       <v-row>
         <v-col cols="12">
@@ -145,7 +130,6 @@ import {
 import AddAssignmentDialog from "@/components/dialog/AddAssignmentDialog.vue";
 import AddMessageDialog from "@/views/messaging/components/dialog/AddMessageDialog.vue";
 import MoveAssignmentDialog from "@/components/dialog/MoveAssignmentDialog.vue";
-import Spinner from "@/components/Spinner.vue";
 import ExposureTabs from "@/components/experiment-assignments/ExposureTabs.vue";
 import ComponentTable from "@/components/experiment-assignments/ComponentTable.vue";
 import ExposureDesignCard from "@/components/experiment-assignments/ExposureDesignCard.vue";
@@ -1005,25 +989,6 @@ div.section-components.py-3.px-3 {
   padding-top: 40px !important;
   padding-left: 0 !important;
   padding-right: 0 !important;
-}
-
-.spinner-container-assignment {
-  width: 100%;
-  min-height: 200px;
-  padding: 40px 16px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 16px;
-
-  &__message {
-    margin: 0;
-    color: map.get($blue, "base");
-    font-size: 18px;
-    font-weight: 500;
-    text-align: center;
-  }
 }
 
 div.no-assignments-yet.px-5.py-5.mx-3.mb-5,

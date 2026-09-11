@@ -80,8 +80,7 @@ const stubs = {
   ComponentTable: true,
   ExposureDesignCard: true,
   AddAssignmentDialog: true,
-  AddMessageDialog: true,
-  Spinner: true
+  AddMessageDialog: true
 };
 
 const seedStores = ({
@@ -129,17 +128,20 @@ describe("ExperimentAssignments", () => {
     seedStores();
   });
 
-  it("shows a loading spinner with a wait message until mount finishes, then shows the exposure content", async () => {
+  // the real, user-visible loading wait happens one level up, in
+  // ExperimentSummary.vue - by the time this component mounts, its parent has
+  // already fully resolved `experiment` and every store this reads from. This
+  // component's own `loaded` ref just waits one tick for `tab` to be set from
+  // activeExposureSet before rendering, so the wrong exposure tab's content
+  // never flashes on mount.
+  it("waits until the active tab is set before showing the exposure content", async () => {
     const wrapper = mountAssignments();
 
-    expect(wrapper.find(".spinner-container-assignment").exists()).toBe(true);
-    expect(wrapper.text()).toContain("Please wait while we load your experiment components.");
     expect(wrapper.findComponent({ name: "ExposureTabs" }).exists()).toBe(false);
 
     await wrapper.vm.$nextTick();
     await wrapper.vm.$nextTick();
 
-    expect(wrapper.find(".spinner-container-assignment").exists()).toBe(false);
     expect(wrapper.findComponent({ name: "ExposureTabs" }).exists()).toBe(true);
   });
 
