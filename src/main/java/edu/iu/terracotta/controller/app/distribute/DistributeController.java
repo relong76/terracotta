@@ -20,6 +20,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.multipart.MultipartFile;
@@ -37,11 +38,12 @@ import edu.iu.terracotta.dao.exceptions.ExperimentImportNotFoundException;
 import edu.iu.terracotta.dao.exceptions.ExperimentNotMatchingException;
 import edu.iu.terracotta.dao.exceptions.ExposureNotMatchingException;
 import edu.iu.terracotta.dao.model.dto.distribute.CopyCandidateDto;
+import edu.iu.terracotta.dao.model.dto.distribute.CopyCandidateResolutionDto;
+import edu.iu.terracotta.dao.model.dto.distribute.CopyCandidateResolutionRequestDto;
 import edu.iu.terracotta.dao.model.dto.distribute.ExportDto;
 import edu.iu.terracotta.dao.model.dto.distribute.ImportDto;
 import edu.iu.terracotta.dao.model.enums.distribute.ExperimentImportStatus;
 import edu.iu.terracotta.exceptions.BadTokenException;
-import edu.iu.terracotta.exceptions.ExperimentCopyCandidateNotFoundException;
 import edu.iu.terracotta.exceptions.ExperimentExportException;
 import edu.iu.terracotta.exceptions.ExperimentImportException;
 import edu.iu.terracotta.service.app.distribute.ExperimentCopyCandidateService;
@@ -181,37 +183,20 @@ public class DistributeController {
         return new ResponseEntity<>(experimentCopyCandidateService.getPendingForContext(securedInfo), HttpStatus.OK);
     }
 
-    @PostMapping("/copy-candidates/{candidateId}/import")
-    public ResponseEntity<ImportDto> importCopyCandidate(@PathVariable UUID candidateId, HttpServletRequest req) throws BadTokenException, NumberFormatException, TerracottaConnectorException {
+    // resolves EVERY PENDING candidate for this context in one action - candidates named in the
+    // request are imported (and their corresponding copied LMS assignment(s) re-pointed);
+    // everything else PENDING is declined and obsolete-processed. Replaces the old per-item
+    // import/dismiss endpoints entirely: keeping both around would let this atomicity guarantee
+    // be silently bypassed via a stray direct call to one of them.
+    @PostMapping("/copy-candidates/resolve")
+    public ResponseEntity<CopyCandidateResolutionDto> resolveCopyCandidates(@RequestBody CopyCandidateResolutionRequestDto request, HttpServletRequest req) throws BadTokenException, NumberFormatException, TerracottaConnectorException {
         SecuredInfo securedInfo = apijwtService.extractValues(req, false);
 
         if (!apijwtService.isInstructorOrHigher(securedInfo)) {
             return new ResponseEntity<>(HttpStatus.UNAUTHORIZED);
         }
 
-        try {
-            return new ResponseEntity<>(experimentCopyCandidateService.importCandidate(candidateId, securedInfo), HttpStatus.ACCEPTED);
-        } catch (ExperimentCopyCandidateNotFoundException e) {
-            return new ResponseEntity<>(HttpStatus.NOT_FOUND);
-        } catch (ExperimentImportException e) {
-            return new ResponseEntity<>(HttpStatus.INTERNAL_SERVER_ERROR);
-        }
-    }
-
-    @PutMapping("/copy-candidates/{candidateId}/dismiss")
-    public ResponseEntity<Void> dismissCopyCandidate(@PathVariable UUID candidateId, HttpServletRequest req) throws BadTokenException, NumberFormatException, TerracottaConnectorException {
-        SecuredInfo securedInfo = apijwtService.extractValues(req, false);
-
-        if (!apijwtService.isInstructorOrHigher(securedInfo)) {
-            return new ResponseEntity<>(HttpStatus.UNAUTHORIZED);
-        }
-
-        try {
-            experimentCopyCandidateService.dismiss(candidateId, securedInfo);
-            return new ResponseEntity<>(HttpStatus.OK);
-        } catch (ExperimentCopyCandidateNotFoundException e) {
-            return new ResponseEntity<>(HttpStatus.NOT_FOUND);
-        }
+        return new ResponseEntity<>(experimentCopyCandidateService.resolve(request.getImportCandidateIds(), securedInfo), HttpStatus.ACCEPTED);
     }
 
 }

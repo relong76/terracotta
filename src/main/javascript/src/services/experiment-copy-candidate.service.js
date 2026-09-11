@@ -7,8 +7,7 @@ import { api } from "@/store/api.module";
 
 export const experimentCopyCandidateService = {
   getAll,
-  importCandidate,
-  dismiss
+  resolve
 };
 
 async function getAll() {
@@ -17,27 +16,25 @@ async function getAll() {
   );
 }
 
-async function importCandidate(candidateId) {
+// resolves EVERY currently-PENDING candidate for this context in one call: candidates named in
+// importCandidateIds are imported (and their corresponding copied LMS assignment(s) re-pointed);
+// everything else PENDING is declined and obsolete-processed server-side. See
+// ExperimentCopyCandidateServiceImpl.resolve for the full reasoning - there's deliberately no
+// separate per-item import/dismiss call anymore.
+async function resolve(importCandidateIds) {
   return request(
-    `/api/experiments/copy-candidates/${candidateId}/import`,
+    "/api/experiments/copy-candidates/resolve",
     {
-      method: "POST"
-    }
-  );
-}
-
-async function dismiss(candidateId) {
-  return request(
-    `/api/experiments/copy-candidates/${candidateId}/dismiss`,
-    {
-      method: "PUT"
+      method: "POST",
+      body: { importCandidateIds }
     }
   );
 }
 
 async function request(path, options = {}) {
   const {
-    method = "GET"
+    method = "GET",
+    body
   } = options;
 
   const response = await fetch(
@@ -45,8 +42,19 @@ async function request(path, options = {}) {
     {
       method,
       headers: {
-        ...authHeader()
-      }
+        ...authHeader(),
+        ...(body
+          ? {
+              "Content-Type":
+                "application/json"
+            }
+          : {})
+      },
+      ...(body
+        ? {
+            body: JSON.stringify(body)
+          }
+        : {})
     }
   );
 

@@ -1,8 +1,6 @@
 package edu.iu.terracotta.dao.repository.distribute;
 
 import java.util.List;
-import java.util.Optional;
-import java.util.UUID;
 
 import org.springframework.data.jpa.repository.JpaRepository;
 
@@ -13,7 +11,7 @@ import edu.iu.terracotta.dao.model.enums.distribute.ExperimentCopyCandidateStatu
 public interface ExperimentCopyCandidateRepository extends JpaRepository<ExperimentCopyCandidate, Long> {
 
     List<ExperimentCopyCandidate> findAllByDestinationContext_ContextIdAndStatus(long destinationContextId, ExperimentCopyCandidateStatus status);
-    Optional<ExperimentCopyCandidate> findByUuidAndDestinationContext_ContextIdAndStatus(UUID uuid, long destinationContextId, ExperimentCopyCandidateStatus status);
     boolean existsBySourceExperiment_ExperimentIdAndDestinationContext_ContextId(long sourceExperimentId, long destinationContextId);
+    boolean existsByDestinationContext_ContextIdAndStatus(long destinationContextId, ExperimentCopyCandidateStatus status);
 
 }

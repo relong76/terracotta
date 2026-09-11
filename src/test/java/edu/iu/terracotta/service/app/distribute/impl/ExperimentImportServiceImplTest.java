@@ -9,6 +9,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -21,6 +22,7 @@ import org.mockito.MockedStatic;
 import org.mockito.MockitoAnnotations;
 
 import edu.iu.terracotta.base.BaseTest;
+import edu.iu.terracotta.connectors.generic.dao.model.lms.LmsAssignment;
 import edu.iu.terracotta.dao.entity.distribute.ExperimentImport;
 import edu.iu.terracotta.dao.entity.distribute.ExperimentImportError;
 import edu.iu.terracotta.dao.model.distribute.export.AnswerMcExport;
@@ -124,7 +126,7 @@ class ExperimentImportServiceImplTest extends BaseTest {
         }
 
         verify(fileStorageService).saveExperimentImportFile(eq(multipartFile), any(ExperimentImport.class));
-        verify(experimentImportAsyncService).process(any(ExperimentImport.class), eq(securedInfo));
+        verify(experimentImportAsyncService).process(any(ExperimentImport.class), eq(securedInfo), eq(Map.of()));
     }
 
     // used by ExperimentCopyCandidateServiceImpl to feed an in-process export straight into this
@@ -142,13 +144,38 @@ class ExperimentImportServiceImplTest extends BaseTest {
         try (MockedStatic<FileUtils> fileUtils = mockStatic(FileUtils.class)) {
             fileUtils.when(() -> FileUtils.getFile(any(File.class), anyString())).thenReturn(jsonFile.toFile());
 
-            ImportDto result = experimentImportService.preprocessFromFile(file, "test-file.zip", securedInfo);
+            ImportDto result = experimentImportService.preprocessFromFile(file, "test-file.zip", securedInfo, Map.of());
 
             assertNotNull(result);
         }
 
         verify(fileStorageService).saveExperimentImportFile(eq(file), any(ExperimentImport.class));
-        verify(experimentImportAsyncService).process(any(ExperimentImport.class), eq(securedInfo));
+        verify(experimentImportAsyncService).process(any(ExperimentImport.class), eq(securedInfo), eq(Map.of()));
+    }
+
+    // the map is forwarded unchanged, all the way through to the async import step - this is
+    // what lets ExperimentCopyCandidateServiceImpl's repoint-instead-of-duplicate logic reach the
+    // assignment-creation step despite it running on a different (@Async) thread
+    @Test
+    void testPreprocessFromFileForwardsNonEmptyRepointMap() throws IOException {
+        when(securedInfo.getUserId()).thenReturn("user-id");
+        when(securedInfo.getPlatformDeploymentId()).thenReturn(1L);
+        when(securedInfo.getContextId()).thenReturn(1L);
+        when(experimentImport.getErrors()).thenReturn(Collections.emptyList());
+
+        Path jsonFile = importDirectory.resolve(ExperimentImport.JSON_FILE_NAME);
+        JsonMapper.builder().build().writeValue(jsonFile.toFile(), fullExport());
+
+        LmsAssignment existingLmsAssignment = mock(LmsAssignment.class);
+        Map<Long, LmsAssignment> assignmentRepointMap = Map.of(50L, existingLmsAssignment);
+
+        try (MockedStatic<FileUtils> fileUtils = mockStatic(FileUtils.class)) {
+            fileUtils.when(() -> FileUtils.getFile(any(File.class), anyString())).thenReturn(jsonFile.toFile());
+
+            experimentImportService.preprocessFromFile(file, "test-file.zip", securedInfo, assignmentRepointMap);
+        }
+
+        verify(experimentImportAsyncService).process(any(ExperimentImport.class), eq(securedInfo), eq(assignmentRepointMap));
     }
 
     @Test
@@ -157,7 +184,7 @@ class ExperimentImportServiceImplTest extends BaseTest {
         when(ltiContextRepository.findById(1L)).thenReturn(Optional.empty());
 
         ExperimentImportException exception = assertThrows(ExperimentImportException.class, () -> {
-            experimentImportService.preprocessFromFile(file, "test-file.zip", securedInfo);
+            experimentImportService.preprocessFromFile(file, "test-file.zip", securedInfo, Map.of());
         });
 
         assertEquals("Context ID: [1] not found", exception.getMessage());
@@ -198,7 +225,7 @@ class ExperimentImportServiceImplTest extends BaseTest {
             assertEquals(ExperimentImportStatus.ERROR, result.getStatus());
         }
 
-        verify(experimentImportAsyncService, never()).process(any(ExperimentImport.class), eq(securedInfo));
+        verify(experimentImportAsyncService, never()).process(any(ExperimentImport.class), eq(securedInfo), anyMap());
         verify(experimentImportErrorRepository).save(any(ExperimentImportError.class));
     }
 

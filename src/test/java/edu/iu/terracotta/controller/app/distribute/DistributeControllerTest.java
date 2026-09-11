@@ -28,10 +28,11 @@ import edu.iu.terracotta.base.BaseTest;
 import edu.iu.terracotta.dao.exceptions.ExperimentImportNotFoundException;
 import edu.iu.terracotta.dao.exceptions.ExperimentNotMatchingException;
 import edu.iu.terracotta.dao.model.dto.distribute.CopyCandidateDto;
+import edu.iu.terracotta.dao.model.dto.distribute.CopyCandidateResolutionDto;
+import edu.iu.terracotta.dao.model.dto.distribute.CopyCandidateResolutionRequestDto;
 import edu.iu.terracotta.dao.model.dto.distribute.ExportDto;
 import edu.iu.terracotta.dao.model.dto.distribute.ImportDto;
 import edu.iu.terracotta.dao.model.enums.distribute.ExperimentImportStatus;
-import edu.iu.terracotta.exceptions.ExperimentCopyCandidateNotFoundException;
 import edu.iu.terracotta.exceptions.ExperimentExportException;
 import edu.iu.terracotta.exceptions.ExperimentImportException;
 import edu.iu.terracotta.service.app.distribute.ExperimentCopyCandidateService;
@@ -318,76 +319,51 @@ public class DistributeControllerTest extends BaseTest {
     }
 
     @Test
-    void importCopyCandidateUnauthorizedTest() throws Exception {
+    void resolveCopyCandidatesUnauthorizedTest() throws Exception {
         when(apiJwtService.isInstructorOrHigher(securedInfo)).thenReturn(false);
+        CopyCandidateResolutionRequestDto request = new CopyCandidateResolutionRequestDto();
+        request.setImportCandidateIds(List.of(UUID.randomUUID()));
 
-        ResponseEntity<ImportDto> ret = distributeController.importCopyCandidate(UUID.randomUUID(), httpServletRequest);
+        ResponseEntity<CopyCandidateResolutionDto> ret = distributeController.resolveCopyCandidates(request, httpServletRequest);
 
         assertEquals(HttpStatus.UNAUTHORIZED, ret.getStatusCode());
     }
 
     @Test
-    void importCopyCandidateSuccessTest() throws Exception {
+    void resolveCopyCandidatesSuccessTest() throws Exception {
         when(apiJwtService.isInstructorOrHigher(securedInfo)).thenReturn(true);
-        UUID candidateId = UUID.randomUUID();
-        when(experimentCopyCandidateService.importCandidate(candidateId, securedInfo)).thenReturn(importDto);
+        UUID selectedId = UUID.randomUUID();
+        UUID declinedId = UUID.randomUUID();
+        CopyCandidateResolutionRequestDto request = new CopyCandidateResolutionRequestDto();
+        request.setImportCandidateIds(List.of(selectedId));
+        CopyCandidateResolutionDto resolution = CopyCandidateResolutionDto.builder()
+            .imports(List.of(importDto))
+            .declinedCandidateIds(List.of(declinedId))
+            .build();
+        when(experimentCopyCandidateService.resolve(List.of(selectedId), securedInfo)).thenReturn(resolution);
 
-        ResponseEntity<ImportDto> ret = distributeController.importCopyCandidate(candidateId, httpServletRequest);
+        ResponseEntity<CopyCandidateResolutionDto> ret = distributeController.resolveCopyCandidates(request, httpServletRequest);
 
         assertEquals(HttpStatus.ACCEPTED, ret.getStatusCode());
-        assertEquals(importDto, ret.getBody());
+        assertEquals(resolution, ret.getBody());
     }
 
     @Test
-    void importCopyCandidateNotFoundTest() throws Exception {
+    void resolveCopyCandidatesEmptySelectionDeclinesAllTest() throws Exception {
         when(apiJwtService.isInstructorOrHigher(securedInfo)).thenReturn(true);
-        UUID candidateId = UUID.randomUUID();
-        doThrow(new ExperimentCopyCandidateNotFoundException("not found")).when(experimentCopyCandidateService).importCandidate(candidateId, securedInfo);
+        UUID declinedId = UUID.randomUUID();
+        CopyCandidateResolutionRequestDto request = new CopyCandidateResolutionRequestDto();
+        request.setImportCandidateIds(List.of());
+        CopyCandidateResolutionDto resolution = CopyCandidateResolutionDto.builder()
+            .imports(List.of())
+            .declinedCandidateIds(List.of(declinedId))
+            .build();
+        when(experimentCopyCandidateService.resolve(List.of(), securedInfo)).thenReturn(resolution);
 
-        ResponseEntity<ImportDto> ret = distributeController.importCopyCandidate(candidateId, httpServletRequest);
+        ResponseEntity<CopyCandidateResolutionDto> ret = distributeController.resolveCopyCandidates(request, httpServletRequest);
 
-        assertEquals(HttpStatus.NOT_FOUND, ret.getStatusCode());
-    }
-
-    @Test
-    void importCopyCandidateImportExceptionTest() throws Exception {
-        when(apiJwtService.isInstructorOrHigher(securedInfo)).thenReturn(true);
-        UUID candidateId = UUID.randomUUID();
-        doThrow(new ExperimentImportException("import failed")).when(experimentCopyCandidateService).importCandidate(candidateId, securedInfo);
-
-        ResponseEntity<ImportDto> ret = distributeController.importCopyCandidate(candidateId, httpServletRequest);
-
-        assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, ret.getStatusCode());
-    }
-
-    @Test
-    void dismissCopyCandidateUnauthorizedTest() throws Exception {
-        when(apiJwtService.isInstructorOrHigher(securedInfo)).thenReturn(false);
-
-        ResponseEntity<Void> ret = distributeController.dismissCopyCandidate(UUID.randomUUID(), httpServletRequest);
-
-        assertEquals(HttpStatus.UNAUTHORIZED, ret.getStatusCode());
-    }
-
-    @Test
-    void dismissCopyCandidateSuccessTest() throws Exception {
-        when(apiJwtService.isInstructorOrHigher(securedInfo)).thenReturn(true);
-        UUID candidateId = UUID.randomUUID();
-
-        ResponseEntity<Void> ret = distributeController.dismissCopyCandidate(candidateId, httpServletRequest);
-
-        assertEquals(HttpStatus.OK, ret.getStatusCode());
-    }
-
-    @Test
-    void dismissCopyCandidateNotFoundTest() throws Exception {
-        when(apiJwtService.isInstructorOrHigher(securedInfo)).thenReturn(true);
-        UUID candidateId = UUID.randomUUID();
-        doThrow(new ExperimentCopyCandidateNotFoundException("not found")).when(experimentCopyCandidateService).dismiss(candidateId, securedInfo);
-
-        ResponseEntity<Void> ret = distributeController.dismissCopyCandidate(candidateId, httpServletRequest);
-
-        assertEquals(HttpStatus.NOT_FOUND, ret.getStatusCode());
+        assertEquals(HttpStatus.ACCEPTED, ret.getStatusCode());
+        assertEquals(resolution, ret.getBody());
     }
 
 }

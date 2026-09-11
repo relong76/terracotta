@@ -96,7 +96,14 @@ public class NoticeController {
         }
 
         try {
-            assignmentAsyncService.handleAssignmentTasksInLmsByContext(securedInfo.get());
+            // deferred while any candidate for this context is still PENDING - a copied
+            // assignment's URL still carries the source course's old IDs, so running this now
+            // would mark it obsolete before the instructor gets a chance to import the matching
+            // experiment and re-point it. ExperimentCopyCandidateService.resolve() runs this same
+            // check itself, exactly once, after the instructor decides.
+            if (!experimentCopyCandidateService.hasPendingForContext(securedInfo.get().getContextId())) {
+                assignmentAsyncService.handleAssignmentTasksInLmsByContext(securedInfo.get());
+            }
         } catch (Exception e) {
             log.error("Error handling LTI notice (context ID: [{}])", securedInfo.get().getContextId(), e);
         }

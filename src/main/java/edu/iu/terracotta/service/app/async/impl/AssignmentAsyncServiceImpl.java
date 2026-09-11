@@ -2,14 +2,12 @@ package edu.iu.terracotta.service.app.async.impl;
 
 import java.io.File;
 import java.io.IOException;
-import java.net.URI;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -18,7 +16,6 @@ import java.util.Optional;
 import java.util.stream.Collectors;
 
 import org.apache.commons.collections4.CollectionUtils;
-import org.apache.commons.lang3.ArrayUtils;
 import org.apache.commons.collections4.MapUtils;
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.lang3.BooleanUtils;
@@ -61,6 +58,7 @@ import edu.iu.terracotta.exceptions.DataServiceException;
 import edu.iu.terracotta.service.app.AssignmentService;
 import edu.iu.terracotta.service.app.FileStorageService;
 import edu.iu.terracotta.service.app.async.AssignmentAsyncService;
+import edu.iu.terracotta.utils.LmsExternalToolUrlUtils;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -216,40 +214,29 @@ public class AssignmentAsyncServiceImpl implements AssignmentAsyncService {
             .filter(lmsAssignment -> Strings.CI.contains(lmsAssignment.getLmsExternalToolFields().getUrl(), localUrl))
             .map(lmsAssignment -> {
                 try {
-                    String[] queryParameters = StringUtils.split(URI.create(lmsAssignment.getLmsExternalToolFields().getUrl()).getQuery(), '&');
-
-                    if (ArrayUtils.isEmpty(queryParameters)) {
-                        // no query parameters; skip
-                        return null;
-                    }
+                    String url = lmsAssignment.getLmsExternalToolFields().getUrl();
 
                     // prefer the assignment ID from the query parameters - it identifies the
                     // specific Terracotta assignment this LMS assignment links to, not just
                     // which experiment it belongs to. Consent LMS items have no assignment
                     // parameter of their own (e.g. ?consent=true&experiment=278 - see
                     // ConsentDocument), so fall back to the experiment ID for those.
-                    Optional<String> assignmentId = Arrays.stream(queryParameters)
-                        .filter(queryParameter -> Strings.CI.equals(StringUtils.split(queryParameter, '=')[0], "assignment"))
-                        .map(queryParameter -> StringUtils.split(queryParameter, '=')[1])
-                        .findFirst();
+                    Optional<Long> assignmentId = LmsExternalToolUrlUtils.extractQueryParamAsLong(url, "assignment");
 
                     if (assignmentId.isPresent()) {
-                        if (terracottaAssignmentIds.contains(Long.parseLong(assignmentId.get()))) {
+                        if (terracottaAssignmentIds.contains(assignmentId.get())) {
                             // assignment ID still exists in this context; skip
                             return null;
                         }
                     } else {
-                        Optional<String> experimentId = Arrays.stream(queryParameters)
-                            .filter(queryParameter -> Strings.CI.equals(StringUtils.split(queryParameter, '=')[0], "experiment"))
-                            .map(queryParameter -> StringUtils.split(queryParameter, '=')[1])
-                            .findFirst();
+                        Optional<Long> experimentId = LmsExternalToolUrlUtils.extractQueryParamAsLong(url, "experiment");
 
                         if (experimentId.isEmpty()) {
                             // no assignment or experiment query parameter; skip
                             return null;
                         }
 
-                        if (terracottaExperimentIds.contains(Long.parseLong(experimentId.get()))) {
+                        if (terracottaExperimentIds.contains(experimentId.get())) {
                             // experiment ID still exists in this context; skip
                             return null;
                         }

@@ -17,6 +17,7 @@ import edu.iu.terracotta.connectors.generic.dao.entity.BaseEntity;
 import edu.iu.terracotta.connectors.generic.dao.entity.lti.LtiContextEntity;
 import edu.iu.terracotta.connectors.generic.dao.entity.lti.LtiUserEntity;
 import edu.iu.terracotta.connectors.generic.dao.model.SecuredInfo;
+import edu.iu.terracotta.connectors.generic.dao.model.lms.LmsAssignment;
 import edu.iu.terracotta.connectors.generic.dao.repository.lti.LtiContextRepository;
 import edu.iu.terracotta.connectors.generic.dao.repository.lti.LtiUserRepository;
 import edu.iu.terracotta.dao.entity.AnswerMc;
@@ -72,7 +73,7 @@ public class ExperimentImportServiceImpl implements ExperimentImportService {
         try {
             fileStorageService.saveExperimentImportFile(file, experimentImport);
 
-            return finishPreprocess(experimentImport, securedInfo);
+            return finishPreprocess(experimentImport, securedInfo, Map.of());
         } catch (Exception e) {
             String error = String.format("Error importing experiment: owner ID: [%s], content ID: [%s]", securedInfo.getUserId(), securedInfo.getContextId());
             log.error(error, e);
@@ -81,13 +82,13 @@ public class ExperimentImportServiceImpl implements ExperimentImportService {
     }
 
     @Override
-    public ImportDto preprocessFromFile(File file, String originalFilename, SecuredInfo securedInfo) throws ExperimentImportException {
+    public ImportDto preprocessFromFile(File file, String originalFilename, SecuredInfo securedInfo, Map<Long, LmsAssignment> assignmentRepointMap) throws ExperimentImportException {
         ExperimentImport experimentImport = buildExperimentImport(originalFilename, securedInfo);
 
         try {
             fileStorageService.saveExperimentImportFile(file, experimentImport);
 
-            return finishPreprocess(experimentImport, securedInfo);
+            return finishPreprocess(experimentImport, securedInfo, assignmentRepointMap);
         } catch (Exception e) {
             String error = String.format("Error importing experiment: owner ID: [%s], content ID: [%s]", securedInfo.getUserId(), securedInfo.getContextId());
             log.error(error, e);
@@ -108,7 +109,7 @@ public class ExperimentImportServiceImpl implements ExperimentImportService {
             .build();
     }
 
-    private ImportDto finishPreprocess(ExperimentImport experimentImport, SecuredInfo securedInfo) {
+    private ImportDto finishPreprocess(ExperimentImport experimentImport, SecuredInfo securedInfo, Map<Long, LmsAssignment> assignmentRepointMap) {
         experimentImport = experimentImportRepository.save(experimentImport);
 
         validate(experimentImport);
@@ -127,7 +128,7 @@ public class ExperimentImportServiceImpl implements ExperimentImportService {
         }
 
         // start async import processing
-        experimentImportAsyncService.process(experimentImport, securedInfo);
+        experimentImportAsyncService.process(experimentImport, securedInfo, assignmentRepointMap);
 
         return toDto(experimentImport);
     }

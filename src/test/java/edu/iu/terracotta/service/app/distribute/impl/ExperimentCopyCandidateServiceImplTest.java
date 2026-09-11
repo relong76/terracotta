@@ -1,10 +1,11 @@
 package edu.iu.terracotta.service.app.distribute.impl;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.anyMap;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
@@ -15,7 +16,7 @@ import static org.mockito.Mockito.when;
 
 import java.io.File;
 import java.util.List;
-import java.util.Optional;
+import java.util.Map;
 import java.util.UUID;
 
 import org.junit.jupiter.api.BeforeEach;
@@ -28,18 +29,19 @@ import io.jsonwebtoken.Claims;
 
 import edu.iu.terracotta.base.BaseTest;
 import edu.iu.terracotta.connectors.generic.dao.entity.lti.LtiContextEntity;
+import edu.iu.terracotta.connectors.generic.dao.model.lms.LmsAssignment;
+import edu.iu.terracotta.connectors.generic.dao.model.lms.base.LmsExternalToolFields;
 import edu.iu.terracotta.connectors.generic.service.lti.LtiNoticeService;
 import edu.iu.terracotta.dao.entity.distribute.ExperimentCopyCandidate;
 import edu.iu.terracotta.dao.model.dto.distribute.CopyCandidateDto;
+import edu.iu.terracotta.dao.model.dto.distribute.CopyCandidateResolutionDto;
 import edu.iu.terracotta.dao.model.dto.distribute.ExportDto;
-import edu.iu.terracotta.dao.model.dto.distribute.ImportDto;
 import edu.iu.terracotta.dao.model.enums.FeatureType;
 import edu.iu.terracotta.dao.model.enums.distribute.ExperimentCopyCandidateStatus;
 import edu.iu.terracotta.dao.repository.distribute.ExperimentCopyCandidateRepository;
-import edu.iu.terracotta.exceptions.ExperimentCopyCandidateNotFoundException;
 import edu.iu.terracotta.exceptions.ExperimentExportException;
-import edu.iu.terracotta.exceptions.ExperimentImportException;
 import edu.iu.terracotta.service.app.FeatureService;
+import edu.iu.terracotta.service.app.async.AssignmentAsyncService;
 import edu.iu.terracotta.service.app.distribute.ExperimentExportService;
 
 class ExperimentCopyCandidateServiceImplTest extends BaseTest {
@@ -48,6 +50,7 @@ class ExperimentCopyCandidateServiceImplTest extends BaseTest {
     @Mock private LtiNoticeService ltiNoticeService;
     @Mock private FeatureService featureService;
     @Mock private ExperimentExportService experimentExportService;
+    @Mock private AssignmentAsyncService assignmentAsyncService;
     @Mock private Claims noticeClaims;
     @Mock private ExperimentCopyCandidate copyCandidate;
 
@@ -63,7 +66,7 @@ class ExperimentCopyCandidateServiceImplTest extends BaseTest {
 
     @Test
     void testStageFromNoticeNoDestinationResolvedDoesNothing() {
-        when(ltiNoticeService.resolveOrCreateContext(noticeClaims)).thenReturn(Optional.empty());
+        when(ltiNoticeService.resolveOrCreateContext(noticeClaims)).thenReturn(java.util.Optional.empty());
 
         experimentCopyCandidateService.stageFromNotice(noticeClaims);
 
@@ -72,7 +75,7 @@ class ExperimentCopyCandidateServiceImplTest extends BaseTest {
 
     @Test
     void testStageFromNoticeFeatureDisabledDoesNothing() {
-        when(ltiNoticeService.resolveOrCreateContext(noticeClaims)).thenReturn(Optional.of(ltiContextEntity));
+        when(ltiNoticeService.resolveOrCreateContext(noticeClaims)).thenReturn(java.util.Optional.of(ltiContextEntity));
         when(featureService.isFeatureEnabled(eq(FeatureType.PLATFORM_NOTIFICATIONS), anyLong())).thenReturn(false);
 
         experimentCopyCandidateService.stageFromNotice(noticeClaims);
@@ -88,7 +91,7 @@ class ExperimentCopyCandidateServiceImplTest extends BaseTest {
         when(origin1.getContextId()).thenReturn(10L);
         when(origin2.getContextId()).thenReturn(20L);
 
-        when(ltiNoticeService.resolveOrCreateContext(noticeClaims)).thenReturn(Optional.of(ltiContextEntity));
+        when(ltiNoticeService.resolveOrCreateContext(noticeClaims)).thenReturn(java.util.Optional.of(ltiContextEntity));
         when(ltiNoticeService.resolveOriginContexts(noticeClaims)).thenReturn(List.of(origin1, origin2));
         when(experimentRepository.findAllByLtiContextEntity_ContextId(10L)).thenReturn(List.of(experiment));
         when(experimentRepository.findAllByLtiContextEntity_ContextId(20L)).thenReturn(List.of());
@@ -106,7 +109,7 @@ class ExperimentCopyCandidateServiceImplTest extends BaseTest {
         LtiContextEntity origin = mock(LtiContextEntity.class);
         when(origin.getContextId()).thenReturn(10L);
 
-        when(ltiNoticeService.resolveOrCreateContext(noticeClaims)).thenReturn(Optional.of(ltiContextEntity));
+        when(ltiNoticeService.resolveOrCreateContext(noticeClaims)).thenReturn(java.util.Optional.of(ltiContextEntity));
         when(ltiNoticeService.resolveOriginContexts(noticeClaims)).thenReturn(List.of(origin));
         when(experimentRepository.findAllByLtiContextEntity_ContextId(10L)).thenReturn(List.of(experiment));
         when(experimentCopyCandidateRepository.existsBySourceExperiment_ExperimentIdAndDestinationContext_ContextId(1L, 1L)).thenReturn(true);
@@ -146,101 +149,157 @@ class ExperimentCopyCandidateServiceImplTest extends BaseTest {
     }
 
     @Test
-    void testImportCandidateSuccess() throws Exception {
-        UUID candidateId = UUID.randomUUID();
+    void testHasPendingForContextTrue() {
+        when(experimentCopyCandidateRepository.existsByDestinationContext_ContextIdAndStatus(1L, ExperimentCopyCandidateStatus.PENDING)).thenReturn(true);
+
+        assertTrue(experimentCopyCandidateService.hasPendingForContext(1L));
+    }
+
+    @Test
+    void testHasPendingForContextFalse() {
+        when(experimentCopyCandidateRepository.existsByDestinationContext_ContextIdAndStatus(1L, ExperimentCopyCandidateStatus.PENDING)).thenReturn(false);
+
+        assertFalse(experimentCopyCandidateService.hasPendingForContext(1L));
+    }
+
+    @Test
+    void testResolveImportsSelectedAndDeclinesRestAndFiresObsoleteCheckOnce() throws Exception {
+        UUID selectedId = UUID.randomUUID();
+        UUID declinedId = UUID.randomUUID();
+        ExperimentCopyCandidate selected = mock(ExperimentCopyCandidate.class);
+        ExperimentCopyCandidate declined = mock(ExperimentCopyCandidate.class);
+        when(selected.getUuid()).thenReturn(selectedId);
+        when(selected.getSourceExperiment()).thenReturn(experiment);
+        when(declined.getUuid()).thenReturn(declinedId);
+
+        when(securedInfo.getContextId()).thenReturn(1L);
+        when(experimentCopyCandidateRepository.findAllByDestinationContext_ContextIdAndStatus(1L, ExperimentCopyCandidateStatus.PENDING))
+            .thenReturn(List.of(selected, declined));
+
         File exportFile = mock(File.class);
         ExportDto exportDto = ExportDto.builder().file(exportFile).filename("export.zip").build();
-        when(securedInfo.getContextId()).thenReturn(1L);
-        when(experimentCopyCandidateRepository.findByUuidAndDestinationContext_ContextIdAndStatus(candidateId, 1L, ExperimentCopyCandidateStatus.PENDING))
-            .thenReturn(Optional.of(copyCandidate));
-        when(copyCandidate.getSourceExperiment()).thenReturn(experiment);
-        when(experimentRepository.findByExperimentId(1L)).thenReturn(experiment);
+        when(assignmentService.getAllAssignmentsForLmsCourse(securedInfo)).thenReturn(List.of());
         when(experimentExportService.export(experiment)).thenReturn(exportDto);
-        when(experimentImportService.preprocessFromFile(exportFile, "export.zip", securedInfo)).thenReturn(importDto);
-        when(importDto.getId()).thenReturn(UUID.randomUUID());
+        when(experimentImportService.preprocessFromFile(eq(exportFile), eq("export.zip"), eq(securedInfo), anyMap())).thenReturn(importDto);
 
-        ImportDto result = experimentCopyCandidateService.importCandidate(candidateId, securedInfo);
+        CopyCandidateResolutionDto result = experimentCopyCandidateService.resolve(List.of(selectedId), securedInfo);
 
-        assertEquals(importDto, result);
-        verify(copyCandidate).setStatus(ExperimentCopyCandidateStatus.IMPORTING);
-        verify(copyCandidate).setStatus(ExperimentCopyCandidateStatus.IMPORTED);
-        verify(copyCandidate).setResultingImportUuid(importDto.getId());
+        assertEquals(1, result.getImports().size());
+        assertEquals(List.of(declinedId), result.getDeclinedCandidateIds());
+        verify(selected).setStatus(ExperimentCopyCandidateStatus.IMPORTING);
+        verify(selected).setStatus(ExperimentCopyCandidateStatus.IMPORTED);
+        verify(declined).setStatus(ExperimentCopyCandidateStatus.DISMISSED);
+        verify(experimentCopyCandidateRepository).save(declined);
+        verify(assignmentAsyncService, times(1)).handleAssignmentTasksInLmsByContext(securedInfo);
     }
 
     @Test
-    void testImportCandidateNotFound() {
-        UUID candidateId = UUID.randomUUID();
+    void testResolveWithEmptySelectionDeclinesEverythingAndStillFiresObsoleteCheck() throws Exception {
+        ExperimentCopyCandidate onlyCandidate = mock(ExperimentCopyCandidate.class);
+        when(onlyCandidate.getUuid()).thenReturn(UUID.randomUUID());
+
         when(securedInfo.getContextId()).thenReturn(1L);
-        when(experimentCopyCandidateRepository.findByUuidAndDestinationContext_ContextIdAndStatus(candidateId, 1L, ExperimentCopyCandidateStatus.PENDING))
-            .thenReturn(Optional.empty());
+        when(experimentCopyCandidateRepository.findAllByDestinationContext_ContextIdAndStatus(1L, ExperimentCopyCandidateStatus.PENDING))
+            .thenReturn(List.of(onlyCandidate));
 
-        assertThrows(
-            ExperimentCopyCandidateNotFoundException.class,
-            () -> experimentCopyCandidateService.importCandidate(candidateId, securedInfo)
-        );
-    }
+        CopyCandidateResolutionDto result = experimentCopyCandidateService.resolve(List.of(), securedInfo);
 
-    // belt-and-suspenders for a race between the source experiment's deletion (which cascades
-    // and should already have removed this row) and this request
-    @Test
-    void testImportCandidateSourceExperimentGoneDeletesCandidate() {
-        UUID candidateId = UUID.randomUUID();
-        when(securedInfo.getContextId()).thenReturn(1L);
-        when(experimentCopyCandidateRepository.findByUuidAndDestinationContext_ContextIdAndStatus(candidateId, 1L, ExperimentCopyCandidateStatus.PENDING))
-            .thenReturn(Optional.of(copyCandidate));
-        when(copyCandidate.getSourceExperiment()).thenReturn(experiment);
-        when(experimentRepository.findByExperimentId(1L)).thenReturn(null);
-
-        assertThrows(
-            ExperimentCopyCandidateNotFoundException.class,
-            () -> experimentCopyCandidateService.importCandidate(candidateId, securedInfo)
-        );
-
-        verify(experimentCopyCandidateRepository).delete(copyCandidate);
+        assertTrue(result.getImports().isEmpty());
+        assertEquals(1, result.getDeclinedCandidateIds().size());
+        verify(onlyCandidate).setStatus(ExperimentCopyCandidateStatus.DISMISSED);
+        verify(assignmentService, never()).getAllAssignmentsForLmsCourse(any());
+        verify(assignmentAsyncService, times(1)).handleAssignmentTasksInLmsByContext(securedInfo);
     }
 
     @Test
-    void testImportCandidateExportFailureSetsErrorStatus() throws Exception {
-        UUID candidateId = UUID.randomUUID();
+    void testResolveImportFailureIsLoggedAndDoesNotBlockDeclinesOrObsoleteCheck() throws Exception {
+        UUID selectedId = UUID.randomUUID();
+        ExperimentCopyCandidate selected = mock(ExperimentCopyCandidate.class);
+        when(selected.getUuid()).thenReturn(selectedId);
+        when(selected.getSourceExperiment()).thenReturn(experiment);
+
         when(securedInfo.getContextId()).thenReturn(1L);
-        when(experimentCopyCandidateRepository.findByUuidAndDestinationContext_ContextIdAndStatus(candidateId, 1L, ExperimentCopyCandidateStatus.PENDING))
-            .thenReturn(Optional.of(copyCandidate));
-        when(copyCandidate.getSourceExperiment()).thenReturn(experiment);
-        when(experimentRepository.findByExperimentId(1L)).thenReturn(experiment);
+        when(experimentCopyCandidateRepository.findAllByDestinationContext_ContextIdAndStatus(1L, ExperimentCopyCandidateStatus.PENDING))
+            .thenReturn(List.of(selected));
+        when(assignmentService.getAllAssignmentsForLmsCourse(securedInfo)).thenReturn(List.of());
         doThrow(new ExperimentExportException("export failed")).when(experimentExportService).export(experiment);
 
-        assertThrows(
-            ExperimentImportException.class,
-            () -> experimentCopyCandidateService.importCandidate(candidateId, securedInfo)
-        );
+        CopyCandidateResolutionDto result = experimentCopyCandidateService.resolve(List.of(selectedId), securedInfo);
 
-        verify(copyCandidate).setStatus(ExperimentCopyCandidateStatus.ERROR);
+        assertTrue(result.getImports().isEmpty());
+        verify(selected).setStatus(ExperimentCopyCandidateStatus.ERROR);
+        verify(assignmentAsyncService, times(1)).handleAssignmentTasksInLmsByContext(securedInfo);
     }
 
     @Test
-    void testDismissSuccess() throws Exception {
-        UUID candidateId = UUID.randomUUID();
+    void testResolveBuildsRepointMapForMatchingLmsAssignmentAndPassesItToImport() throws Exception {
+        UUID selectedId = UUID.randomUUID();
+        ExperimentCopyCandidate selected = mock(ExperimentCopyCandidate.class);
+        when(selected.getUuid()).thenReturn(selectedId);
+        when(selected.getSourceExperiment()).thenReturn(experiment);
+
         when(securedInfo.getContextId()).thenReturn(1L);
-        when(experimentCopyCandidateRepository.findByUuidAndDestinationContext_ContextIdAndStatus(candidateId, 1L, ExperimentCopyCandidateStatus.PENDING))
-            .thenReturn(Optional.of(copyCandidate));
+        when(experimentCopyCandidateRepository.findAllByDestinationContext_ContextIdAndStatus(1L, ExperimentCopyCandidateStatus.PENDING))
+            .thenReturn(List.of(selected));
 
-        experimentCopyCandidateService.dismiss(candidateId, securedInfo);
+        // matches: not already obsoleted (id "999", default obsoleted id is "1"), URL contains
+        // localUrl and carries assignment=1, which is the source experiment's own assignment id
+        LmsAssignment matchingLmsAssignment = LmsAssignment.builder()
+            .id("999")
+            .lmsExternalToolFields(
+                LmsExternalToolFields.builder()
+                    .url(LTI_URL + "/lti3?experiment=55&assignment=1")
+                    .build()
+            )
+            .build();
+        when(assignmentService.getAllAssignmentsForLmsCourse(securedInfo)).thenReturn(List.of(matchingLmsAssignment));
 
-        verify(copyCandidate).setStatus(ExperimentCopyCandidateStatus.DISMISSED);
-        verify(experimentCopyCandidateRepository).save(copyCandidate);
+        File exportFile = mock(File.class);
+        ExportDto exportDto = ExportDto.builder().file(exportFile).filename("export.zip").build();
+        when(experimentExportService.export(experiment)).thenReturn(exportDto);
+        when(experimentImportService.preprocessFromFile(eq(exportFile), eq("export.zip"), eq(securedInfo), anyMap())).thenReturn(importDto);
+
+        experimentCopyCandidateService.resolve(List.of(selectedId), securedInfo);
+
+        verify(experimentImportService).preprocessFromFile(
+            eq(exportFile),
+            eq("export.zip"),
+            eq(securedInfo),
+            eq(Map.of(1L, matchingLmsAssignment))
+        );
     }
 
     @Test
-    void testDismissNotFound() {
-        UUID candidateId = UUID.randomUUID();
-        when(securedInfo.getContextId()).thenReturn(1L);
-        when(experimentCopyCandidateRepository.findByUuidAndDestinationContext_ContextIdAndStatus(candidateId, 1L, ExperimentCopyCandidateStatus.PENDING))
-            .thenReturn(Optional.empty());
+    void testResolveSkipsRepointForAlreadyObsoletedLmsAssignment() throws Exception {
+        UUID selectedId = UUID.randomUUID();
+        ExperimentCopyCandidate selected = mock(ExperimentCopyCandidate.class);
+        when(selected.getUuid()).thenReturn(selectedId);
+        when(selected.getSourceExperiment()).thenReturn(experiment);
 
-        assertThrows(
-            ExperimentCopyCandidateNotFoundException.class,
-            () -> experimentCopyCandidateService.dismiss(candidateId, securedInfo)
-        );
+        when(securedInfo.getContextId()).thenReturn(1L);
+        when(experimentCopyCandidateRepository.findAllByDestinationContext_ContextIdAndStatus(1L, ExperimentCopyCandidateStatus.PENDING))
+            .thenReturn(List.of(selected));
+
+        // id "1" matches the default-stubbed obsoleteAssignmentRepository entry (already
+        // converted to an OBSOLETE assignment) - must not be offered for re-pointing
+        LmsAssignment alreadyObsoletedLmsAssignment = LmsAssignment.builder()
+            .id("1")
+            .lmsExternalToolFields(
+                LmsExternalToolFields.builder()
+                    .url(LTI_URL + "/lti3?experiment=55&assignment=1")
+                    .build()
+            )
+            .build();
+        when(assignmentService.getAllAssignmentsForLmsCourse(securedInfo)).thenReturn(List.of(alreadyObsoletedLmsAssignment));
+
+        File exportFile = mock(File.class);
+        ExportDto exportDto = ExportDto.builder().file(exportFile).filename("export.zip").build();
+        when(experimentExportService.export(experiment)).thenReturn(exportDto);
+        when(experimentImportService.preprocessFromFile(eq(exportFile), eq("export.zip"), eq(securedInfo), anyMap())).thenReturn(importDto);
+
+        experimentCopyCandidateService.resolve(List.of(selectedId), securedInfo);
+
+        verify(experimentImportService).preprocessFromFile(exportFile, "export.zip", securedInfo, Map.of());
     }
 
 }

@@ -152,6 +152,23 @@ public class NoticeControllerTest {
         verify(assignmentAsyncService).handleAssignmentTasksInLmsByContext(securedInfo);
     }
 
+    // the whole point of this feature: while a candidate is still PENDING for this context, the
+    // obsolete-assignment check must not run - it would immediately mark the copied assignment
+    // obsolete before the instructor ever gets a chance to import the matching experiment.
+    @Test
+    public void testReceiveNoticesSuppressesObsoleteAssignmentCheckWhilePendingCandidatesExist() throws Exception {
+        Claims claims = claimsWithNoticeType(LtiStrings.LTI_NOTICE_TYPE_COURSE_COPY);
+        SecuredInfo securedInfo = SecuredInfo.builder().contextId(42L).build();
+        Jws<Claims> jws = jwsOf(claims);
+        when(ltiJwtService.validateJWT("jwt-1")).thenReturn(jws);
+        when(ltiNoticeService.resolveSecuredInfo(claims)).thenReturn(Optional.of(securedInfo));
+        when(experimentCopyCandidateService.hasPendingForContext(42L)).thenReturn(true);
+
+        assertEquals(200, noticeController.receiveNotices(requestWith("jwt-1")).getStatusCode().value());
+
+        verify(assignmentAsyncService, never()).handleAssignmentTasksInLmsByContext(any());
+    }
+
     @Test
     public void testReceiveNoticesCourseCopyTriggersObsoleteAssignmentCheck() throws Exception {
         Claims claims = claimsWithNoticeType(LtiStrings.LTI_NOTICE_TYPE_COURSE_COPY);

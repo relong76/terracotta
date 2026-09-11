@@ -20,8 +20,7 @@ vi.mock("@/services", () => ({
   },
   experimentCopyCandidateService: {
     getAll: vi.fn(),
-    importCandidate: vi.fn(),
-    dismiss: vi.fn()
+    resolve: vi.fn()
   }
 }));
 
@@ -110,12 +109,12 @@ describe("Home", () => {
     expect(experimentCopyCandidateService.getAll).not.toHaveBeenCalled();
   });
 
-  it("imports selected copy candidates when confirmed via the dialog, registering them as import requests", async () => {
+  it("resolves selected copy candidates when confirmed via the dialog, registering the resulting imports as import requests", async () => {
     experimentCopyCandidateService.getAll.mockResolvedValue({
       data: [{ id: "c1", experimentTitle: "Reading Study" }]
     });
-    experimentCopyCandidateService.importCandidate.mockResolvedValue({
-      data: { id: "import-1", status: "PROCESSING" }
+    experimentCopyCandidateService.resolve.mockResolvedValue({
+      data: { imports: [{ id: "import-1", status: "PROCESSING" }], declinedCandidateIds: [] }
     });
     swalFire.mockResolvedValue({
       isConfirmed: true,
@@ -130,7 +129,7 @@ describe("Home", () => {
 
     await wrapper.findComponent({ name: "ZeroState" }).vm.$emit("handleShowCopyCandidates");
     await vi.waitFor(() => {
-      expect(experimentCopyCandidateService.importCandidate).toHaveBeenCalledWith("c1");
+      expect(experimentCopyCandidateService.resolve).toHaveBeenCalledWith(["c1"]);
     });
 
     await vi.waitFor(() => {
@@ -140,7 +139,7 @@ describe("Home", () => {
     });
   });
 
-  it("does not import anything when the copy-candidates dialog is cancelled", async () => {
+  it("does not resolve anything when the copy-candidates dialog is cancelled", async () => {
     experimentCopyCandidateService.getAll.mockResolvedValue({
       data: [{ id: "c1", experimentTitle: "Reading Study" }]
     });
@@ -155,17 +154,19 @@ describe("Home", () => {
     await wrapper.findComponent({ name: "ZeroState" }).vm.$emit("handleShowCopyCandidates");
     await wrapper.vm.$nextTick();
 
-    expect(experimentCopyCandidateService.importCandidate).not.toHaveBeenCalled();
+    expect(experimentCopyCandidateService.resolve).not.toHaveBeenCalled();
   });
 
-  it("dismisses every shown candidate and imports nothing when 'No Thanks' is chosen", async () => {
+  it("resolves with an empty selection when 'No Thanks' is chosen", async () => {
     experimentCopyCandidateService.getAll.mockResolvedValue({
       data: [
         { id: "c1", experimentTitle: "Reading Study" },
         { id: "c2", experimentTitle: "Writing Study" }
       ]
     });
-    experimentCopyCandidateService.dismiss.mockResolvedValue({});
+    experimentCopyCandidateService.resolve.mockResolvedValue({
+      data: { imports: [], declinedCandidateIds: ["c1", "c2"] }
+    });
     swalFire.mockResolvedValue({ isDenied: true });
 
     const wrapper = mountComponent(Home);
@@ -177,11 +178,8 @@ describe("Home", () => {
     await wrapper.findComponent({ name: "ZeroState" }).vm.$emit("handleShowCopyCandidates");
 
     await vi.waitFor(() => {
-      expect(experimentCopyCandidateService.dismiss).toHaveBeenCalledWith("c1");
-      expect(experimentCopyCandidateService.dismiss).toHaveBeenCalledWith("c2");
+      expect(experimentCopyCandidateService.resolve).toHaveBeenCalledWith([]);
     });
-
-    expect(experimentCopyCandidateService.importCandidate).not.toHaveBeenCalled();
   });
 
   it("shows the zero state and hides the table when there are no experiments", async () => {

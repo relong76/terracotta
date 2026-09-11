@@ -4,8 +4,7 @@ import { createPinia, setActivePinia } from "pinia";
 vi.mock("@/services", () => ({
   experimentCopyCandidateService: {
     getAll: vi.fn(),
-    importCandidate: vi.fn(),
-    dismiss: vi.fn()
+    resolve: vi.fn()
   }
 }));
 
@@ -60,55 +59,42 @@ describe("experimentCopyCandidate store", () => {
     });
   });
 
-  describe("importCandidate", () => {
-    it("removes the candidate and returns the new import on success", async () => {
+  describe("resolve", () => {
+    it("clears every candidate and returns the resolution on success", async () => {
       store.copyCandidates = [
         { id: "c1", experimentTitle: "Reading Study" },
         { id: "c2", experimentTitle: "Writing Study" }
       ];
-      experimentCopyCandidateService.importCandidate.mockResolvedValue({
-        data: { id: "import-1", status: "PROCESSING" }
+      experimentCopyCandidateService.resolve.mockResolvedValue({
+        data: { imports: [{ id: "import-1", status: "PROCESSING" }], declinedCandidateIds: ["c2"] }
       });
 
-      const result = await store.importCandidate("c1");
+      const result = await store.resolve(["c1"]);
 
-      expect(experimentCopyCandidateService.importCandidate).toHaveBeenCalledWith("c1");
-      expect(result).toEqual({ id: "import-1", status: "PROCESSING" });
-      expect(store.copyCandidates).toEqual([{ id: "c2", experimentTitle: "Writing Study" }]);
+      expect(experimentCopyCandidateService.resolve).toHaveBeenCalledWith(["c1"]);
+      expect(result).toEqual({ imports: [{ id: "import-1", status: "PROCESSING" }], declinedCandidateIds: ["c2"] });
+      expect(store.copyCandidates).toEqual([]);
+    });
+
+    it("clears every candidate even when none are selected (the 'No Thanks' case)", async () => {
+      store.copyCandidates = [{ id: "c1", experimentTitle: "Reading Study" }];
+      experimentCopyCandidateService.resolve.mockResolvedValue({
+        data: { imports: [], declinedCandidateIds: ["c1"] }
+      });
+
+      await store.resolve([]);
+
+      expect(experimentCopyCandidateService.resolve).toHaveBeenCalledWith([]);
+      expect(store.copyCandidates).toEqual([]);
     });
 
     it("logs and swallows errors, leaving state untouched", async () => {
       store.copyCandidates = [{ id: "c1", experimentTitle: "Reading Study" }];
-      experimentCopyCandidateService.importCandidate.mockRejectedValue(new Error("boom"));
+      experimentCopyCandidateService.resolve.mockRejectedValue(new Error("boom"));
 
-      const result = await store.importCandidate("c1");
+      const result = await store.resolve(["c1"]);
 
       expect(result).toBeNull();
-      expect(store.copyCandidates).toHaveLength(1);
-      expect(console.error).toHaveBeenCalled();
-    });
-  });
-
-  describe("dismiss", () => {
-    it("removes the candidate on success", async () => {
-      store.copyCandidates = [
-        { id: "c1", experimentTitle: "Reading Study" },
-        { id: "c2", experimentTitle: "Writing Study" }
-      ];
-      experimentCopyCandidateService.dismiss.mockResolvedValue({});
-
-      await store.dismiss("c1");
-
-      expect(experimentCopyCandidateService.dismiss).toHaveBeenCalledWith("c1");
-      expect(store.copyCandidates).toEqual([{ id: "c2", experimentTitle: "Writing Study" }]);
-    });
-
-    it("logs and swallows errors, leaving state untouched", async () => {
-      store.copyCandidates = [{ id: "c1", experimentTitle: "Reading Study" }];
-      experimentCopyCandidateService.dismiss.mockRejectedValue(new Error("boom"));
-
-      await store.dismiss("c1");
-
       expect(store.copyCandidates).toHaveLength(1);
       expect(console.error).toHaveBeenCalled();
     });

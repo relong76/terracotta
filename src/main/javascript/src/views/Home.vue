@@ -620,21 +620,22 @@ const handleShowCopyCandidates = async () => {
     }
   });
 
-  if (result.isDenied) {
-    for (const candidate of copyCandidates.value) {
-      await experimentCopyCandidateStore.dismiss(candidate.id);
-    }
+  // "No Thanks" resolves with nothing selected - the backend declines (and obsolete-processes)
+  // every currently-PENDING candidate for this context, same as importing zero of them would.
+  const selectedIds = result.isDenied
+    ? []
+    : result.isConfirmed
+      ? result.value.selectedIds
+      : null;
 
+  if (selectedIds === null) {
+    // plain cancel/close - leave everything PENDING, ask again next visit
     return;
   }
 
-  if (!result.isConfirmed) {
-    return;
-  }
+  const resolution = await experimentCopyCandidateStore.resolve(selectedIds);
 
-  for (const candidateId of result.value.selectedIds) {
-    const newImport = await experimentCopyCandidateStore.importCandidate(candidateId);
-
+  for (const newImport of resolution?.imports ?? []) {
     if (!newImport?.id) {
       continue;
     }

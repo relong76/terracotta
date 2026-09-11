@@ -22,34 +22,24 @@ export const experimentCopyCandidate = defineStore("experimentCopyCandidate", {
       }
     },
 
-    async importCandidate(candidateId) {
+    // resolves EVERY currently-shown candidate in one call: importCandidateIds get imported (and
+    // their corresponding copied LMS assignment(s) re-pointed server-side); everything else gets
+    // declined and obsolete-processed. There's deliberately no separate per-item import/dismiss
+    // action anymore - see ExperimentCopyCandidateServiceImpl.resolve for the full reasoning.
+    async resolve(importCandidateIds) {
       try {
-        const response = await experimentCopyCandidateService.importCandidate(candidateId);
+        const response = await experimentCopyCandidateService.resolve(importCandidateIds);
 
-        this.removeCandidate(candidateId);
+        // resolve() always disposes of every currently-PENDING candidate for this context, one
+        // way or another (imported or declined) - nothing is left to keep around
+        this.copyCandidates = [];
 
         return response?.data;
       } catch (e) {
-        console.error("experimentCopyCandidate/importCandidate | catch", e);
+        console.error("experimentCopyCandidate/resolve | catch", e);
 
         return null;
       }
-    },
-
-    async dismiss(candidateId) {
-      try {
-        await experimentCopyCandidateService.dismiss(candidateId);
-
-        this.removeCandidate(candidateId);
-      } catch (e) {
-        console.error("experimentCopyCandidate/dismiss | catch", e);
-      }
-    },
-
-    removeCandidate(candidateId) {
-      this.copyCandidates = this.copyCandidates.filter(
-        candidate => candidate.id !== candidateId
-      );
     },
 
     reset() {
