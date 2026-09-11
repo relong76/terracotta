@@ -127,6 +127,42 @@ class ExperimentImportServiceImplTest extends BaseTest {
         verify(experimentImportAsyncService).process(any(ExperimentImport.class), eq(securedInfo));
     }
 
+    // used by ExperimentCopyCandidateServiceImpl to feed an in-process export straight into this
+    // same import pipeline, without a real uploaded MultipartFile
+    @Test
+    void testPreprocessFromFileSuccess() throws IOException {
+        when(securedInfo.getUserId()).thenReturn("user-id");
+        when(securedInfo.getPlatformDeploymentId()).thenReturn(1L);
+        when(securedInfo.getContextId()).thenReturn(1L);
+        when(experimentImport.getErrors()).thenReturn(Collections.emptyList());
+
+        Path jsonFile = importDirectory.resolve(ExperimentImport.JSON_FILE_NAME);
+        JsonMapper.builder().build().writeValue(jsonFile.toFile(), fullExport());
+
+        try (MockedStatic<FileUtils> fileUtils = mockStatic(FileUtils.class)) {
+            fileUtils.when(() -> FileUtils.getFile(any(File.class), anyString())).thenReturn(jsonFile.toFile());
+
+            ImportDto result = experimentImportService.preprocessFromFile(file, "test-file.zip", securedInfo);
+
+            assertNotNull(result);
+        }
+
+        verify(fileStorageService).saveExperimentImportFile(eq(file), any(ExperimentImport.class));
+        verify(experimentImportAsyncService).process(any(ExperimentImport.class), eq(securedInfo));
+    }
+
+    @Test
+    void testPreprocessFromFileContextNotFound() {
+        when(securedInfo.getContextId()).thenReturn(1L);
+        when(ltiContextRepository.findById(1L)).thenReturn(Optional.empty());
+
+        ExperimentImportException exception = assertThrows(ExperimentImportException.class, () -> {
+            experimentImportService.preprocessFromFile(file, "test-file.zip", securedInfo);
+        });
+
+        assertEquals("Context ID: [1] not found", exception.getMessage());
+    }
+
     @Test
     void testPreprocessContextNotFound() {
         when(securedInfo.getContextId()).thenReturn(1L);

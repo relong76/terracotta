@@ -1,5 +1,6 @@
 package edu.iu.terracotta.service.app.distribute;
 
+import java.io.File;
 import java.util.List;
 
 import org.springframework.web.multipart.MultipartFile;
@@ -13,6 +14,14 @@ import edu.iu.terracotta.exceptions.ExperimentImportException;
 public interface ExperimentImportService {
 
     ImportDto preprocess(MultipartFile file, SecuredInfo securedInfo) throws ExperimentImportException;
+
+    /**
+     * Same as preprocess(MultipartFile, SecuredInfo), for a File that already exists on disk
+     * instead of an uploaded MultipartFile - used to feed an in-process export (see
+     * ExperimentCopyCandidateServiceImpl) into the same import pipeline a manual zip upload uses,
+     * without fabricating a fake MultipartFile (its test double isn't available to main code).
+     */
+    ImportDto preprocessFromFile(File file, String originalFilename, SecuredInfo securedInfo) throws ExperimentImportException;
     ImportDto preprocessError(MultipartFile file, String errorMessage, SecuredInfo securedInfo);
     void validate(ExperimentImport experimentImport);
     ImportDto acknowledge(ExperimentImport experimentImport, ExperimentImportStatus experimentImportStatus);

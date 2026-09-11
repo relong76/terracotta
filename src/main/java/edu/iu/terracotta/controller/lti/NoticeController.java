@@ -20,15 +20,17 @@ import edu.iu.terracotta.connectors.generic.dao.model.lti.dto.NoticeRequestDto;
 import edu.iu.terracotta.connectors.generic.service.lti.LtiJwtService;
 import edu.iu.terracotta.connectors.generic.service.lti.LtiNoticeService;
 import edu.iu.terracotta.service.app.async.AssignmentAsyncService;
+import edu.iu.terracotta.service.app.distribute.ExperimentCopyCandidateService;
 import edu.iu.terracotta.utils.LtiStrings;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 /**
  * Receives LTI Advantage Platform Notification Service (PNS) notices - currently just Canvas's
- * "LtiContextCopyNotice" (course copy) - and reacts by re-running the obsolete-assignment check
- * for the affected course immediately, instead of waiting for the next time someone happens to
- * launch the tool there.
+ * "LtiContextCopyNotice" (course copy) - and reacts by (a) staging any experiment(s) from the
+ * notice's origin course(s) as pending copy candidates for the receiving (destination) course,
+ * and (b) re-running the obsolete-assignment check for the affected course immediately, instead
+ * of waiting for the next time someone happens to launch the tool there.
  *
  * Per the PNS spec, this endpoint must be public with no session/authentication of its own - the
  * notice's own signed JWT (verified below against the issuing platform's JWKS) is the only proof
@@ -45,6 +47,7 @@ public class NoticeController {
     private final LtiJwtService ltiJwtService;
     private final LtiNoticeService ltiNoticeService;
     private final AssignmentAsyncService assignmentAsyncService;
+    private final ExperimentCopyCandidateService experimentCopyCandidateService;
 
     @PostMapping
     public ResponseEntity<Void> receiveNotices(@RequestBody NoticeRequestDto noticeRequestDto) {
@@ -74,6 +77,15 @@ public class NoticeController {
         if (!LtiStrings.LTI_NOTICE_TYPE_COURSE_COPY.equals(noticeType)) {
             log.debug("Ignoring unsupported LTI notice type: [{}]", noticeType);
             return;
+        }
+
+        try {
+            // runs regardless of whether a live acting user can be resolved below - a brand-new
+            // copied course has no LtiContextEntity/membership at all yet, which is exactly the
+            // case this is for (see ExperimentCopyCandidateService.stageFromNotice).
+            experimentCopyCandidateService.stageFromNotice(claims);
+        } catch (Exception e) {
+            log.error("Error staging experiment copy candidates for an LTI notice from issuer: [{}]", claims.getIssuer(), e);
         }
 
         Optional<SecuredInfo> securedInfo = ltiNoticeService.resolveSecuredInfo(claims);

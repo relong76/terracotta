@@ -36,12 +36,15 @@ import edu.iu.terracotta.dao.exceptions.AssignmentNotMatchingException;
 import edu.iu.terracotta.dao.exceptions.ExperimentImportNotFoundException;
 import edu.iu.terracotta.dao.exceptions.ExperimentNotMatchingException;
 import edu.iu.terracotta.dao.exceptions.ExposureNotMatchingException;
+import edu.iu.terracotta.dao.model.dto.distribute.CopyCandidateDto;
 import edu.iu.terracotta.dao.model.dto.distribute.ExportDto;
 import edu.iu.terracotta.dao.model.dto.distribute.ImportDto;
 import edu.iu.terracotta.dao.model.enums.distribute.ExperimentImportStatus;
 import edu.iu.terracotta.exceptions.BadTokenException;
+import edu.iu.terracotta.exceptions.ExperimentCopyCandidateNotFoundException;
 import edu.iu.terracotta.exceptions.ExperimentExportException;
 import edu.iu.terracotta.exceptions.ExperimentImportException;
+import edu.iu.terracotta.service.app.distribute.ExperimentCopyCandidateService;
 import edu.iu.terracotta.service.app.distribute.ExperimentExportService;
 import edu.iu.terracotta.service.app.distribute.ExperimentImportService;
 import edu.iu.terracotta.utils.TextConstants;
@@ -61,6 +64,7 @@ public class DistributeController {
     private final ApiJwtService apijwtService;
     private final ExperimentExportService exportService;
     private final ExperimentImportService importService;
+    private final ExperimentCopyCandidateService experimentCopyCandidateService;
 
     @GetMapping("/{id}/export")
     public ResponseEntity<Resource> export(@PathVariable long id, HttpServletRequest req) throws ExperimentNotMatchingException, BadTokenException, NumberFormatException, TerracottaConnectorException {
@@ -163,6 +167,50 @@ public class DistributeController {
         } catch (Exception e) {
             log.warn("Error acknowledging status: [{}] of experiment import with ID: [{}]", status, experimentImport.getId());
             return new ResponseEntity<>(HttpStatus.BAD_REQUEST);
+        }
+    }
+
+    @GetMapping("/copy-candidates")
+    public ResponseEntity<List<CopyCandidateDto>> copyCandidates(HttpServletRequest req) throws BadTokenException, NumberFormatException, TerracottaConnectorException {
+        SecuredInfo securedInfo = apijwtService.extractValues(req, false);
+
+        if (!apijwtService.isInstructorOrHigher(securedInfo)) {
+            return new ResponseEntity<>(HttpStatus.UNAUTHORIZED);
+        }
+
+        return new ResponseEntity<>(experimentCopyCandidateService.getPendingForContext(securedInfo), HttpStatus.OK);
+    }
+
+    @PostMapping("/copy-candidates/{candidateId}/import")
+    public ResponseEntity<ImportDto> importCopyCandidate(@PathVariable UUID candidateId, HttpServletRequest req) throws BadTokenException, NumberFormatException, TerracottaConnectorException {
+        SecuredInfo securedInfo = apijwtService.extractValues(req, false);
+
+        if (!apijwtService.isInstructorOrHigher(securedInfo)) {
+            return new ResponseEntity<>(HttpStatus.UNAUTHORIZED);
+        }
+
+        try {
+            return new ResponseEntity<>(experimentCopyCandidateService.importCandidate(candidateId, securedInfo), HttpStatus.ACCEPTED);
+        } catch (ExperimentCopyCandidateNotFoundException e) {
+            return new ResponseEntity<>(HttpStatus.NOT_FOUND);
+        } catch (ExperimentImportException e) {
+            return new ResponseEntity<>(HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+    }
+
+    @PutMapping("/copy-candidates/{candidateId}/dismiss")
+    public ResponseEntity<Void> dismissCopyCandidate(@PathVariable UUID candidateId, HttpServletRequest req) throws BadTokenException, NumberFormatException, TerracottaConnectorException {
+        SecuredInfo securedInfo = apijwtService.extractValues(req, false);
+
+        if (!apijwtService.isInstructorOrHigher(securedInfo)) {
+            return new ResponseEntity<>(HttpStatus.UNAUTHORIZED);
+        }
+
+        try {
+            experimentCopyCandidateService.dismiss(candidateId, securedInfo);
+            return new ResponseEntity<>(HttpStatus.OK);
+        } catch (ExperimentCopyCandidateNotFoundException e) {
+            return new ResponseEntity<>(HttpStatus.NOT_FOUND);
         }
     }
 

@@ -17,6 +17,11 @@ vi.mock("@/services", () => ({
     pollList: vi.fn(),
     retrieve: vi.fn(),
     acknowledge: vi.fn()
+  },
+  experimentCopyCandidateService: {
+    getAll: vi.fn(),
+    importCandidate: vi.fn(),
+    dismiss: vi.fn()
   }
 }));
 
@@ -37,7 +42,8 @@ import { createPinia, setActivePinia } from "pinia";
 import { mountComponent } from "@/test-utils/mount";
 import {
   experimentService,
-  experimentDataExportService
+  experimentDataExportService,
+  experimentCopyCandidateService
 } from "@/services";
 import { configuration as configurationModule } from "@/store/configuration.module";
 import { assignment as assignmentModule } from "@/store/assignment.module";
@@ -72,6 +78,84 @@ describe("Home", () => {
     experimentService.getAll.mockResolvedValue({ status: 200, data: [] });
     experimentService.pollImports.mockResolvedValue({ data: [] });
     experimentDataExportService.pollList.mockResolvedValue([]);
+    experimentCopyCandidateService.getAll.mockResolvedValue({ data: [] });
+  });
+
+  it("fetches copy candidates and passes them to ZeroState when there are no experiments", async () => {
+    experimentCopyCandidateService.getAll.mockResolvedValue({
+      data: [{ id: "c1", experimentTitle: "Reading Study" }]
+    });
+
+    const wrapper = mountComponent(Home);
+
+    await vi.waitFor(() => {
+      expect(wrapper.findComponent({ name: "PageLoading" }).props("display")).toBe(false);
+    });
+
+    expect(experimentCopyCandidateService.getAll).toHaveBeenCalled();
+    expect(
+      wrapper.findComponent({ name: "ZeroState" }).props("copyCandidates")
+    ).toEqual([{ id: "c1", experimentTitle: "Reading Study" }]);
+  });
+
+  it("does not fetch copy candidates when experiments already exist", async () => {
+    experimentService.getAll.mockResolvedValue({ status: 200, data: [experiment] });
+
+    const wrapper = mountComponent(Home);
+
+    await vi.waitFor(() => {
+      expect(wrapper.text()).toContain("My Experiment");
+    });
+
+    expect(experimentCopyCandidateService.getAll).not.toHaveBeenCalled();
+  });
+
+  it("imports selected copy candidates when confirmed via the dialog, registering them as import requests", async () => {
+    experimentCopyCandidateService.getAll.mockResolvedValue({
+      data: [{ id: "c1", experimentTitle: "Reading Study" }]
+    });
+    experimentCopyCandidateService.importCandidate.mockResolvedValue({
+      data: { id: "import-1", status: "PROCESSING" }
+    });
+    swalFire.mockResolvedValue({
+      isConfirmed: true,
+      value: { selectedIds: ["c1"] }
+    });
+
+    const wrapper = mountComponent(Home);
+
+    await vi.waitFor(() => {
+      expect(wrapper.findComponent({ name: "PageLoading" }).props("display")).toBe(false);
+    });
+
+    await wrapper.findComponent({ name: "ZeroState" }).vm.$emit("handleShowCopyCandidates");
+    await vi.waitFor(() => {
+      expect(experimentCopyCandidateService.importCandidate).toHaveBeenCalledWith("c1");
+    });
+
+    await vi.waitFor(() => {
+      expect(
+        wrapper.findComponent({ name: "ZeroState" }).props("experimentImportRequests")["import-1"]
+      ).toMatchObject({ showAlert: true });
+    });
+  });
+
+  it("does not import anything when the copy-candidates dialog is cancelled", async () => {
+    experimentCopyCandidateService.getAll.mockResolvedValue({
+      data: [{ id: "c1", experimentTitle: "Reading Study" }]
+    });
+    swalFire.mockResolvedValue({ isConfirmed: false });
+
+    const wrapper = mountComponent(Home);
+
+    await vi.waitFor(() => {
+      expect(wrapper.findComponent({ name: "PageLoading" }).props("display")).toBe(false);
+    });
+
+    await wrapper.findComponent({ name: "ZeroState" }).vm.$emit("handleShowCopyCandidates");
+    await wrapper.vm.$nextTick();
+
+    expect(experimentCopyCandidateService.importCandidate).not.toHaveBeenCalled();
   });
 
   it("shows the zero state and hides the table when there are no experiments", async () => {

@@ -27,17 +27,22 @@ import org.springframework.http.ResponseEntity;
 import edu.iu.terracotta.base.BaseTest;
 import edu.iu.terracotta.dao.exceptions.ExperimentImportNotFoundException;
 import edu.iu.terracotta.dao.exceptions.ExperimentNotMatchingException;
+import edu.iu.terracotta.dao.model.dto.distribute.CopyCandidateDto;
 import edu.iu.terracotta.dao.model.dto.distribute.ExportDto;
 import edu.iu.terracotta.dao.model.dto.distribute.ImportDto;
 import edu.iu.terracotta.dao.model.enums.distribute.ExperimentImportStatus;
+import edu.iu.terracotta.exceptions.ExperimentCopyCandidateNotFoundException;
 import edu.iu.terracotta.exceptions.ExperimentExportException;
 import edu.iu.terracotta.exceptions.ExperimentImportException;
+import edu.iu.terracotta.service.app.distribute.ExperimentCopyCandidateService;
 import edu.iu.terracotta.service.app.distribute.ExperimentExportService;
 
 public class DistributeControllerTest extends BaseTest {
 
-    // ExperimentExportService has no mock declared anywhere in the BaseTest hierarchy, so it is declared here.
+    // ExperimentExportService/ExperimentCopyCandidateService have no mocks declared anywhere in
+    // the BaseTest hierarchy, so they are declared here.
     @Mock private ExperimentExportService exportService;
+    @Mock private ExperimentCopyCandidateService experimentCopyCandidateService;
 
     private DistributeController distributeController;
 
@@ -51,7 +56,7 @@ public class DistributeControllerTest extends BaseTest {
 
         // ApiJwtService has two matching mocks in BaseServiceTest (apiJwtService and canvasApiJwtService),
         // so the controller is constructed manually rather than relying on @InjectMocks to avoid ambiguous wiring.
-        distributeController = new DistributeController(apiJwtService, exportService, experimentImportService);
+        distributeController = new DistributeController(apiJwtService, exportService, experimentImportService, experimentCopyCandidateService);
 
         when(apiJwtService.extractValues(any(), anyBoolean())).thenReturn(securedInfo);
         when(apiJwtService.experimentAllowed(any(), anyLong())).thenReturn(experiment);
@@ -289,6 +294,100 @@ public class DistributeControllerTest extends BaseTest {
             ExperimentImportNotFoundException.class,
             () -> distributeController.acknowledgeError(id, ExperimentImportStatus.ERROR_ACKNOWLEDGED, httpServletRequest)
         );
+    }
+
+    @Test
+    void copyCandidatesUnauthorizedTest() throws Exception {
+        when(apiJwtService.isInstructorOrHigher(securedInfo)).thenReturn(false);
+
+        ResponseEntity<List<CopyCandidateDto>> ret = distributeController.copyCandidates(httpServletRequest);
+
+        assertEquals(HttpStatus.UNAUTHORIZED, ret.getStatusCode());
+    }
+
+    @Test
+    void copyCandidatesSuccessTest() throws Exception {
+        when(apiJwtService.isInstructorOrHigher(securedInfo)).thenReturn(true);
+        CopyCandidateDto candidateDto = CopyCandidateDto.builder().id(UUID.randomUUID()).build();
+        when(experimentCopyCandidateService.getPendingForContext(securedInfo)).thenReturn(List.of(candidateDto));
+
+        ResponseEntity<List<CopyCandidateDto>> ret = distributeController.copyCandidates(httpServletRequest);
+
+        assertEquals(HttpStatus.OK, ret.getStatusCode());
+        assertEquals(List.of(candidateDto), ret.getBody());
+    }
+
+    @Test
+    void importCopyCandidateUnauthorizedTest() throws Exception {
+        when(apiJwtService.isInstructorOrHigher(securedInfo)).thenReturn(false);
+
+        ResponseEntity<ImportDto> ret = distributeController.importCopyCandidate(UUID.randomUUID(), httpServletRequest);
+
+        assertEquals(HttpStatus.UNAUTHORIZED, ret.getStatusCode());
+    }
+
+    @Test
+    void importCopyCandidateSuccessTest() throws Exception {
+        when(apiJwtService.isInstructorOrHigher(securedInfo)).thenReturn(true);
+        UUID candidateId = UUID.randomUUID();
+        when(experimentCopyCandidateService.importCandidate(candidateId, securedInfo)).thenReturn(importDto);
+
+        ResponseEntity<ImportDto> ret = distributeController.importCopyCandidate(candidateId, httpServletRequest);
+
+        assertEquals(HttpStatus.ACCEPTED, ret.getStatusCode());
+        assertEquals(importDto, ret.getBody());
+    }
+
+    @Test
+    void importCopyCandidateNotFoundTest() throws Exception {
+        when(apiJwtService.isInstructorOrHigher(securedInfo)).thenReturn(true);
+        UUID candidateId = UUID.randomUUID();
+        doThrow(new ExperimentCopyCandidateNotFoundException("not found")).when(experimentCopyCandidateService).importCandidate(candidateId, securedInfo);
+
+        ResponseEntity<ImportDto> ret = distributeController.importCopyCandidate(candidateId, httpServletRequest);
+
+        assertEquals(HttpStatus.NOT_FOUND, ret.getStatusCode());
+    }
+
+    @Test
+    void importCopyCandidateImportExceptionTest() throws Exception {
+        when(apiJwtService.isInstructorOrHigher(securedInfo)).thenReturn(true);
+        UUID candidateId = UUID.randomUUID();
+        doThrow(new ExperimentImportException("import failed")).when(experimentCopyCandidateService).importCandidate(candidateId, securedInfo);
+
+        ResponseEntity<ImportDto> ret = distributeController.importCopyCandidate(candidateId, httpServletRequest);
+
+        assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, ret.getStatusCode());
+    }
+
+    @Test
+    void dismissCopyCandidateUnauthorizedTest() throws Exception {
+        when(apiJwtService.isInstructorOrHigher(securedInfo)).thenReturn(false);
+
+        ResponseEntity<Void> ret = distributeController.dismissCopyCandidate(UUID.randomUUID(), httpServletRequest);
+
+        assertEquals(HttpStatus.UNAUTHORIZED, ret.getStatusCode());
+    }
+
+    @Test
+    void dismissCopyCandidateSuccessTest() throws Exception {
+        when(apiJwtService.isInstructorOrHigher(securedInfo)).thenReturn(true);
+        UUID candidateId = UUID.randomUUID();
+
+        ResponseEntity<Void> ret = distributeController.dismissCopyCandidate(candidateId, httpServletRequest);
+
+        assertEquals(HttpStatus.OK, ret.getStatusCode());
+    }
+
+    @Test
+    void dismissCopyCandidateNotFoundTest() throws Exception {
+        when(apiJwtService.isInstructorOrHigher(securedInfo)).thenReturn(true);
+        UUID candidateId = UUID.randomUUID();
+        doThrow(new ExperimentCopyCandidateNotFoundException("not found")).when(experimentCopyCandidateService).dismiss(candidateId, securedInfo);
+
+        ResponseEntity<Void> ret = distributeController.dismissCopyCandidate(candidateId, httpServletRequest);
+
+        assertEquals(HttpStatus.NOT_FOUND, ret.getStatusCode());
     }
 
 }

@@ -13,10 +13,12 @@
       :experimentExportEnabled="experimentExportEnabled"
       :experimentImportRequests="experimentImportRequests"
       :importRequestAlerts="importRequestAlerts"
+      :copyCandidates="copyCandidates"
       @handleImportExperiment="handleImportExperiment"
       @handleImportRequestAlertDismiss="handleImportRequestAlertDismiss"
       @handleImportRequestAlertVisibilityChange="handleImportRequestAlertVisibilityChange"
       @startExperiment="startExperiment"
+      @handleShowCopyCandidates="handleShowCopyCandidates"
     />
     <v-container
       v-show="isLoaded && hasExperiments"
@@ -258,7 +260,8 @@ import {
   watch,
   onMounted,
   onBeforeUnmount,
-  nextTick
+  nextTick,
+  createApp
 } from "vue";
 
 import { useRouter, onBeforeRouteLeave } from "vue-router";
@@ -276,8 +279,11 @@ import {
 import Help from "@/components/Help.vue";
 import PageLoading from "@/components/PageLoading.vue";
 import ZeroState from "@/views/ZeroState.vue";
+import CopyCandidatesDialog from "@/components/dialog/CopyCandidatesDialog.vue";
+import vuetify from "@/plugins/vuetify";
 
 import { experiment as experimentModule } from "@/store/experiment.module";
+import { experimentCopyCandidate as experimentCopyCandidateModule } from "@/store/experiment-copy-candidate.module";
 import { dataExportRequest as dataExportRequestModule } from "@/store/experiment-data-export.module";
 import { configuration as configurationModule } from "@/store/configuration.module";
 import { consent as consentModule } from "@/store/consent.module";
@@ -301,6 +307,7 @@ defineOptions({
 const router = useRouter();
 
 const experimentStore = experimentModule();
+const experimentCopyCandidateStore = experimentCopyCandidateModule();
 const dataExportRequestStore = dataExportRequestModule();
 const configurationStore = configurationModule();
 const consentStore = consentModule();
@@ -334,6 +341,7 @@ const experimentDataExportRequests = ref({
 const experimentImportRequests = ref({});
 
 const experiments = computed(() => experimentStore.experiments);
+const copyCandidates = computed(() => experimentCopyCandidateStore.copyCandidates);
 const dataExportRequests = computed(() => dataExportRequestStore.dataExportRequests);
 const importRequests = computed(() => experimentStore.importRequests);
 const configurations = computed(() => configurationStore.get);
@@ -565,6 +573,73 @@ const handleImportExperiment = async () => {
       }
     }
   };
+};
+
+const handleShowCopyCandidates = async () => {
+  let dialogApp = null;
+
+  const result = await Swal.fire({
+    html: '<div id="dialog-copy-candidates"></div>',
+    showCancelButton: true,
+    confirmButtonText: "Import Selected",
+    cancelButtonText: "Cancel",
+    reverseButtons: true,
+    allowOutsideClick: false,
+    allowEscapeKey: false,
+    focusConfirm: false,
+    customClass: {
+      popup: "copy-candidates-popup"
+    },
+    preConfirm: () => {
+      const selectedInput = Swal.getPopup().querySelector("input#copy-candidates-selected");
+      const selectedIds = selectedInput?.value ? JSON.parse(selectedInput.value) : [];
+
+      if (selectedIds.length === 0) {
+        Swal.showValidationMessage("Please select at least one experiment to recreate, or cancel.");
+        return false;
+      }
+
+      return { selectedIds };
+    },
+    didOpen: () => {
+      const mountTarget = document.getElementById("dialog-copy-candidates");
+      dialogApp = createApp(CopyCandidatesDialog, {
+        candidates: copyCandidates.value
+      });
+      dialogApp.use(vuetify);
+      dialogApp.mount(mountTarget);
+    },
+    willClose: () => {
+      dialogApp?.unmount();
+    }
+  });
+
+  if (!result.isConfirmed) {
+    return;
+  }
+
+  for (const candidateId of result.value.selectedIds) {
+    const newImport = await experimentCopyCandidateStore.importCandidate(candidateId);
+
+    if (!newImport?.id) {
+      continue;
+    }
+
+    experimentStore.upsertImportRequest(newImport);
+
+    const request = importRequest(newImport.id);
+
+    experimentImportRequests.value = {
+      ...experimentImportRequests.value,
+      [newImport.id]: {
+        showAlert: true,
+        polling: {
+          active: request?.processing,
+          id: null
+        }
+      }
+    };
+  }
 };
 
 const handleDelete = async experiment => {
@@ -933,10 +1008,15 @@ onMounted(async () => {
   navigationStore.deleteEditMode();
   dataExportRequestStore.reset();
   experimentStore.resetImportRequests();
+  experimentCopyCandidateStore.reset();
   messagingContainerStore.reset();
   messagingConditionalTextStore.reset();
 
   await experimentStore.fetchExperiments();
+
+  if (!experiments.value || experiments.value.length === 0) {
+    await experimentCopyCandidateStore.fetchAll();
+  }
 
   if (experiments.value && experiments.value.length > 0) {
     await dataExportRequestStore.pollList([

@@ -67,45 +67,69 @@ public class ExperimentImportServiceImpl implements ExperimentImportService {
 
     @Override
     public ImportDto preprocess(MultipartFile file, SecuredInfo securedInfo) throws ExperimentImportException {
-        LtiUserEntity owner = ltiUserRepository.findFirstByUserKeyAndPlatformDeployment_KeyId(securedInfo.getUserId(), securedInfo.getPlatformDeploymentId());
-        LtiContextEntity context = ltiContextRepository.findById(securedInfo.getContextId())
-            .orElseThrow(() -> new ExperimentImportException(String.format("Context ID: [%s] not found", securedInfo.getContextId())));
+        ExperimentImport experimentImport = buildExperimentImport(file.getOriginalFilename(), securedInfo);
 
         try {
-            ExperimentImport experimentImport = ExperimentImport.builder()
-                    .context(context)
-                    .fileName(file.getOriginalFilename())
-                    .owner(owner)
-                    .status(ExperimentImportStatus.PROCESSING)
-                    .build();
-
             fileStorageService.saveExperimentImportFile(file, experimentImport);
-            experimentImport = experimentImportRepository.save(experimentImport);
 
-            validate(experimentImport);
-
-            if (CollectionUtils.isNotEmpty(experimentImport.getErrors())) {
-                // validation errors exists; skip processing
-                for (ExperimentImportError experimentImportError : experimentImport.getErrors()) {
-                    experimentImportError.setExperimentImport(experimentImport);
-                    experimentImportErrorRepository.save(experimentImportError);
-                }
-
-                experimentImport.setStatus(ExperimentImportStatus.ERROR);
-                experimentImport = experimentImportRepository.save(experimentImport);
-
-                return toDto(experimentImport);
-            }
-
-            // start async import processing
-            experimentImportAsyncService.process(experimentImport, securedInfo);
-
-            return toDto(experimentImport);
+            return finishPreprocess(experimentImport, securedInfo);
         } catch (Exception e) {
             String error = String.format("Error importing experiment: owner ID: [%s], content ID: [%s]", securedInfo.getUserId(), securedInfo.getContextId());
             log.error(error, e);
             throw new ExperimentImportException(error, e);
         }
+    }
+
+    @Override
+    public ImportDto preprocessFromFile(File file, String originalFilename, SecuredInfo securedInfo) throws ExperimentImportException {
+        ExperimentImport experimentImport = buildExperimentImport(originalFilename, securedInfo);
+
+        try {
+            fileStorageService.saveExperimentImportFile(file, experimentImport);
+
+            return finishPreprocess(experimentImport, securedInfo);
+        } catch (Exception e) {
+            String error = String.format("Error importing experiment: owner ID: [%s], content ID: [%s]", securedInfo.getUserId(), securedInfo.getContextId());
+            log.error(error, e);
+            throw new ExperimentImportException(error, e);
+        }
+    }
+
+    private ExperimentImport buildExperimentImport(String fileName, SecuredInfo securedInfo) throws ExperimentImportException {
+        LtiUserEntity owner = ltiUserRepository.findFirstByUserKeyAndPlatformDeployment_KeyId(securedInfo.getUserId(), securedInfo.getPlatformDeploymentId());
+        LtiContextEntity context = ltiContextRepository.findById(securedInfo.getContextId())
+            .orElseThrow(() -> new ExperimentImportException(String.format("Context ID: [%s] not found", securedInfo.getContextId())));
+
+        return ExperimentImport.builder()
+            .context(context)
+            .fileName(fileName)
+            .owner(owner)
+            .status(ExperimentImportStatus.PROCESSING)
+            .build();
+    }
+
+    private ImportDto finishPreprocess(ExperimentImport experimentImport, SecuredInfo securedInfo) {
+        experimentImport = experimentImportRepository.save(experimentImport);
+
+        validate(experimentImport);
+
+        if (CollectionUtils.isNotEmpty(experimentImport.getErrors())) {
+            // validation errors exists; skip processing
+            for (ExperimentImportError experimentImportError : experimentImport.getErrors()) {
+                experimentImportError.setExperimentImport(experimentImport);
+                experimentImportErrorRepository.save(experimentImportError);
+            }
+
+            experimentImport.setStatus(ExperimentImportStatus.ERROR);
+            experimentImport = experimentImportRepository.save(experimentImport);
+
+            return toDto(experimentImport);
+        }
+
+        // start async import processing
+        experimentImportAsyncService.process(experimentImport, securedInfo);
+
+        return toDto(experimentImport);
     }
 
     @Override
