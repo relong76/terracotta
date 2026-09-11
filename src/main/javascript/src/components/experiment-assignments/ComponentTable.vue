@@ -1189,6 +1189,19 @@ onBeforeUnmount(() => {
 }
 
 .treatment-row {
+  // _tables.scss's shared `.v-data-table-alt ... td { .v-data-table { margin-top:
+  // -6px; } }` rule (a generic provision for OTHER .v-data-table-alt tables
+  // elsewhere with their own nested tables, not written with this one in mind)
+  // matches this nested table too, since it's a .v-data-table inside a <td> of
+  // this table's own .v-data-table-alt root. Used to be harmless here: the
+  // treatments-table-container <td>'s old (buggy) 8px top padding comfortably
+  // absorbed the -6px pull-up. Once that padding was correctly zeroed out (see
+  // .assignment-row--last's comment elsewhere in this file), nothing was left to
+  // absorb it, and this table crept 6px up into the "TREATMENTS - N of N added"
+  // label above it - covering that label's own border-bottom entirely, which is
+  // what actually made the divider disappear.
+  margin-top: 0 !important;
+
   :deep(.v-table__wrapper) {
     border: none !important;
     border-radius: 0 !important;
