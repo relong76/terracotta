@@ -578,11 +578,17 @@ const handleImportExperiment = async () => {
 const handleShowCopyCandidates = async () => {
   let dialogApp = null;
 
+  // three distinct outcomes, not just confirm/cancel: confirming imports the selected
+  // candidates; denying ("No thanks") dismisses every candidate currently shown, so the
+  // prompt stops appearing for good; plain cancel (or closing the dialog any other way)
+  // leaves everything PENDING so the prompt simply asks again next visit.
   const result = await Swal.fire({
     html: '<div id="dialog-copy-candidates"></div>',
     showCancelButton: true,
+    showDenyButton: true,
     confirmButtonText: "Import Selected",
-    cancelButtonText: "Cancel",
+    denyButtonText: "No Thanks",
+    cancelButtonText: "Ask Me Later",
     reverseButtons: true,
     allowOutsideClick: false,
     allowEscapeKey: false,
@@ -613,6 +619,14 @@ const handleShowCopyCandidates = async () => {
       dialogApp?.unmount();
     }
   });
+
+  if (result.isDenied) {
+    for (const candidate of copyCandidates.value) {
+      await experimentCopyCandidateStore.dismiss(candidate.id);
+    }
+
+    return;
+  }
 
   if (!result.isConfirmed) {
     return;

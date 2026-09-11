@@ -158,6 +158,32 @@ describe("Home", () => {
     expect(experimentCopyCandidateService.importCandidate).not.toHaveBeenCalled();
   });
 
+  it("dismisses every shown candidate and imports nothing when 'No Thanks' is chosen", async () => {
+    experimentCopyCandidateService.getAll.mockResolvedValue({
+      data: [
+        { id: "c1", experimentTitle: "Reading Study" },
+        { id: "c2", experimentTitle: "Writing Study" }
+      ]
+    });
+    experimentCopyCandidateService.dismiss.mockResolvedValue({});
+    swalFire.mockResolvedValue({ isDenied: true });
+
+    const wrapper = mountComponent(Home);
+
+    await vi.waitFor(() => {
+      expect(wrapper.findComponent({ name: "PageLoading" }).props("display")).toBe(false);
+    });
+
+    await wrapper.findComponent({ name: "ZeroState" }).vm.$emit("handleShowCopyCandidates");
+
+    await vi.waitFor(() => {
+      expect(experimentCopyCandidateService.dismiss).toHaveBeenCalledWith("c1");
+      expect(experimentCopyCandidateService.dismiss).toHaveBeenCalledWith("c2");
+    });
+
+    expect(experimentCopyCandidateService.importCandidate).not.toHaveBeenCalled();
+  });
+
   it("shows the zero state and hides the table when there are no experiments", async () => {
     const wrapper = mountComponent(Home);
 
