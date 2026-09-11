@@ -10,7 +10,9 @@
       :sort-by="[{ key: 'assignmentOrder', order: 'asc' }]"
       :mobile-breakpoint="mobileBreakpoint"
       :items-per-page="-1"
-      :row-props="() => ({ class: 'assignment-row' })"
+      :row-props="({ index }) => ({
+        class: ['assignment-row', { 'assignment-row--last': index === rows.length - 1 }]
+      })"
       item-value="assignmentId"
       class="v-data-table-alt v-data-table--sorted data-table-assignments mx-3 mb-5 mt-3"
       hide-default-footer
@@ -1362,14 +1364,28 @@ onBeforeUnmount(() => {
       // list the mockup wants. Mobile's own card spacing/rounding (padding + the
       // nested wrapper's own border-radius, see .treatment-row--mobile above and
       // .expanded-row--mobile below) is a different mechanism entirely and doesn't
-      // need this border at all.
-      // padding-top mirrors padding-bottom for the same reason as the :first-child
-      // rule above - keeps this row's content vertically centered instead of pushed
-      // up by a one-sided padding-bottom.
+      // need this border at all. Only matters when the last component is collapsed
+      // (tbody's actual :last-child <tr> is then really this row) - when it's
+      // expanded, its own expanded-row sibling becomes tbody's real last child and
+      // already gets an identical border-bottom for free from the group-divider rule
+      // above, so this ends up redundant-but-harmless rather than wrong in that case.
       &:last-child:not(.v-data-table__tr--mobile) > td {
+        border-bottom: 2px solid rgba(0, 0, 0, 0.4);
+      }
+
+      // vertical-centering padding for the LAST assignment row's own content -
+      // same reasoning as the :first-child rule above, but deliberately keyed off
+      // the .assignment-row--last class (set by row-props from the last index in
+      // `rows`, above) instead of :last-child. expandedRows starts with every row
+      // expanded (see that ref's initial value), which makes tbody's actual
+      // structural :last-child the LAST row's own expanded-row sibling, not the
+      // summary row itself - a :last-child selector here landed this padding on
+      // .treatments-table-container instead, which visibly pushed "TREATMENTS - N
+      // of N added" down with an 8px gap above it that had nothing to do with
+      // centering anything.
+      &.assignment-row--last:not(.v-data-table__tr--mobile) > td {
         padding-top: 8px !important;
         padding-bottom: 8px !important;
-        border-bottom: 2px solid rgba(0, 0, 0, 0.4);
       }
 
       // mobile only: space every component's card apart (not just relying

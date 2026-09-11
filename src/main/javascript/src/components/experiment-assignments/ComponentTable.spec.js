@@ -541,6 +541,22 @@ describe("ComponentTable", () => {
     expect(wrapper.emitted("save-order")).toBeFalsy();
   });
 
+  // regression guard for a gap that appeared above "TREATMENTS - N of N added" on
+  // the last component: a CSS rule keyed off tbody's structural :last-child <tr>
+  // (meant to vertically-center the last assignment row's own content) actually
+  // matched that row's own expanded-row sibling instead, since every row starts
+  // expanded by default - assignment-row--last exists so that rule can target the
+  // right element regardless of expand state. See ComponentTable.vue's row-props
+  // and its .assignment-row--last CSS comment for the full explanation.
+  it("marks only the last assignment row with assignment-row--last", () => {
+    mountTable([assignmentRow(), messageRow()]);
+
+    const rows = wrapper.findAll("tr.assignment-row");
+    expect(rows).toHaveLength(2);
+    expect(rows[0].classes()).not.toContain("assignment-row--last");
+    expect(rows[1].classes()).toContain("assignment-row--last");
+  });
+
   it("renders no rows when given an empty rows array", () => {
     mountTable([]);
 
