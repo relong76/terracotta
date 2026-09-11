@@ -557,6 +557,30 @@ describe("ComponentTable", () => {
     expect(rows[1].classes()).toContain("assignment-row--last");
   });
 
+  // regression guard for a missing group divider when a component is collapsed:
+  // the bold group-to-group divider only ever came from a rule keyed off
+  // .v-data-table__tr--expanded (see ComponentTable.vue's own comment on
+  // .assignment-row--collapsed), which doesn't exist at all for a collapsed row,
+  // so the divider between two collapsed components silently fell back to
+  // Vuetify's own thin default border instead.
+  it("marks a row assignment-row--collapsed only while it is actually collapsed", async () => {
+    mountTable([assignmentRow(), messageRow()]);
+
+    let rows = wrapper.findAll("tr.assignment-row");
+    expect(rows[0].classes()).not.toContain("assignment-row--collapsed");
+
+    const toggle = wrapper.find('[aria-label^="Expand component row"]');
+    await toggle.trigger("click");
+
+    rows = wrapper.findAll("tr.assignment-row");
+    expect(rows[0].classes()).toContain("assignment-row--collapsed");
+
+    await toggle.trigger("click");
+
+    rows = wrapper.findAll("tr.assignment-row");
+    expect(rows[0].classes()).not.toContain("assignment-row--collapsed");
+  });
+
   it("renders no rows when given an empty rows array", () => {
     mountTable([]);
 

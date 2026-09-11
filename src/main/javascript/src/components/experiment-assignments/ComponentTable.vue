@@ -10,8 +10,14 @@
       :sort-by="[{ key: 'assignmentOrder', order: 'asc' }]"
       :mobile-breakpoint="mobileBreakpoint"
       :items-per-page="-1"
-      :row-props="({ index }) => ({
-        class: ['assignment-row', { 'assignment-row--last': index === rows.length - 1 }]
+      :row-props="({ item, index }) => ({
+        class: [
+          'assignment-row',
+          {
+            'assignment-row--last': index === rows.length - 1,
+            'assignment-row--collapsed': !expandedRows.includes(item.assignmentId)
+          }
+        ]
       })"
       item-value="assignmentId"
       class="v-data-table-alt v-data-table--sorted data-table-assignments mx-3 mb-5 mt-3"
@@ -1356,6 +1362,19 @@ onBeforeUnmount(() => {
       // sampled directly off the mockup (a solid rgb(155,155,155) on white, matching ~0.4
       // black opacity), since 0.2 alone rendered too faint to read as a real divider.
       &.v-data-table__tr--expanded:not(.expanded-row--mobile) > td {
+        border-bottom: 2px solid rgba(0, 0, 0, 0.4);
+      }
+
+      // same divider, but for a COLLAPSED component: the rule above only ever
+      // fires on a .v-data-table__tr--expanded <tr>, which doesn't exist at all
+      // for a collapsed row (Vuetify simply never renders #expanded-row's content
+      // for it) - so with every component collapsed, this row's own <td> fell back
+      // to Vuetify's default thin ~0.12-opacity border, and the bold group-to-group
+      // divider disappeared entirely. .assignment-row--collapsed is set by
+      // row-props above from expandedRows (the actual source of truth for expand
+      // state), not a structural/class selector, since "is this row currently
+      // collapsed" isn't something a plain CSS selector can express here.
+      &.assignment-row--collapsed:not(.v-data-table__tr--mobile) > td {
         border-bottom: 2px solid rgba(0, 0, 0, 0.4);
       }
 
