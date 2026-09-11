@@ -6,9 +6,10 @@
     announce a region that didn't exist a moment ago. -->
     <div class="sr-only" aria-live="polite" role="status">{{ dragAnnouncement }}</div>
 
-    <div v-if="!loaded" class="spinner-container-assignment">
-      <Spinner height="50px" width="50px" />
-    </div>
+    <PageLoading
+      :display="!loaded"
+      message="Please wait while we load your experiment components."
+    />
 
     <v-container v-if="loaded && experiment" class="px-0" fluid>
       <v-row>
@@ -134,7 +135,7 @@ import {
 import AddAssignmentDialog from "@/components/dialog/AddAssignmentDialog.vue";
 import AddMessageDialog from "@/views/messaging/components/dialog/AddMessageDialog.vue";
 import MoveAssignmentDialog from "@/components/dialog/MoveAssignmentDialog.vue";
-import Spinner from "@/components/Spinner.vue";
+import PageLoading from "@/components/PageLoading.vue";
 import ExposureTabs from "@/components/experiment-assignments/ExposureTabs.vue";
 import ComponentTable from "@/components/experiment-assignments/ComponentTable.vue";
 import ExposureDesignCard from "@/components/experiment-assignments/ExposureDesignCard.vue";
@@ -994,20 +995,6 @@ div.section-components.py-3.px-3 {
   padding-top: 40px !important;
   padding-left: 0 !important;
   padding-right: 0 !important;
-
-  > div.spinner-container-assignment {
-    width: 100%;
-    height: 100px;
-    padding: 0;
-    margin-top: 12px !important;
-    margin-left: 0 !important;
-    list-style: none;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    border: thin solid rgba(0, 0, 0, 0.12) !important;
-    border-radius: 8px !important;
-  }
 }
 
 div.no-assignments-yet.px-5.py-5.mx-3.mb-5,

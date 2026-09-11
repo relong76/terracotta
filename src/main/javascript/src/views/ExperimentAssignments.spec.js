@@ -129,16 +129,18 @@ describe("ExperimentAssignments", () => {
     seedStores();
   });
 
-  it("shows a spinner until mount finishes, then shows the exposure content", async () => {
+  it("shows a loading spinner with a wait message until mount finishes, then shows the exposure content", async () => {
     const wrapper = mountAssignments();
 
-    expect(wrapper.find(".spinner-container-assignment").exists()).toBe(true);
+    const pageLoading = wrapper.findComponent({ name: "PageLoading" });
+    expect(pageLoading.props("display")).toBe(true);
+    expect(pageLoading.props("message")).toBe("Please wait while we load your experiment components.");
     expect(wrapper.findComponent({ name: "ExposureTabs" }).exists()).toBe(false);
 
     await wrapper.vm.$nextTick();
     await wrapper.vm.$nextTick();
 
-    expect(wrapper.find(".spinner-container-assignment").exists()).toBe(false);
+    expect(pageLoading.props("display")).toBe(false);
     expect(wrapper.findComponent({ name: "ExposureTabs" }).exists()).toBe(true);
   });
 
