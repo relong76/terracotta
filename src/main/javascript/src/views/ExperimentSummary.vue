@@ -245,6 +245,18 @@
                       :balanced="balanced"
                       :active-exposure-set="exposureSet"
                     />
+
+                    <!-- `loaded` here waits on the full fetchExperiment/fetchExposures/
+                    fetchAssignmentsByExposure/messagingContainerStore.getAll chain (see
+                    isLoading in the script below), not just `experiment` - that chain is
+                    real network time, and until it resolves this tab's content area was
+                    otherwise just blank where the components table would appear. -->
+                    <div v-else class="spinner-container-assignments">
+                      <Spinner height="50px" width="50px" />
+                      <p class="spinner-container-assignments__message">
+                        Please wait while we load your experiment components.
+                      </p>
+                    </div>
                   </div>
                 </template>
 
@@ -1124,6 +1136,25 @@ defineExpose({
 
 .panel-overview {
   display: inline-flex;
+}
+
+.spinner-container-assignments {
+  width: 100%;
+  min-height: 200px;
+  padding: 40px 16px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+
+  &__message {
+    margin: 0;
+    color: map.get($blue, "base");
+    font-size: 18px;
+    font-weight: 500;
+    text-align: center;
+  }
 }
 
 .saveButton {
