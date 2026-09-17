@@ -116,9 +116,7 @@ public class SubmissionCommentControllerTest extends BaseTest {
 
     @Test
     void getSubmissionCommentTest() throws Exception {
-        SubmissionComment entity = SubmissionComment.builder().submissionCommentId(1L).creator(DISPLAY_NAME).build();
-        when(submissionCommentService.getSubmissionComment(anyLong())).thenReturn(entity);
-        when(submissionCommentService.toDto(entity)).thenReturn(submissionCommentDto);
+        when(submissionCommentService.getSubmissionCommentDto(anyLong())).thenReturn(submissionCommentDto);
 
         ResponseEntity<SubmissionCommentDto> ret = submissionCommentController.getSubmissionComment(1L, 1L, 1L, 1L, 1L, 1L, httpServletRequest);
 

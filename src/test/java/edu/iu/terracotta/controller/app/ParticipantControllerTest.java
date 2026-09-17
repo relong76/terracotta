@@ -94,8 +94,7 @@ public class ParticipantControllerTest extends BaseTest {
     void getParticipantHappyPathTest() throws Exception {
         when(apiJwtService.isLearnerOrHigher(securedInfo)).thenReturn(true);
         when(apiJwtService.isInstructorOrHigher(securedInfo)).thenReturn(true);
-        when(participantService.getParticipant(2L, 1L, USER_ID, false)).thenReturn(participant);
-        when(participantService.toDto(participant, securedInfo)).thenReturn(participantDto);
+        when(participantService.getParticipantDto(2L, 1L, USER_ID, false, securedInfo)).thenReturn(participantDto);
 
         ResponseEntity<ParticipantDto> response = participantController.getParticipant(1L, 2L, httpServletRequest);
 
@@ -144,8 +143,7 @@ public class ParticipantControllerTest extends BaseTest {
     void updateParticipantInstructorHappyPathTest() throws Exception {
         when(apiJwtService.isInstructorOrHigher(securedInfo)).thenReturn(true);
         when(participantService.getParticipant(2L, 1L, USER_ID, false)).thenReturn(participant);
-        when(participantService.changeParticipant(anyMap(), eq(1L), eq(securedInfo))).thenReturn(List.of(participant));
-        when(participantService.toDto(participant, securedInfo)).thenReturn(participantDto);
+        when(participantService.changeParticipantDto(anyMap(), eq(1L), eq(securedInfo))).thenReturn(participantDto);
 
         ResponseEntity<ParticipantDto> response = participantController.updateParticipant(1L, 2L, participantDto, httpServletRequest);
 
@@ -158,8 +156,7 @@ public class ParticipantControllerTest extends BaseTest {
         when(apiJwtService.isInstructorOrHigher(securedInfo)).thenReturn(false);
         when(apiJwtService.isLearner(securedInfo)).thenReturn(true);
         when(participantService.getParticipant(2L, 1L, USER_ID, true)).thenReturn(participant);
-        when(participantService.changeConsent(participantDto, securedInfo, 1L)).thenReturn(participant);
-        when(participantService.toDto(participant, securedInfo)).thenReturn(participantDto);
+        when(participantService.changeConsentDto(participantDto, securedInfo, 1L)).thenReturn(participantDto);
 
         ResponseEntity<ParticipantDto> response = participantController.updateParticipant(1L, 2L, participantDto, httpServletRequest);
 
@@ -173,7 +170,7 @@ public class ParticipantControllerTest extends BaseTest {
         when(apiJwtService.isInstructorOrHigher(securedInfo)).thenReturn(false);
         when(apiJwtService.isLearner(securedInfo)).thenReturn(true);
         when(participantService.getParticipant(2L, 1L, USER_ID, true)).thenReturn(participant);
-        doThrow(new ParticipantAlreadyStartedException("started")).when(participantService).changeConsent(participantDto, securedInfo, 1L);
+        doThrow(new ParticipantAlreadyStartedException("started")).when(participantService).changeConsentDto(participantDto, securedInfo, 1L);
 
         ResponseEntity<ParticipantDto> response = participantController.updateParticipant(1L, 2L, participantDto, httpServletRequest);
         // body is actually a plain String in this branch (controller uses a raw ResponseEntity), so
@@ -194,14 +191,13 @@ public class ParticipantControllerTest extends BaseTest {
         when(apiJwtService.isLearner(securedInfo)).thenReturn(true);
         when(participantService.getParticipant(2L, 1L, USER_ID, true)).thenReturn(participant);
         doThrow(new ConnectionException("lms down")).when(participantService).postConsentSubmission(participant, securedInfo);
-        when(participantService.changeConsent(participantDto, securedInfo, 1L)).thenReturn(participant);
-        when(participantService.toDto(participant, securedInfo)).thenReturn(participantDto);
+        when(participantService.changeConsentDto(participantDto, securedInfo, 1L)).thenReturn(participantDto);
 
         ResponseEntity<ParticipantDto> response = participantController.updateParticipant(1L, 2L, participantDto, httpServletRequest);
 
         assertEquals(HttpStatus.OK, response.getStatusCode());
         assertEquals(participantDto, response.getBody());
-        verify(participantService).changeConsent(participantDto, securedInfo, 1L);
+        verify(participantService).changeConsentDto(participantDto, securedInfo, 1L);
     }
 
     @Test

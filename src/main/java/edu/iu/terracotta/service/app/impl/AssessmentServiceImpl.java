@@ -229,6 +229,13 @@ public class AssessmentServiceImpl implements AssessmentService {
     }
 
     @Override
+    @Transactional(readOnly = true)
+    public AssessmentDto getAssessmentDto(Long id, Long submissionId, boolean questions, boolean answers, boolean submissions, boolean isStudent, SecuredInfo securedInfo)
+            throws AssessmentNotMatchingException {
+        return toDto(getAssessment(id), submissionId, questions, answers, submissions, isStudent, securedInfo);
+    }
+
+    @Override
     public AssessmentDto toDto(Assessment assessment, Long submissionId, boolean questions, boolean answers, boolean submissions, boolean isStudent, SecuredInfo securedInfo)
             throws AssessmentNotMatchingException {
         Long submissionsCompletedCount = null;

@@ -139,6 +139,19 @@ public class OutcomeScoreServiceImplTest extends BaseTest {
         assertEquals(participant.getParticipantId(), dto.getParticipantId());
     }
 
+    // fetches and maps within a single transaction, rather than as two separate top-level calls
+    // - see AssessmentService.getAssessmentDto for why that distinction matters once
+    // open-in-view is disabled
+    @Test
+    public void testGetOutcomeScoreDtoFetchesAndMapsTogether() {
+        OutcomeScoreDto dto = outcomeScoreService.getOutcomeScoreDto(1L);
+
+        assertNotNull(dto);
+        assertEquals(outcome.getOutcomeId(), dto.getOutcomeId());
+        assertEquals(participant.getParticipantId(), dto.getParticipantId());
+        verify(outcomeScoreRepository).findByOutcomeScoreId(1L);
+    }
+
     @Test
     public void testPostOutcomeScoreIdInPost() {
         OutcomeScoreDto dto = OutcomeScoreDto.builder().outcomeScoreId(1L).build();

@@ -56,6 +56,7 @@ import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.http.HttpHeaders;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.util.UriComponentsBuilder;
 
 import java.io.IOException;
@@ -121,6 +122,12 @@ public class ExperimentServiceImpl implements ExperimentService {
     @Override
     public Experiment getExperiment(long experimentId) {
         return experimentRepository.findByExperimentId(experimentId);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public ExperimentDto getExperimentDto(long experimentId, boolean conditions, boolean exposures, boolean participants, SecuredInfo securedInfo) {
+        return toDto(getExperiment(experimentId), conditions, exposures, participants, securedInfo);
     }
 
     @Override

@@ -197,6 +197,16 @@ public class ExposureServiceImplTest extends BaseTest {
         assertEquals(exposure, retVal);
     }
 
+    // fetches and maps within a single transaction, rather than as two separate top-level calls
+    // - see AssessmentService.getAssessmentDto for why that distinction matters once
+    // open-in-view is disabled
+    @Test
+    public void testGetExposureDtoFetchesAndMapsTogether() {
+        ExposureDto retVal = exposureService.getExposureDto(1L);
+
+        assertEquals(1L, retVal.getExposureId());
+    }
+
     @Test
     public void testUpdateExposureSuccess() throws TitleValidationException {
         ExposureDto exposureDto = ExposureDto.builder().title("New Title").build();

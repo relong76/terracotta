@@ -95,7 +95,7 @@ public class OutcomeController {
             outcomeService.updateOutcomeGrades(outcomeId, securedInfo, true);
         }
 
-        OutcomeDto outcomeDto = outcomeService.toDto(outcomeService.getOutcome(outcomeId), outcomeScores);
+        OutcomeDto outcomeDto = outcomeService.getOutcomeDto(outcomeId, outcomeScores);
 
         return new ResponseEntity<>(outcomeDto, HttpStatus.OK);
     }

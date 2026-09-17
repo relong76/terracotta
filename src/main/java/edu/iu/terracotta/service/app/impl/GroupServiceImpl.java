@@ -60,6 +60,12 @@ public class GroupServiceImpl implements GroupService {
     }
 
     @Override
+    @Transactional(readOnly = true)
+    public GroupDto getGroupDto(Long id, SecuredInfo securedInfo) {
+        return toDto(getGroup(id), securedInfo);
+    }
+
+    @Override
     public GroupDto postGroup(GroupDto groupDto, long experimentId, SecuredInfo securedInfo) throws IdInPostException, DataServiceException{
         if (groupDto.getGroupId() != null) {
             throw new IdInPostException(TextConstants.ID_IN_POST_ERROR);

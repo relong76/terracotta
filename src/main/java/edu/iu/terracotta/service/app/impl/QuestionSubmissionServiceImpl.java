@@ -163,6 +163,12 @@ public class QuestionSubmissionServiceImpl implements QuestionSubmissionService 
     }
 
     @Override
+    @Transactional(readOnly = true)
+    public QuestionSubmissionDto getQuestionSubmissionDto(Long id, boolean answerSubmissions, boolean questionSubmissionComments) throws IOException {
+        return toDto(getQuestionSubmission(id), answerSubmissions, questionSubmissionComments);
+    }
+
+    @Override
     @Transactional
     // this method isn't technically fully transactional. The dto is validated beforehand.
     public void updateQuestionSubmissions(Map<QuestionSubmission, QuestionSubmissionDto> map, boolean student) throws InvalidUserException, DataServiceException, IdMissingException, QuestionSubmissionNotMatchingException, AnswerSubmissionNotMatchingException, AnswerNotMatchingException {

@@ -133,8 +133,7 @@ public class QuestionSubmissionControllerTest extends BaseTest {
     @Test
     void getQuestionSubmissionSuccessTest() throws Exception {
         QuestionSubmissionDto dto = QuestionSubmissionDto.builder().questionSubmissionId(1L).build();
-        when(questionSubmissionService.getQuestionSubmission(1L)).thenReturn(questionSubmission);
-        when(questionSubmissionService.toDto(questionSubmission, false, false)).thenReturn(dto);
+        when(questionSubmissionService.getQuestionSubmissionDto(1L, false, false)).thenReturn(dto);
 
         ResponseEntity<QuestionSubmissionDto> ret = questionSubmissionController.getQuestionSubmission(1L, 1L, 1L, 1L, 1L, 1L, false, false, httpServletRequest);
 
@@ -155,7 +154,6 @@ public class QuestionSubmissionControllerTest extends BaseTest {
     @Test
     void getQuestionSubmissionStudentValidatesUserTest() throws Exception {
         when(apiJwtService.isInstructorOrHigher(any(SecuredInfo.class))).thenReturn(false);
-        when(questionSubmissionService.getQuestionSubmission(1L)).thenReturn(questionSubmission);
 
         questionSubmissionController.getQuestionSubmission(1L, 1L, 1L, 1L, 1L, 1L, false, false, httpServletRequest);
 

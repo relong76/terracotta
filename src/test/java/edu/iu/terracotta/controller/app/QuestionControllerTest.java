@@ -22,7 +22,6 @@ import org.springframework.web.util.UriComponentsBuilder;
 
 import edu.iu.terracotta.base.BaseTest;
 import edu.iu.terracotta.connectors.generic.dao.model.SecuredInfo;
-import edu.iu.terracotta.dao.entity.Question;
 import edu.iu.terracotta.dao.exceptions.ExperimentNotMatchingException;
 import edu.iu.terracotta.dao.exceptions.QuestionNotMatchingException;
 import edu.iu.terracotta.dao.model.dto.QuestionDto;
@@ -97,7 +96,7 @@ public class QuestionControllerTest extends BaseTest {
     void getQuestionTest() throws Exception {
         when(apiJwtService.isLearnerOrHigher(securedInfo)).thenReturn(true);
         when(apiJwtService.isInstructorOrHigher(securedInfo)).thenReturn(true);
-        when(questionService.toDto(any(Question.class), anyBoolean(), anyBoolean())).thenReturn(questionDto);
+        when(questionService.getQuestionDto(anyLong(), anyBoolean(), anyBoolean())).thenReturn(questionDto);
 
         ResponseEntity<QuestionDto> response = questionController.getQuestion(EXPERIMENT_ID, CONDITION_ID, TREATMENT_ID, ASSESSMENT_ID, QUESTION_ID, false, httpServletRequest);
 

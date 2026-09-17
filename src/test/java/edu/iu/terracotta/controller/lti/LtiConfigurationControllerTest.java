@@ -45,7 +45,8 @@ public class LtiConfigurationControllerTest extends BaseTest {
 
     @Test
     void displayConfigsTest() {
-        PlatformDeployment platformDeployment = PlatformDeployment.builder().keyId(1L).iss("iss").clientId("client").build();
+        PlatformDeployment platformDeployment = PlatformDeployment.builder().keyId(1L).iss("iss").clientId("client")
+            .toolDeployments(Collections.emptySet()).features(Collections.emptyList()).build();
         when(platformDeploymentRepository.findAll()).thenReturn(List.of(platformDeployment));
 
         ResponseEntity<List<PlatformDeployment>> response = ltiConfigurationController.displayConfigs(httpServletRequest);
@@ -56,7 +57,8 @@ public class LtiConfigurationControllerTest extends BaseTest {
 
     @Test
     void displayConfigFoundTest() {
-        PlatformDeployment platformDeployment = PlatformDeployment.builder().keyId(1L).build();
+        PlatformDeployment platformDeployment = PlatformDeployment.builder().keyId(1L)
+            .toolDeployments(Collections.emptySet()).features(Collections.emptyList()).build();
         when(platformDeploymentRepository.findById(1L)).thenReturn(Optional.of(platformDeployment));
 
         ResponseEntity<?> response = ltiConfigurationController.displayConfig(1L, httpServletRequest);
@@ -125,7 +127,7 @@ public class LtiConfigurationControllerTest extends BaseTest {
 
     @Test
     void updateDeploymentTest() {
-        PlatformDeployment existing = PlatformDeployment.builder().keyId(1L).toolDeployments(new HashSet<>()).build();
+        PlatformDeployment existing = PlatformDeployment.builder().keyId(1L).toolDeployments(new HashSet<>()).features(Collections.emptyList()).build();
         PlatformDeployment update = PlatformDeployment.builder()
             .oAuth2TokenUrl("url")
             .clientId("client")
@@ -149,7 +151,7 @@ public class LtiConfigurationControllerTest extends BaseTest {
     @Test
     void updateDeploymentAddsMissingToolDeploymentTest() {
         Set<ToolDeployment> existingToolDeployments = new HashSet<>();
-        PlatformDeployment existing = PlatformDeployment.builder().keyId(1L).toolDeployments(existingToolDeployments).build();
+        PlatformDeployment existing = PlatformDeployment.builder().keyId(1L).toolDeployments(existingToolDeployments).features(Collections.emptyList()).build();
         ToolDeployment newToolDeployment = ToolDeployment.builder().ltiDeploymentId("dep-99").build();
         PlatformDeployment update = PlatformDeployment.builder().iss("iss").clientId("client").toolDeployments(Set.of(newToolDeployment)).build();
 
@@ -165,7 +167,7 @@ public class LtiConfigurationControllerTest extends BaseTest {
 
     @Test
     void updateDeploymentNullToolDeploymentsTest() {
-        PlatformDeployment existing = PlatformDeployment.builder().keyId(1L).toolDeployments(new HashSet<>()).build();
+        PlatformDeployment existing = PlatformDeployment.builder().keyId(1L).toolDeployments(new HashSet<>()).features(Collections.emptyList()).build();
         PlatformDeployment update = PlatformDeployment.builder().iss("iss").clientId("client").build();
 
         when(platformDeploymentRepository.findById(1L)).thenReturn(Optional.of(existing));

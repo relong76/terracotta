@@ -76,6 +76,20 @@ public class GroupServiceImplTest extends BaseTest {
         assertEquals(group, retVal);
     }
 
+    // fetches and maps within a single transaction, rather than as two separate top-level calls
+    // - see AssessmentService.getAssessmentDto for why that distinction matters once
+    // open-in-view is disabled
+    @Test
+    public void testGetGroupDtoFetchesAndMapsTogether() {
+        when(groupRepository.findByGroupId(anyLong())).thenReturn(group);
+        when(participantRepository.findByExperiment_ExperimentIdAndGroup_GroupId(anyLong(), anyLong())).thenReturn(Collections.emptyList());
+
+        GroupDto retVal = groupService.getGroupDto(1L, securedInfo);
+
+        assertNotNull(retVal);
+        assertEquals(1L, retVal.getGroupId());
+    }
+
     @Test
     public void testPostGroupSuccess() throws IdInPostException, DataServiceException {
         GroupDto groupDto = GroupDto.builder().name("Group A").build();

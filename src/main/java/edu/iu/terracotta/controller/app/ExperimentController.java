@@ -98,7 +98,7 @@ public class ExperimentController {
             return new ResponseEntity(TextConstants.NOT_ENOUGH_PERMISSIONS, HttpStatus.UNAUTHORIZED);
         }
 
-        ExperimentDto experimentDto = experimentService.toDto(experimentService.getExperiment(id), conditions, exposures, participants, securedInfo);
+        ExperimentDto experimentDto = experimentService.getExperimentDto(id, conditions, exposures, participants, securedInfo);
 
         return new ResponseEntity<>(experimentDto, HttpStatus.OK);
     }

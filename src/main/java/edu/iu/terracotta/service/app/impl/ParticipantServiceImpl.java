@@ -237,6 +237,12 @@ public class ParticipantServiceImpl implements ParticipantService {
     }
 
     @Override
+    @Transactional(readOnly = true)
+    public ParticipantDto getParticipantDto(long id, long experimentId, String userId, boolean student, SecuredInfo securedInfo) throws InvalidUserException, ParticipantNotMatchingException {
+        return toDto(getParticipant(id, experimentId, userId, student), securedInfo);
+    }
+
+    @Override
     public ParticipantDto postParticipant(ParticipantDto participantDto, long experimentId, SecuredInfo securedInfo) throws IdInPostException, DataServiceException {
         Experiment experiment = experimentRepository.findByExperimentId(experimentId);
         List<Long> publishedExperimentAssignmentIds = calculatedPublishedAssignmentIds(experimentId, securedInfo.getLmsCourseId(), experiment.getCreatedBy());
@@ -814,6 +820,18 @@ public class ParticipantServiceImpl implements ParticipantService {
         }
 
         return participantRepository.saveAll(participants);
+    }
+
+    @Override
+    @Transactional
+    public ParticipantDto changeParticipantDto(Map<Participant, ParticipantDto> map, Long experimentId, SecuredInfo securedInfo) {
+        return toDto(changeParticipant(map, experimentId, securedInfo).get(0), securedInfo);
+    }
+
+    @Override
+    @Transactional
+    public ParticipantDto changeConsentDto(ParticipantDto participantDto, SecuredInfo securedInfo, Long experimentId) throws ParticipantAlreadyStartedException, ExperimentNotMatchingException, ParticipantNotMatchingException {
+        return toDto(changeConsent(participantDto, securedInfo, experimentId), securedInfo);
     }
 
     @Override

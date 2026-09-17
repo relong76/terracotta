@@ -86,7 +86,7 @@ public class OutcomeScoreController {
             return new ResponseEntity(TextConstants.NOT_ENOUGH_PERMISSIONS, HttpStatus.UNAUTHORIZED);
         }
 
-        OutcomeScoreDto outcomeScoreDto = outcomeScoreService.toDto(outcomeScoreService.getOutcomeScore(outcomeScoreId));
+        OutcomeScoreDto outcomeScoreDto = outcomeScoreService.getOutcomeScoreDto(outcomeScoreId);
 
         return new ResponseEntity<>(outcomeScoreDto, HttpStatus.OK);
     }

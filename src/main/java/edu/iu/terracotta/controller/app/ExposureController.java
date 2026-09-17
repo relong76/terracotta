@@ -79,7 +79,7 @@ public class ExposureController {
             return new ResponseEntity(TextConstants.NOT_ENOUGH_PERMISSIONS, HttpStatus.UNAUTHORIZED);
         }
 
-        ExposureDto exposureDto = exposureService.toDto(exposureService.getExposure(exposureId));
+        ExposureDto exposureDto = exposureService.getExposureDto(exposureId);
 
         return new ResponseEntity<>(exposureDto, HttpStatus.OK);
     }

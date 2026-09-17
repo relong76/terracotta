@@ -80,6 +80,12 @@ public class QuestionServiceImpl implements QuestionService {
     }
 
     @Override
+    @Transactional(readOnly = true)
+    public QuestionDto getQuestionDto(Long id, boolean answers, boolean showCorrectAnswer) {
+        return toDto(getQuestion(id), answers, showCorrectAnswer);
+    }
+
+    @Override
     public QuestionDto postQuestion(QuestionDto questionDto, long assessmentId, boolean answers, boolean isNew)
         throws IdInPostException, DataServiceException, MultipleChoiceLimitReachedException, IntegrationNotFoundException, IntegrationClientNotFoundException {
         if (questionDto.getQuestionId() != null) {

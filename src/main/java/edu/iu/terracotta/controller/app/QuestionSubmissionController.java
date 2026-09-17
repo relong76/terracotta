@@ -125,7 +125,7 @@ public class QuestionSubmissionController {
             submissionService.validateUser(experimentId, securedInfo.getUserId(), submissionId);
         }
 
-        QuestionSubmissionDto questionSubmissionDto = questionSubmissionService.toDto(questionSubmissionService.getQuestionSubmission(questionSubmissionId), answerSubmissions, questionSubmissionComments);
+        QuestionSubmissionDto questionSubmissionDto = questionSubmissionService.getQuestionSubmissionDto(questionSubmissionId, answerSubmissions, questionSubmissionComments);
 
         return new ResponseEntity<>(questionSubmissionDto, HttpStatus.OK);
     }

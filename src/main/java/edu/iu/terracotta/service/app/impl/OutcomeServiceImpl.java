@@ -83,6 +83,12 @@ public class OutcomeServiceImpl implements OutcomeService {
     }
 
     @Override
+    @Transactional(readOnly = true)
+    public OutcomeDto getOutcomeDto(long id, boolean outcomeScores) {
+        return toDto(getOutcome(id), outcomeScores);
+    }
+
+    @Override
     public List<OutcomeDto> getAllByExperiment(long experimentId) {
         return CollectionUtils.emptyIfNull(outcomeRepository.findByExposure_Experiment_ExperimentId(experimentId)).stream()
             .map(

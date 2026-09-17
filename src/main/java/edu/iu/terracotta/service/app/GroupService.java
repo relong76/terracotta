@@ -20,6 +20,9 @@ public interface GroupService {
     GroupDto postGroup(GroupDto groupDto, long experimentId, SecuredInfo securedInfo) throws IdInPostException, DataServiceException;
     Group getGroup(Long id);
     GroupDto toDto(Group group, SecuredInfo securedInfo);
+    // fetches and maps within a single transaction - see AssessmentService.getAssessmentDto for why
+    // calling getX(id) then toDto(...) as two separate top-level calls isn't safe once open-in-view is disabled
+    GroupDto getGroupDto(Long id, SecuredInfo securedInfo);
     Group fromDto(GroupDto groupDto) throws DataServiceException;
     void updateGroup(Long groupId, GroupDto groupDto) throws TitleValidationException;
     void deleteById(Long id) throws EmptyResultDataAccessException;

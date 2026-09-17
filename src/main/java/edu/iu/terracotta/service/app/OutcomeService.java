@@ -29,6 +29,9 @@ public interface OutcomeService {
     Outcome getOutcome(long id);
     OutcomeDto postOutcome(OutcomeDto outcomeDto, long exposureId) throws IdInPostException, DataServiceException, TitleValidationException;
     OutcomeDto toDto(Outcome outcome, boolean outcomeScores);
+    // fetches and maps within a single transaction - see AssessmentService.getAssessmentDto for why
+    // calling getX(id) then toDto(...) as two separate top-level calls isn't safe once open-in-view is disabled
+    OutcomeDto getOutcomeDto(long id, boolean outcomeScores);
     Outcome fromDto(OutcomeDto outcomeDto) throws DataServiceException;
     void updateOutcome(long outcomeId, OutcomeDto outcomeDto) throws TitleValidationException;
     void deleteById(long id) throws EmptyResultDataAccessException;

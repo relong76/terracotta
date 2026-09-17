@@ -16,6 +16,9 @@ public interface SubmissionCommentService {
 
     List<SubmissionCommentDto> getSubmissionComments(Long submissionId);
     SubmissionComment getSubmissionComment(Long id);
+    // fetches and maps within a single transaction - see AssessmentService.getAssessmentDto for why
+    // calling getX(id) then toDto(...) as two separate top-level calls isn't safe once open-in-view is disabled
+    SubmissionCommentDto getSubmissionCommentDto(Long id);
     SubmissionCommentDto postSubmissionComment(SubmissionCommentDto submissionCommentDto, long submissionId, SecuredInfo securedInfo) throws IdInPostException, DataServiceException;
     void updateSubmissionComment(SubmissionComment submissionComment, SubmissionCommentDto submissionCommentDto);
     SubmissionCommentDto toDto(SubmissionComment submissionComment);

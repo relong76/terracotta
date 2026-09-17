@@ -96,8 +96,7 @@ public class GroupControllerTest extends BaseTest {
     void testGetGroupSuccess() throws Exception {
         when(apiJwtService.isLearnerOrHigher(securedInfo)).thenReturn(true);
         GroupDto groupDto = GroupDto.builder().groupId(GROUP_ID).experimentId(EXPERIMENT_ID).name("group").build();
-        when(groupService.getGroup(GROUP_ID)).thenReturn(group);
-        when(groupService.toDto(group, securedInfo)).thenReturn(groupDto);
+        when(groupService.getGroupDto(GROUP_ID, securedInfo)).thenReturn(groupDto);
 
         ResponseEntity<GroupDto> response = groupController.getGroup(EXPERIMENT_ID, GROUP_ID, httpServletRequest);
 

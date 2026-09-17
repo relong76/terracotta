@@ -326,6 +326,44 @@ public class ParticipantServiceImplTest extends BaseTest {
         assertNotNull(retVal);
     }
 
+    // fetches and maps within a single transaction, rather than as two separate top-level calls
+    // - see AssessmentService.getAssessmentDto for why that distinction matters once
+    // open-in-view is disabled
+    @Test
+    public void testGetParticipantDtoFetchesAndMapsTogether() throws InvalidUserException, ParticipantNotMatchingException {
+        doReturn(participant).when(participantService).getParticipant(1L, 1L, USER_ID, false);
+        doReturn(participantDto).when(participantService).toDto(participant, securedInfo);
+
+        ParticipantDto result = participantService.getParticipantDto(1L, 1L, USER_ID, false, securedInfo);
+
+        assertEquals(participantDto, result);
+    }
+
+    // fetches and maps within a single transaction - see the comment on
+    // testGetParticipantDtoFetchesAndMapsTogether above (changeParticipant/changeConsent are
+    // themselves @Transactional, but that transaction - and the returned entity's attached
+    // state - still ends the moment each one returns)
+    @Test
+    public void testChangeParticipantDtoFetchesAndMapsTogether() {
+        Map<Participant, ParticipantDto> map = Collections.singletonMap(participant, participantDto);
+        doReturn(List.of(participant)).when(participantService).changeParticipant(map, 1L, securedInfo);
+        doReturn(participantDto).when(participantService).toDto(participant, securedInfo);
+
+        ParticipantDto result = participantService.changeParticipantDto(map, 1L, securedInfo);
+
+        assertEquals(participantDto, result);
+    }
+
+    @Test
+    public void testChangeConsentDtoFetchesAndMapsTogether() throws Exception {
+        doReturn(participant).when(participantService).changeConsent(participantDto, securedInfo, 1L);
+        doReturn(participantDto).when(participantService).toDto(participant, securedInfo);
+
+        ParticipantDto result = participantService.changeConsentDto(participantDto, securedInfo, 1L);
+
+        assertEquals(participantDto, result);
+    }
+
     @Test
     public void testFindAllByExperimentId() {
         List<Participant> retVal = participantService.findAllByExperimentId(1l);

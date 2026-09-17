@@ -34,6 +34,9 @@ public interface ParticipantService {
     ParticipantDto postParticipant(ParticipantDto participantDto, long experimentId, SecuredInfo securedInfo) throws IdInPostException, DataServiceException;
     ParticipantDto toDto(Participant participant, SecuredInfo securedInfo);
     ParticipantDto toDto(Participant participant, List<Long> publishedExperimentAssignmentIds, SecuredInfo securedInfo);
+    // fetches and maps within a single transaction - see AssessmentService.getAssessmentDto for why
+    // calling getX(id) then toDto(...) as two separate top-level calls isn't safe once open-in-view is disabled
+    ParticipantDto getParticipantDto(long id, long experimentId, String userId, boolean student, SecuredInfo securedInfo) throws InvalidUserException, ParticipantNotMatchingException;
     Participant fromDto(ParticipantDto participantDto) throws DataServiceException;
     void saveAndFlush(Participant participantToChange);
     void refreshParticipants(long experimentId) throws ParticipantNotUpdatedException, ExperimentNotMatchingException, TerracottaConnectorException;
@@ -43,12 +46,19 @@ public interface ParticipantService {
     LmsUserBatchStatusDto startPrepareParticipation(long experimentId, SecuredInfo securedInfo) throws ParticipantNotUpdatedException, ExperimentNotMatchingException, TerracottaConnectorException;
     Optional<LmsUserBatchStatusDto> getPrepareParticipationStatus(UUID batchId);
     List<Participant> changeParticipant(Map<Participant, ParticipantDto> map, Long experimentId, SecuredInfo securedInfo);
+    // fetches and maps within a single transaction - see AssessmentService.getAssessmentDto for why
+    // calling changeParticipant(...) then toDto(...) as two separate top-level calls isn't safe
+    // once open-in-view is disabled (changeParticipant is itself @Transactional, but its own
+    // transaction - and thus the returned entity's attached state - ends the moment it returns)
+    ParticipantDto changeParticipantDto(Map<Participant, ParticipantDto> map, Long experimentId, SecuredInfo securedInfo);
     Participant findParticipant(long experimentId, String userId);
     HttpHeaders buildHeaders(UriComponentsBuilder ucBuilder, long experimentId, long participantId);
     void setAllToNull(Long experimentId) throws ParticipantNotUpdatedException, ExperimentNotMatchingException, TerracottaConnectorException;
     void setAllToTrue(Long experimentId) throws ParticipantNotUpdatedException, ExperimentNotMatchingException, TerracottaConnectorException;
     void setAllToFalse(Long experimentId) throws ParticipantNotUpdatedException, ExperimentNotMatchingException, TerracottaConnectorException;
     Participant changeConsent(ParticipantDto participantDto, SecuredInfo securedInfo, Long experimentId) throws ParticipantAlreadyStartedException, ExperimentNotMatchingException, ParticipantNotMatchingException;
+    // fetches and maps within a single transaction - see the comment on changeParticipantDto above
+    ParticipantDto changeConsentDto(ParticipantDto participantDto, SecuredInfo securedInfo, Long experimentId) throws ParticipantAlreadyStartedException, ExperimentNotMatchingException, ParticipantNotMatchingException;
     void postConsentSubmission(Participant participant, SecuredInfo securedInfo) throws ConnectionException, DataServiceException, TerracottaConnectorException;
     Participant handleExperimentParticipant(Experiment experiment, SecuredInfo securedInfo) throws GroupNotMatchingException, ParticipantNotMatchingException, ParticipantNotUpdatedException, AssignmentNotMatchingException, ExperimentNotMatchingException, TerracottaConnectorException;
     List<Long> calculatedPublishedAssignmentIds(long experimentId, String lmsCourseId, LtiUserEntity createdBy);

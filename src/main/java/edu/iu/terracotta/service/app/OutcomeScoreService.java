@@ -17,6 +17,9 @@ public interface OutcomeScoreService {
     OutcomeScore getOutcomeScore(Long id);
     OutcomeScoreDto postOutcomeScore(OutcomeScoreDto outcomeScoreDto, long experimentId, long outcomeId) throws IdInPostException, DataServiceException, InvalidParticipantException;
     OutcomeScoreDto toDto(OutcomeScore outcomeScore);
+    // fetches and maps within a single transaction - see AssessmentService.getAssessmentDto for why
+    // calling getX(id) then toDto(...) as two separate top-level calls isn't safe once open-in-view is disabled
+    OutcomeScoreDto getOutcomeScoreDto(Long id);
     OutcomeScore fromDto(OutcomeScoreDto outcomeScoreDto) throws DataServiceException;
     void updateOutcomeScore(Long outcomeId, OutcomeScoreDto outcomeScoreDto);
     // upserts: entries with an outcomeScoreId are updated, entries without one are created; batched into a single saveAll

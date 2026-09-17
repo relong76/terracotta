@@ -36,6 +36,9 @@ public interface QuestionSubmissionService {
 
     List<QuestionSubmissionDto> getQuestionSubmissions(long submissionId, boolean answerSubmissions, boolean questionSubmissionComments, long assessmentId, boolean isStudent) throws AssessmentNotMatchingException, IOException;
     QuestionSubmission getQuestionSubmission(Long id);
+    // fetches and maps within a single transaction - see AssessmentService.getAssessmentDto for why
+    // calling getX(id) then toDto(...) as two separate top-level calls isn't safe once open-in-view is disabled
+    QuestionSubmissionDto getQuestionSubmissionDto(Long id, boolean answerSubmissions, boolean questionSubmissionComments) throws IOException;
     List<QuestionSubmissionDto> postQuestionSubmissions(List<QuestionSubmissionDto> questionSubmissionDtoList, long assessmentId, long submissionId, boolean student) throws DataServiceException, IdInPostException, InvalidUserException, DuplicateQuestionException, IdMissingException, TypeNotSupportedException;
     void updateQuestionSubmissions(Map<QuestionSubmission, QuestionSubmissionDto> map, boolean student) throws InvalidUserException, DataServiceException, AnswerNotMatchingException, AnswerSubmissionNotMatchingException, QuestionSubmissionNotMatchingException, IdMissingException;
     QuestionSubmissionDto toDto(QuestionSubmission questionSubmission, boolean answerSubmissions, boolean questionSubmissionComments) throws IOException;

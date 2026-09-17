@@ -36,7 +36,6 @@ import org.springframework.web.util.UriComponentsBuilder;
 
 import jakarta.servlet.http.HttpServletRequest;
 
-import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -95,11 +94,8 @@ public class ParticipantController {
             return new ResponseEntity(TextConstants.NOT_ENOUGH_PERMISSIONS, HttpStatus.UNAUTHORIZED);
         }
 
-        ParticipantDto participantDto = participantService.toDto(
-            participantService.getParticipant(participantId, experimentId, securedInfo.getUserId(),
-            !apijwtService.isInstructorOrHigher(securedInfo)),
-            securedInfo
-        );
+        ParticipantDto participantDto = participantService.getParticipantDto(participantId, experimentId, securedInfo.getUserId(),
+            !apijwtService.isInstructorOrHigher(securedInfo), securedInfo);
 
         return new ResponseEntity<>(participantDto, HttpStatus.OK);
     }
@@ -134,10 +130,8 @@ public class ParticipantController {
         SecuredInfo securedInfo = apijwtService.extractValues(req,false);
         apijwtService.experimentAllowed(securedInfo, experimentId);
         apijwtService.participantAllowed(securedInfo, experimentId, participantId);
-        List<Participant> participants = new ArrayList<>();
-
         if (apijwtService.isInstructorOrHigher(securedInfo)) {
-            participants = participantService.changeParticipant(
+            ParticipantDto updatedParticipantDto = participantService.changeParticipantDto(
                 Collections.singletonMap(
                     participantService.getParticipant(participantId, experimentId, securedInfo.getUserId(), false),
                     participantDto),
@@ -145,7 +139,7 @@ public class ParticipantController {
                 securedInfo
             );
 
-            return new ResponseEntity<>(participantService.toDto(participants.get(0), securedInfo), HttpStatus.OK);
+            return new ResponseEntity<>(updatedParticipantDto, HttpStatus.OK);
         }
 
         if (apijwtService.isLearner(securedInfo)) {
@@ -164,7 +158,7 @@ public class ParticipantController {
             }
 
             try {
-                return new ResponseEntity<>(participantService.toDto(participantService.changeConsent(participantDto, securedInfo, experimentId), securedInfo), HttpStatus.OK);
+                return new ResponseEntity<>(participantService.changeConsentDto(participantDto, securedInfo, experimentId), HttpStatus.OK);
             } catch (ParticipantAlreadyStartedException e) {
                 log.debug("Participant {} has already started: {}", participantId, e.getMessage());
                 return new ResponseEntity(

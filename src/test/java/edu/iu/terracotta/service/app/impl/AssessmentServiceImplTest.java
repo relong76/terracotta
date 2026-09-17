@@ -78,6 +78,7 @@ import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyMap;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.clearInvocations;
+import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -169,6 +170,20 @@ public class AssessmentServiceImplTest extends BaseTest {
         verify(assessmentRepository).saveAndFlush(any(Assessment.class));
         verify(assessmentRepository, never()).save(any(Assessment.class));
         verify(questionService).duplicateQuestionsForAssessment(any(), any(Assessment.class));
+    }
+
+    // fetches and maps within one transaction, rather than as two separate top-level calls
+    // (see the interface javadoc-style comment on getAssessmentDto for why that distinction
+    // matters once open-in-view is disabled)
+    @Test
+    public void testGetAssessmentDtoFetchesAndMapsTogether() throws AssessmentNotMatchingException {
+        AssessmentDto assessmentDto = new AssessmentDto();
+        doReturn(assessment1).when(assessmentService).getAssessment(1L);
+        doReturn(assessmentDto).when(assessmentService).toDto(assessment1, 2L, true, false, true, false, securedInfo);
+
+        AssessmentDto result = assessmentService.getAssessmentDto(1L, 2L, true, false, true, false, securedInfo);
+
+        assertEquals(assessmentDto, result);
     }
 
     @Test

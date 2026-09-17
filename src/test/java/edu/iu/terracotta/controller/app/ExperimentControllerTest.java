@@ -108,8 +108,7 @@ public class ExperimentControllerTest extends BaseTest {
     void getExperimentSuccessTest() throws Exception {
         when(apiJwtService.isLearnerOrHigher(securedInfo)).thenReturn(true);
         ExperimentDto experimentDto = ExperimentDto.builder().experimentId(1L).title("experiment").build();
-        when(experimentService.getExperiment(1L)).thenReturn(experiment);
-        when(experimentService.toDto(experiment, true, true, true, securedInfo)).thenReturn(experimentDto);
+        when(experimentService.getExperimentDto(1L, true, true, true, securedInfo)).thenReturn(experimentDto);
 
         ResponseEntity<ExperimentDto> ret = experimentController.getExperiment(1L, true, true, true, httpServletRequest);
 

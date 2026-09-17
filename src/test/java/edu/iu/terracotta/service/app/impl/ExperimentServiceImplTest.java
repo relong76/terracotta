@@ -325,6 +325,18 @@ public class ExperimentServiceImplTest extends BaseTest {
         verify(experiment).setParticipationType(ParticipationTypes.CONSENT);
     }
 
+    // fetches and maps within a single transaction, rather than as two separate top-level
+    // calls - see AssessmentService.getAssessmentDto for why that distinction matters once
+    // open-in-view is disabled
+    @Test
+    public void testGetExperimentDtoFetchesAndMapsTogether() {
+        when(experimentRepository.findByExperimentId(1L)).thenReturn(experiment);
+
+        ExperimentDto retVal = experimentService.getExperimentDto(1L, false, false, false, securedInfo);
+
+        assertEquals(1L, retVal.getExperimentId());
+    }
+
     @Test
     public void testToDtoBasicNoFlags() {
         ExperimentDto retVal = experimentService.toDto(experiment, false, false, false, securedInfo);

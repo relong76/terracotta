@@ -46,6 +46,12 @@ public class OutcomeScoreServiceImpl implements OutcomeScoreService {
     }
 
     @Override
+    @Transactional(readOnly = true)
+    public OutcomeScoreDto getOutcomeScoreDto(Long id) {
+        return toDto(getOutcomeScore(id));
+    }
+
+    @Override
     public OutcomeScoreDto postOutcomeScore(OutcomeScoreDto outcomeScoreDto, long experimentId, long outcomeId) throws IdInPostException, InvalidParticipantException, DataServiceException {
         if (outcomeScoreDto.getOutcomeScoreId() != null) {
             throw new IdInPostException(TextConstants.ID_IN_POST_ERROR);

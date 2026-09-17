@@ -106,7 +106,7 @@ public class QuestionSubmissionCommentController {
             submissionService.validateUser(experimentId, securedInfo.getUserId(), submissionId);
         }
 
-        QuestionSubmissionCommentDto questionSubmissionCommentDto = questionSubmissionCommentService.toDto(questionSubmissionCommentService.getQuestionSubmissionComment(questionSubmissionCommentId));
+        QuestionSubmissionCommentDto questionSubmissionCommentDto = questionSubmissionCommentService.getQuestionSubmissionCommentDto(questionSubmissionCommentId);
 
         return new ResponseEntity<>(questionSubmissionCommentDto, HttpStatus.OK);
     }

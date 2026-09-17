@@ -26,6 +26,9 @@ public interface ExperimentService {
     ExperimentDto postExperiment(ExperimentDto experimentDto, SecuredInfo securedInfo) throws DataServiceException, TitleValidationException;
     void updateExperiment(long experimentId, long contextId, ExperimentDto experimentDto, SecuredInfo securedInfo) throws TitleValidationException, WrongValueException, ParticipantNotUpdatedException, ExperimentNotMatchingException, IOException, NumberFormatException, TerracottaConnectorException;
     ExperimentDto toDto(Experiment experiment, boolean conditions, boolean exposures, boolean participants, SecuredInfo securedInfo);
+    // fetches and maps within a single transaction - see AssessmentService.getAssessmentDto
+    // for why calling getExperiment(id) then toDto(...) as two separate top-level calls isn't safe
+    ExperimentDto getExperimentDto(long experimentId, boolean conditions, boolean exposures, boolean participants, SecuredInfo securedInfo);
     Experiment fromDto(ExperimentDto experimentDto) throws DataServiceException;
     void deleteById(Long id, SecuredInfo securedInfo) throws EmptyResultDataAccessException, IOException, TerracottaConnectorException;
     ExperimentDto fillContextInfo(ExperimentDto experimentDto, SecuredInfo securedInfo);

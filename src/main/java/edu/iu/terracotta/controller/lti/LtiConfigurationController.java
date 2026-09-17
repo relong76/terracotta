@@ -13,6 +13,7 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -43,6 +44,7 @@ public class LtiConfigurationController {
      * To show the configurations.
      */
     @GetMapping("/")
+    @Transactional(readOnly = true)
     public ResponseEntity<List<PlatformDeployment>> displayConfigs(HttpServletRequest req) {
         List<PlatformDeployment> platformDeploymentListEntityList = platformDeploymentRepository.findAll();
 
@@ -51,6 +53,13 @@ public class LtiConfigurationController {
             // You many decide to return HttpStatus.NOT_FOUND
         }
 
+        // force-initialize the lazy collections while still inside the transaction, so they're
+        // fully populated by the time Jackson serializes the response after this method returns
+        platformDeploymentListEntityList.forEach(platformDeployment -> {
+            platformDeployment.getToolDeployments().size();
+            platformDeployment.getFeatures().size();
+        });
+
         return new ResponseEntity<>(platformDeploymentListEntityList, HttpStatus.OK);
     }
 
@@ -58,10 +67,16 @@ public class LtiConfigurationController {
      * To show the configurations.
      */
     @GetMapping("/{id}")
+    @Transactional(readOnly = true)
     public ResponseEntity<?> displayConfig(@PathVariable long id, HttpServletRequest req) {
         Optional<PlatformDeployment> platformDeployment = platformDeploymentRepository.findById(id);
 
         if (platformDeployment.isPresent()) {
+            // force-initialize the lazy collections while still inside the transaction, so they're
+            // fully populated by the time Jackson serializes the response after this method returns
+            platformDeployment.get().getToolDeployments().size();
+            platformDeployment.get().getFeatures().size();
+
             return new ResponseEntity<>(platformDeployment.get(), HttpStatus.OK);
         }
 
@@ -94,6 +109,7 @@ public class LtiConfigurationController {
     }
 
     @PutMapping("/{id}")
+    @Transactional
     public ResponseEntity<?> updateDeployment(@PathVariable("id") long id, @RequestBody PlatformDeployment platformDeployment) {
         log.info("Updating User with id {}", id);
         Optional<PlatformDeployment> platformDeploymentSearchResult = platformDeploymentRepository.findById(id);
@@ -124,6 +140,11 @@ public class LtiConfigurationController {
         }
 
         platformDeploymentRepository.saveAndFlush(platformDeploymentToChange);
+
+        // force-initialize the lazy collections while still inside the transaction, so they're
+        // fully populated by the time Jackson serializes the response after this method returns
+        platformDeploymentToChange.getToolDeployments().size();
+        platformDeploymentToChange.getFeatures().size();
 
         return new ResponseEntity<>(platformDeploymentToChange, HttpStatus.OK);
     }

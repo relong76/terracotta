@@ -91,8 +91,7 @@ public class OutcomeScoreControllerTest extends BaseTest {
     @Test
     void testGetOutcomeScore() throws Exception {
         OutcomeScoreDto dto = OutcomeScoreDto.builder().outcomeScoreId(1L).build();
-        when(outcomeScoreService.getOutcomeScore(1L)).thenReturn(outcomeScore);
-        when(outcomeScoreService.toDto(outcomeScore)).thenReturn(dto);
+        when(outcomeScoreService.getOutcomeScoreDto(1L)).thenReturn(dto);
 
         ResponseEntity<OutcomeScoreDto> response = outcomeScoreController.getOutcomeScore(1L, 1L, 1L, 1L, httpServletRequest);
 

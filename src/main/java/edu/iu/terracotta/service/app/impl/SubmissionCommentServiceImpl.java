@@ -18,6 +18,7 @@ import org.apache.commons.collections4.CollectionUtils;
 import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.http.HttpHeaders;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.util.UriComponentsBuilder;
 
 import java.util.List;
@@ -68,6 +69,12 @@ public class SubmissionCommentServiceImpl implements SubmissionCommentService {
     @Override
     public SubmissionComment getSubmissionComment(Long id) {
         return submissionCommentRepository.findBySubmissionCommentId(id);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public SubmissionCommentDto getSubmissionCommentDto(Long id) {
+        return toDto(getSubmissionComment(id));
     }
 
     @Override

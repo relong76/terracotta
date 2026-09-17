@@ -106,8 +106,7 @@ public class ExposureControllerTest extends BaseTest {
     void getExposureSuccessTest() throws Exception {
         when(apiJwtService.isLearnerOrHigher(securedInfo)).thenReturn(true);
         ExposureDto exposureDto = ExposureDto.builder().exposureId(1L).title("exposure").build();
-        when(exposureService.getExposure(1L)).thenReturn(exposure);
-        when(exposureService.toDto(exposure)).thenReturn(exposureDto);
+        when(exposureService.getExposureDto(1L)).thenReturn(exposureDto);
 
         ResponseEntity<ExposureDto> ret = exposureController.getExposure(1L, 1L, httpServletRequest);
 

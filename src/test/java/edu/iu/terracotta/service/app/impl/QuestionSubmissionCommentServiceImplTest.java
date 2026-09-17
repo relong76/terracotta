@@ -81,6 +81,21 @@ public class QuestionSubmissionCommentServiceImplTest extends BaseTest {
         assertEquals(comment, retVal);
     }
 
+    // fetches and maps within a single transaction, rather than as two separate top-level calls
+    // - see AssessmentService.getAssessmentDto for why that distinction matters once
+    // open-in-view is disabled
+    @Test
+    public void testGetQuestionSubmissionCommentDtoFetchesAndMapsTogether() {
+        QuestionSubmissionComment comment = QuestionSubmissionComment.builder().questionSubmissionCommentId(1L).comment("comment").creator("creator").questionSubmission(questionSubmission).build();
+        when(questionSubmissionCommentRepository.findByQuestionSubmissionCommentId(1L)).thenReturn(comment);
+
+        QuestionSubmissionCommentDto retVal = questionSubmissionCommentService.getQuestionSubmissionCommentDto(1L);
+
+        assertEquals(1L, retVal.getQuestionSubmissionCommentId());
+        assertEquals("comment", retVal.getComment());
+        assertEquals("creator", retVal.getCreator());
+    }
+
     @Test
     public void testPostQuestionSubmissionCommentSuccess() throws IdInPostException, DataServiceException {
         QuestionSubmissionCommentDto dto = QuestionSubmissionCommentDto.builder().comment("new comment").build();

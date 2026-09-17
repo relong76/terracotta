@@ -94,8 +94,7 @@ public class OutcomeControllerTest extends BaseTest {
     @Test
     void testGetOutcomeWithUpdateScores() throws Exception {
         OutcomeDto dto = OutcomeDto.builder().outcomeId(1L).build();
-        when(outcomeService.getOutcome(1L)).thenReturn(outcome);
-        when(outcomeService.toDto(outcome, false)).thenReturn(dto);
+        when(outcomeService.getOutcomeDto(1L, false)).thenReturn(dto);
 
         ResponseEntity<OutcomeDto> response = outcomeController.getOutcome(1L, 1L, 1L, false, true, httpServletRequest);
 
@@ -107,8 +106,7 @@ public class OutcomeControllerTest extends BaseTest {
     @Test
     void testGetOutcomeSkipsUpdateScoresWhenFalse() throws Exception {
         OutcomeDto dto = OutcomeDto.builder().outcomeId(1L).build();
-        when(outcomeService.getOutcome(1L)).thenReturn(outcome);
-        when(outcomeService.toDto(outcome, false)).thenReturn(dto);
+        when(outcomeService.getOutcomeDto(1L, false)).thenReturn(dto);
 
         ResponseEntity<OutcomeDto> response = outcomeController.getOutcome(1L, 1L, 1L, false, false, httpServletRequest);
 

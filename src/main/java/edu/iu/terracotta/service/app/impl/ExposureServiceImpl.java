@@ -156,6 +156,12 @@ public class ExposureServiceImpl implements ExposureService {
     }
 
     @Override
+    @Transactional(readOnly = true)
+    public ExposureDto getExposureDto(Long id) {
+        return toDto(getExposure(id));
+    }
+
+    @Override
     public void updateExposure(Long exposureId, ExposureDto exposureDto) throws TitleValidationException {
         Exposure exposure = exposureRepository.findByExposureId(exposureId);
 

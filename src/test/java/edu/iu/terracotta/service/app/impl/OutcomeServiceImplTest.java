@@ -185,6 +185,19 @@ public class OutcomeServiceImplTest extends BaseTest {
         assertNotNull(retVal);
     }
 
+    // fetches and maps within a single transaction, rather than as two separate top-level calls
+    // - see AssessmentService.getAssessmentDto for why that distinction matters once
+    // open-in-view is disabled
+    @Test
+    public void testGetOutcomeDtoFetchesAndMapsTogether() {
+        when(outcomeRepository.findByOutcomeId(1L)).thenReturn(outcome);
+
+        OutcomeDto retVal = outcomeService.getOutcomeDto(1L, false);
+
+        assertNotNull(retVal);
+        assertEquals(1L, retVal.getOutcomeId());
+    }
+
     @Test
     public void testGetAllByExperiment() {
         List<OutcomeDto> retVal = outcomeService.getAllByExperiment(0);

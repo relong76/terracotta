@@ -120,7 +120,7 @@ public class AssessmentController {
             this.submissionService.getSubmission(experimentId, securedInfo.getUserId(), submissionId, isStudent);
         }
 
-        AssessmentDto assessmentDto = assessmentService.toDto(assessmentService.getAssessment(assessmentId), submissionId, questions, answers, submissions, isStudent, securedInfo);
+        AssessmentDto assessmentDto = assessmentService.getAssessmentDto(assessmentId, submissionId, questions, answers, submissions, isStudent, securedInfo);
 
         return new ResponseEntity<>(assessmentDto, HttpStatus.OK);
     }

@@ -20,6 +20,9 @@ public interface ExposureService {
     ExposureDto toDto(Exposure exposure);
     Exposure fromDto(ExposureDto exposureDto) throws DataServiceException;
     Exposure getExposure(Long id);
+    // fetches and maps within a single transaction - see AssessmentService.getAssessmentDto for why
+    // calling getX(id) then toDto(...) as two separate top-level calls isn't safe once open-in-view is disabled
+    ExposureDto getExposureDto(Long id);
     void updateExposure(Long exposureId, ExposureDto exposureDto)throws TitleValidationException;
     void deleteById(Long id) throws EmptyResultDataAccessException;
     void createExposures(Long experimentId) throws DataServiceException, ExperimentStartedException;

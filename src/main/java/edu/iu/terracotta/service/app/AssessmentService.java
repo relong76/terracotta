@@ -46,6 +46,10 @@ public interface AssessmentService {
     Assessment duplicateAssessment(long assessmentId, Treatment treatment, Assignment assignment) throws DataServiceException, AssessmentNotMatchingException, QuestionNotMatchingException;
     AssessmentDto toDto(Assessment assessment, boolean questions, boolean answers, boolean submissions, boolean isStudent, SecuredInfo securedInfo) throws AssessmentNotMatchingException;
     AssessmentDto toDto(Assessment assessment, Long submissionId, boolean questions, boolean answers, boolean submissions, boolean isStudent, SecuredInfo securedInfo) throws AssessmentNotMatchingException;
+    // fetches and maps within a single transaction - unlike calling getAssessment(id) then
+    // toDto(...) as two separate top-level calls, which (without open-in-view) would hand
+    // toDto(...) an already-detached entity and fail on its first lazy-collection read
+    AssessmentDto getAssessmentDto(Long id, Long submissionId, boolean questions, boolean answers, boolean submissions, boolean isStudent, SecuredInfo securedInfo) throws AssessmentNotMatchingException;
     Assessment fromDto(AssessmentDto assessmentDto) throws DataServiceException;
     Assessment getAssessment(Long id);
     AssessmentDto putAssessment(Long id, AssessmentDto assessmentDto, boolean processQuestions, SecuredInfo securedInfo)

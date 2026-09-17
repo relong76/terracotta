@@ -76,7 +76,7 @@ public class GroupController {
             return new ResponseEntity(TextConstants.NOT_ENOUGH_PERMISSIONS, HttpStatus.UNAUTHORIZED);
         }
 
-        GroupDto groupDto = groupService.toDto(groupService.getGroup(groupId), securedInfo);
+        GroupDto groupDto = groupService.getGroupDto(groupId, securedInfo);
 
         return new ResponseEntity<>(groupDto, HttpStatus.OK);
     }

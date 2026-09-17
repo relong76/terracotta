@@ -326,6 +326,19 @@ public class QuestionSubmissionServiceImplTest extends BaseTest {
         verify(questionSubmissionRepository).findByQuestionSubmissionId(1L);
     }
 
+    // fetches and maps within a single transaction, rather than as two separate top-level calls
+    // - see AssessmentService.getAssessmentDto for why that distinction matters once
+    // open-in-view is disabled
+    @Test
+    public void testGetQuestionSubmissionDtoFetchesAndMapsTogether() throws IOException {
+        QuestionSubmissionDto result = questionSubmissionService.getQuestionSubmissionDto(1L, true, true);
+
+        assertNotNull(result);
+        assertEquals(2, result.getAnswerSubmissionDtoList().size());
+        assertEquals(1, result.getQuestionSubmissionCommentDtoList().size());
+        verify(questionSubmissionRepository).findByQuestionSubmissionId(1L);
+    }
+
     @Test
     public void testDeleteById() {
         questionSubmissionService.deleteById(1L);

@@ -98,7 +98,7 @@ public class QuestionController {
             return new ResponseEntity(TextConstants.NOT_ENOUGH_PERMISSIONS, HttpStatus.UNAUTHORIZED);
         }
 
-        QuestionDto questionDto = questionService.toDto(questionService.getQuestion(questionId), answers, apijwtService.isInstructorOrHigher(securedInfo));
+        QuestionDto questionDto = questionService.getQuestionDto(questionId, answers, apijwtService.isInstructorOrHigher(securedInfo));
 
         return new ResponseEntity<>(questionDto, HttpStatus.OK);
     }

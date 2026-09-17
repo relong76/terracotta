@@ -255,6 +255,18 @@ public class QuestionServiceImplTest extends BaseTest {
         verify(questionRepository).findByQuestionId(1L);
     }
 
+    // fetches and maps within a single transaction, rather than as two separate top-level calls
+    // - see AssessmentService.getAssessmentDto for why that distinction matters once
+    // open-in-view is disabled
+    @Test
+    public void testGetQuestionDtoFetchesAndMapsTogether() {
+        QuestionDto result = questionService.getQuestionDto(1L, false, false);
+
+        assertNotNull(result);
+        assertEquals(1L, result.getQuestionId());
+        verify(questionRepository).findByQuestionId(1L);
+    }
+
     @Test
     public void testSave() {
         Question result = questionService.save(question);

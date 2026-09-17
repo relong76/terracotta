@@ -118,8 +118,7 @@ public class AssessmentControllerTest extends BaseTest {
     @Test
     void getAssessmentInstructorHappyPathTest() throws Exception {
         stubAuthorized();
-        when(assessmentService.getAssessment(assessmentId)).thenReturn(assessment);
-        when(assessmentService.toDto(eq(assessment), isNull(), anyBoolean(), anyBoolean(), anyBoolean(), eq(false), eq(securedInfo))).thenReturn(assessmentDto);
+        when(assessmentService.getAssessmentDto(eq(assessmentId), isNull(), anyBoolean(), anyBoolean(), anyBoolean(), eq(false), eq(securedInfo))).thenReturn(assessmentDto);
 
         ResponseEntity<AssessmentDto> response = assessmentController.getAssessment(experimentId, conditionId, treatmentId, assessmentId, true, true, true, null, httpServletRequest);
 
@@ -131,8 +130,7 @@ public class AssessmentControllerTest extends BaseTest {
     void getAssessmentStudentWithSubmissionIdFetchesOwnSubmissionTest() throws Exception {
         stubAuthorized();
         when(apiJwtService.isInstructorOrHigher(securedInfo)).thenReturn(false);
-        when(assessmentService.getAssessment(assessmentId)).thenReturn(assessment);
-        when(assessmentService.toDto(eq(assessment), eq(5L), anyBoolean(), anyBoolean(), anyBoolean(), eq(true), eq(securedInfo))).thenReturn(assessmentDto);
+        when(assessmentService.getAssessmentDto(eq(assessmentId), eq(5L), anyBoolean(), anyBoolean(), anyBoolean(), eq(true), eq(securedInfo))).thenReturn(assessmentDto);
 
         ResponseEntity<AssessmentDto> response = assessmentController.getAssessment(experimentId, conditionId, treatmentId, assessmentId, false, false, false, 5L, httpServletRequest);
 

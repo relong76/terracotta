@@ -36,6 +36,9 @@ public interface QuestionService {
     List<QuestionDto> toDto(List<Question> questions, boolean answers, boolean showCorrectAnswer);
     QuestionDto toDto(Question question, boolean answers, boolean showCorrectAnswer);
     QuestionDto toDto(Question question, Long submissionId, boolean answers, boolean showCorrectAnswer);
+    // fetches and maps within a single transaction - see AssessmentService.getAssessmentDto for why
+    // calling getX(id) then toDto(...) as two separate top-level calls isn't safe once open-in-view is disabled
+    QuestionDto getQuestionDto(Long id, boolean answers, boolean showCorrectAnswer);
     Question fromDto(QuestionDto questionDto) throws DataServiceException, NegativePointsException;
     Question save(Question question);
     Question findByQuestionId(Long id);

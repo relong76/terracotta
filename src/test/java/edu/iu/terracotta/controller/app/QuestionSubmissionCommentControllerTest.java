@@ -111,8 +111,7 @@ public class QuestionSubmissionCommentControllerTest extends BaseTest {
 
     @Test
     void getQuestionSubmissionCommentTest() throws Exception {
-        when(questionSubmissionCommentService.getQuestionSubmissionComment(anyLong())).thenReturn(questionSubmissionComment);
-        when(questionSubmissionCommentService.toDto(questionSubmissionComment)).thenReturn(questionSubmissionCommentDto);
+        when(questionSubmissionCommentService.getQuestionSubmissionCommentDto(anyLong())).thenReturn(questionSubmissionCommentDto);
 
         ResponseEntity<QuestionSubmissionCommentDto> ret = questionSubmissionCommentController.getQuestionSubmissionComment(1L, 1L, 1L, 1L, 1L, 1L, 1L, httpServletRequest);
 
