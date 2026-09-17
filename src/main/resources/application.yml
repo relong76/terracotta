@@ -48,7 +48,7 @@ spring:
   jpa:
     hibernate:
       ddl-auto: none
-    open-in-view: true
+    open-in-view: false
   datasource:
     url: jdbc:mysql://localhost:3306/YOURDATABASEUSER
     driverClassName: com.mysql.cj.jdbc.Driver
