@@ -398,7 +398,7 @@ describe("AssignmentScores", () => {
     await wrapper.vm.$nextTick();
 
     expect(assignmentFileArchiveService.retrieve).toHaveBeenCalledWith(
-      "1", "2", "3", expect.objectContaining({ id: 1, ready: true })
+      1, 2, 3, expect.objectContaining({ id: 1, ready: true })
     );
     expect(wrapper.find(".alert-file-request").exists()).toBe(false);
   });
@@ -441,7 +441,7 @@ describe("AssignmentScores", () => {
     await wrapper.vm.$nextTick();
 
     expect(assignmentFileArchiveService.retrieve).toHaveBeenCalledWith(
-      "1", "2", "3", expect.objectContaining({ id: 1, ready: true })
+      1, 2, 3, expect.objectContaining({ id: 1, ready: true })
     );
     expect(assignmentFileArchiveService.prepare).not.toHaveBeenCalled();
   });
@@ -464,7 +464,7 @@ describe("AssignmentScores", () => {
     await flushPromises();
     await wrapper.vm.$nextTick();
 
-    expect(assignmentFileArchiveService.prepare).toHaveBeenCalledWith("1", "2", "3");
+    expect(assignmentFileArchiveService.prepare).toHaveBeenCalledWith(1, 2, 3);
     expect(assignmentFileArchiveService.retrieve).not.toHaveBeenCalled();
     expect(wrapper.find(".alert-file-request").text()).toContain(
       "Your file archive is being prepared. Please wait."

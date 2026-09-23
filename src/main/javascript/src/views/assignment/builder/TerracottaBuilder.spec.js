@@ -585,7 +585,7 @@ describe("TerracottaBuilder", () => {
     await flushPromises();
 
     expect(assessmentService.createQuestion).toHaveBeenCalledWith(
-      1, "5", "10", "100", 0, "INTEGRATION", 1, "", "client-abc"
+      1, 5, 10, 100, 0, "INTEGRATION", 1, "", "client-abc"
     );
     expect(wrapper.vm.treatmentOptionSelected).toBe(true);
   });
@@ -775,7 +775,7 @@ describe("TerracottaBuilder", () => {
     // request per answer - see handleSaveAnswers' own comment in the component.
     expect(assessmentService.updateAnswers).toHaveBeenCalledTimes(1);
     expect(assessmentService.updateAnswers).toHaveBeenCalledWith(
-      1, "5", "10", "100", 1,
+      1, 5, 10, 100, 1,
       [
         expect.objectContaining({ answerId: 10, answerOrder: 0 }),
         expect.objectContaining({ answerId: 11, answerOrder: 1 })
