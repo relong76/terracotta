@@ -42,6 +42,7 @@ import edu.iu.terracotta.utils.oauth.OAuthUtils;
 
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jws;
+import io.jsonwebtoken.JwtException;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.MalformedJwtException;
 
@@ -362,6 +363,17 @@ public class BrightspaceApiJwtServiceImplTest extends BaseTest {
     @Test
     public void testValidateTokenWithMalformedTokenThrowsMalformedJwtException() {
         assertThrows(MalformedJwtException.class, () -> brightspaceApiJWTService.validateToken("not-a-jwt-token-at-all"));
+    }
+
+    // the key locator's own GeneralSecurityException catch block (a malformed/unparseable public
+    // key coming back from ltiDataService) - it must swallow that exception and resolve to a null
+    // key rather than letting a raw GeneralSecurityException escape validateToken()
+    @Test
+    public void testValidateTokenWithUnparseablePublicKeyThrowsJwtException() throws GeneralSecurityException, IOException, BadTokenException, TerracottaConnectorException {
+        String jwt = brightspaceApiJWTService.buildJwt(false, lti3Request);
+        when(ltiDataService.getOwnPublicKey()).thenReturn("not-a-valid-key");
+
+        assertThrows(JwtException.class, () -> brightspaceApiJWTService.validateToken(jwt));
     }
 
     @Test
