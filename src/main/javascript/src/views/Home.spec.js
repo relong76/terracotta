@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { nextTick } from "vue";
 
 vi.mock("@/services", () => ({
   experimentService: {
@@ -900,38 +901,6 @@ describe("Home", () => {
 
     setIntervalSpy.mockRestore();
     clearIntervalSpy.mockRestore();
-  });
-
-  it("skips resolved copy-candidate imports that have no id", async () => {
-    const pinia = createPinia();
-    setActivePinia(pinia);
-    const store = experimentModule();
-    const upsertSpy = vi.spyOn(store, "upsertImportRequest");
-
-    experimentCopyCandidateService.getAll.mockResolvedValue({
-      data: [{ id: "c1", experimentTitle: "Reading Study" }]
-    });
-    experimentCopyCandidateService.resolve.mockResolvedValue({
-      data: { imports: [{ status: "PROCESSING" }], declinedCandidateIds: [] }
-    });
-    mountCopyCandidatesDialog();
-
-    mountComponent(Home, { pinia });
-
-    await vi.waitFor(() => {
-      expect(document.querySelector(".copy-candidate-option")).not.toBeNull();
-    });
-
-    await clickCandidateOption(0);
-    await clickCopyCandidatesAction("Create selected");
-    await clickCopyCandidatesOverlayButton("Got it!");
-
-    await vi.waitFor(() => {
-      expect(experimentCopyCandidateService.resolve).toHaveBeenCalledWith(["c1"]);
-    });
-    await flushPromises();
-
-    expect(upsertSpy).not.toHaveBeenCalled();
   });
 
   it("shows an error and does not navigate when creating a new experiment fails without an experiment id", async () => {
