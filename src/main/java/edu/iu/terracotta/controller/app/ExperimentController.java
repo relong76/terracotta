@@ -130,6 +130,7 @@ public class ExperimentController {
         ExperimentDto existingEmpty = experimentService.getEmptyExperiment(securedInfo, experimentDto);
 
         if (existingEmpty != null) {
+            log.debug("Reusing empty Experiment ID : [{}]", existingEmpty.getExperimentId());
             experimentService.copyDto(existingEmpty, experimentDto);
             HttpHeaders headers = experimentService.buildHeaders(ucBuilder, existingEmpty.getExperimentId());
 
