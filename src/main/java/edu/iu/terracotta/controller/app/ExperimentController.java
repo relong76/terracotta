@@ -112,7 +112,6 @@ public class ExperimentController {
             experimentDto = ExperimentDto.builder().build();
         }
 
-        log.debug("Creating Experiment with title : {}", experimentDto.getTitle());
         SecuredInfo securedInfo = apijwtService.extractValues(req,false);
 
         if (securedInfo == null) {
@@ -138,6 +137,7 @@ public class ExperimentController {
         }
 
         ExperimentDto returnedDto = experimentService.postExperiment(experimentDto, securedInfo);
+        log.debug("Created Experiment ID : [{}]", returnedDto.getExperimentId());
         HttpHeaders headers = experimentService.buildHeaders(ucBuilder, returnedDto.getExperimentId());
 
         return new ResponseEntity<>(returnedDto, headers, HttpStatus.CREATED);
