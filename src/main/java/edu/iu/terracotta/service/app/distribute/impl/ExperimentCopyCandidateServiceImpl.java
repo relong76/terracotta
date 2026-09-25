@@ -44,8 +44,10 @@ import edu.iu.terracotta.dao.model.dto.distribute.CopyCandidateDto;
 import edu.iu.terracotta.dao.model.dto.distribute.CopyCandidateResolutionDto;
 import edu.iu.terracotta.dao.model.dto.distribute.CopyStatusDto;
 import edu.iu.terracotta.dao.model.dto.distribute.ExportDto;
+import edu.iu.terracotta.dao.model.distribute.LmsRepointTargets;
 import edu.iu.terracotta.dao.model.dto.distribute.ImportDto;
 import edu.iu.terracotta.dao.model.enums.FeatureType;
+import edu.iu.terracotta.dao.model.enums.ParticipationTypes;
 import edu.iu.terracotta.dao.model.enums.distribute.ExperimentCopyCandidateStatus;
 import edu.iu.terracotta.dao.model.enums.distribute.ExperimentCopyStatus;
 import edu.iu.terracotta.dao.model.enums.distribute.ExperimentImportStatus;
@@ -561,9 +563,9 @@ public class ExperimentCopyCandidateServiceImpl implements ExperimentCopyCandida
         experimentCopyCandidateRepository.save(candidate);
 
         try {
-            Map<Long, LmsAssignment> assignmentRepointMap = buildAssignmentRepointMap(sourceExperiment, lmsAssignments, securedInfo);
+            LmsRepointTargets repointTargets = buildRepointTargets(sourceExperiment, lmsAssignments, securedInfo);
             ExportDto exportDto = experimentExportService.export(sourceExperiment);
-            ImportDto importDto = experimentImportService.preprocessFromFile(exportDto.getFile(), exportDto.getFilename(), securedInfo, assignmentRepointMap, notifyOwnerOnLmsFailure);
+            ImportDto importDto = experimentImportService.preprocessFromFile(exportDto.getFile(), exportDto.getFilename(), securedInfo, repointTargets, notifyOwnerOnLmsFailure);
 
             candidate.setStatus(ExperimentCopyCandidateStatus.IMPORTED);
             candidate.setResultingImportUuid(importDto.getId());
@@ -584,17 +586,18 @@ public class ExperimentCopyCandidateServiceImpl implements ExperimentCopyCandida
     // query parameter the obsolete-assignment check already parses (see LmsExternalToolUrlUtils)
     // - Canvas course-copy duplicates external_tool_tag_attributes.url verbatim, so a copied
     // assignment's URL still carries the source course's old assignment ID.
-    private Map<Long, LmsAssignment> buildAssignmentRepointMap(Experiment sourceExperiment, List<LmsAssignment> lmsAssignments, SecuredInfo securedInfo) {
+    private LmsRepointTargets buildRepointTargets(Experiment sourceExperiment, List<LmsAssignment> lmsAssignments, SecuredInfo securedInfo) {
         if (CollectionUtils.isEmpty(lmsAssignments)) {
-            return Map.of();
+            return LmsRepointTargets.none();
         }
 
         List<Long> sourceAssignmentIds = assignmentRepository.findByExposure_Experiment_ExperimentId(sourceExperiment.getExperimentId()).stream()
             .map(Assignment::getAssignmentId)
             .toList();
+        boolean consent = ParticipationTypes.CONSENT == sourceExperiment.getParticipationType();
 
-        if (CollectionUtils.isEmpty(sourceAssignmentIds)) {
-            return Map.of();
+        if (CollectionUtils.isEmpty(sourceAssignmentIds) && !consent) {
+            return LmsRepointTargets.none();
         }
 
         List<String> convertedLmsAssignmentIds = obsoleteAssignmentRepository.findAllByContext_ContextId(securedInfo.getContextId()).stream()
@@ -605,6 +608,7 @@ public class ExperimentCopyCandidateServiceImpl implements ExperimentCopyCandida
         String localUrl = apiUser.getPlatformDeployment().getLocalUrl();
 
         Map<Long, LmsAssignment> repointMap = new HashMap<>();
+        LmsAssignment consentAssignment = null;
 
         for (LmsAssignment lmsAssignment : lmsAssignments) {
             if (lmsAssignment.getLmsExternalToolFields() == null
@@ -613,12 +617,34 @@ public class ExperimentCopyCandidateServiceImpl implements ExperimentCopyCandida
                 continue;
             }
 
-            LmsExternalToolUrlUtils.extractQueryParamAsLong(lmsAssignment.getLmsExternalToolFields().getUrl(), "assignment")
+            String url = lmsAssignment.getLmsExternalToolFields().getUrl();
+
+            if (consent && consentAssignment == null && isConsentAssignmentFor(url, sourceExperiment)) {
+                consentAssignment = lmsAssignment;
+                continue;
+            }
+
+            LmsExternalToolUrlUtils.extractQueryParamAsLong(url, "assignment")
                 .filter(sourceAssignmentIds::contains)
                 .ifPresent(oldAssignmentId -> repointMap.put(oldAssignmentId, lmsAssignment));
         }
 
-        return repointMap;
+        return LmsRepointTargets.builder()
+            .assignments(repointMap)
+            .consentAssignment(consentAssignment)
+            .build();
+    }
+
+    // a consent LMS assignment's launch URL has no assignment of its own, just the experiment
+    // (e.g. ?consent=true&experiment=<id>)
+    private boolean isConsentAssignmentFor(String url, Experiment sourceExperiment) {
+        if (!Strings.CI.equals(LmsExternalToolUrlUtils.extractQueryParam(url, "consent").orElse(null), "true")) {
+            return false;
+        }
+
+        return LmsExternalToolUrlUtils.extractQueryParamAsLong(url, "experiment")
+            .filter(experimentId -> experimentId == sourceExperiment.getExperimentId())
+            .isPresent();
     }
 
     private CopyCandidateDto toDto(ExperimentCopyCandidate candidate) {
