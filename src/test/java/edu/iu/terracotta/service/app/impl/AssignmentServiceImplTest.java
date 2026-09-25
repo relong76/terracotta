@@ -67,6 +67,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.clearInvocations;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -812,7 +813,8 @@ public class AssignmentServiceImplTest extends BaseTest {
         when(instructorUser.getPlatformDeployment()).thenReturn(platformDeployment);
         when(platformDeployment.getLocalUrl()).thenReturn(LTI_URL);
         when(assignment.getAssignmentId()).thenReturn(5L);
-        when(lmsExternalToolFields.getResourceLinkId()).thenReturn(RESOURCE_LINK_ID);
+        // Canvas's LTI 1.1 resource_link_id - never matches a line item, so must not be used
+        when(lmsExternalToolFields.getResourceLinkId()).thenReturn("lti-1.1-link-id");
         when(apiClient.editAssignment(instructorUser, lmsAssignment, "course-1")).thenReturn(Optional.of(lmsAssignment));
 
         Assignment retVal = assignmentService.repointAssignmentInLms(instructorUser, assignment, 1L, "course-1", lmsAssignment);
@@ -820,8 +822,23 @@ public class AssignmentServiceImplTest extends BaseTest {
         assertEquals(assignment, retVal);
         verify(lmsExternalToolFields).setUrl(LTI_URL + "/lti3?experiment=1&assignment=5");
         verify(assignment).setLmsAssignmentId("1");
-        verify(assignment).setResourceLinkId(RESOURCE_LINK_ID);
+        // the LTI 1.3 resource link ID from secure_params, which grade sync matches line items on
+        verify(assignment).setResourceLinkId("1");
         verify(apiClient, never()).createLmsAssignment(any(), any(), anyString());
+    }
+
+    @Test
+    public void testRepointAssignmentInLmsFallsBackToTheListingsSecureParams() throws AssignmentNotCreatedException, TerracottaConnectorException, ApiException {
+        when(instructorUser.getPlatformDeployment()).thenReturn(platformDeployment);
+        when(platformDeployment.getLocalUrl()).thenReturn(LTI_URL);
+        LmsAssignment editResponse = mock(LmsAssignment.class);
+        when(editResponse.getId()).thenReturn("1");
+        when(apiClient.editAssignment(instructorUser, lmsAssignment, "course-1")).thenReturn(Optional.of(editResponse));
+
+        assignmentService.repointAssignmentInLms(instructorUser, assignment, 1L, "course-1", lmsAssignment);
+
+        verify(apiJwtService).unsecureToken(eq(RESOURCE_LINK_ID), any(PlatformDeployment.class));
+        verify(assignment).setResourceLinkId("1");
     }
 
     @Test
