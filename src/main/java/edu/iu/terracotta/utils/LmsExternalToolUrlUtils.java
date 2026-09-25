@@ -20,7 +20,7 @@ import lombok.experimental.UtilityClass;
 @UtilityClass
 public class LmsExternalToolUrlUtils {
 
-    public Optional<Long> extractQueryParamAsLong(String url, String paramName) {
+    public Optional<String> extractQueryParam(String url, String paramName) {
         if (StringUtils.isBlank(url)) {
             return Optional.empty();
         }
@@ -34,8 +34,11 @@ public class LmsExternalToolUrlUtils {
         return Arrays.stream(queryParameters)
             .filter(queryParameter -> Strings.CI.equals(StringUtils.split(queryParameter, '=')[0], paramName))
             .map(queryParameter -> StringUtils.split(queryParameter, '=')[1])
-            .findFirst()
-            .map(Long::parseLong);
+            .findFirst();
+    }
+
+    public Optional<Long> extractQueryParamAsLong(String url, String paramName) {
+        return extractQueryParam(url, paramName).map(Long::parseLong);
     }
 
 }
