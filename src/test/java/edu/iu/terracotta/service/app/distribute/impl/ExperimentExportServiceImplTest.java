@@ -148,6 +148,22 @@ class ExperimentExportServiceImplTest extends BaseTest {
     }
 
     @Test
+    void testExportSkipsTreatmentsWithoutAnAssessmentYet() throws ExperimentExportException, IOException {
+        Treatment treatmentWithoutAssessment = mock(Treatment.class);
+        when(treatmentWithoutAssessment.getAssessment()).thenReturn(null);
+        when(treatmentWithoutAssessment.getAssignment()).thenReturn(assignment);
+        when(treatmentWithoutAssessment.getCondition()).thenReturn(condition);
+        when(treatmentWithoutAssessment.getTreatmentId()).thenReturn(2L);
+        when(treatmentRepository.findByCondition_Experiment_ExperimentIdOrderByCondition_ConditionIdAsc(anyLong())).thenReturn(List.of(treatment, treatmentWithoutAssessment));
+
+        Export export = captureExport();
+
+        assertEquals(1, export.getAssessments().size());
+        assertEquals(2, export.getTreatments().size());
+        assertEquals(0, export.getTreatments().get(1).getAssessmentId());
+    }
+
+    @Test
     void testExportThrowsExperimentExportExceptionOnIoException() throws IOException {
         doThrow(new IOException("disk full")).when(fileStorageService).createExperimentExportFile(any(ExportDto.class), any(Export.class), anyString());
 

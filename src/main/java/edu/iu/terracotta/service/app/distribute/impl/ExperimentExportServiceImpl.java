@@ -5,6 +5,7 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
@@ -343,13 +344,22 @@ public class ExperimentExportServiceImpl implements ExperimentExportService {
     private List<TreatmentExport> treatmentExport() {
         return CollectionUtils.emptyIfNull(treatments).stream()
             .map(
-                treatment ->
-                    TreatmentExport.builder()
-                        .assessmentId(treatment.getAssessment().getAssessmentId())
+                treatment -> {
+                    TreatmentExport.TreatmentExportBuilder builder = TreatmentExport.builder()
                         .assignmentId(treatment.getAssignment().getAssignmentId())
                         .conditionId(treatment.getCondition().getConditionId())
-                        .id(treatment.getTreatmentId())
-                        .build()
+                        .id(treatment.getTreatmentId());
+
+                    // a treatment can exist without an assessment yet - the import side never
+                    // reads this field back (it links an assessment to its treatment the other
+                    // way, via AssessmentExport.treatmentId), so leaving assessmentId at its
+                    // default (0) here is harmless
+                    if (treatment.getAssessment() != null) {
+                        builder.assessmentId(treatment.getAssessment().getAssessmentId());
+                    }
+
+                    return builder.build();
+                }
             )
             .toList();
     }
@@ -400,8 +410,12 @@ public class ExperimentExportServiceImpl implements ExperimentExportService {
         this.questions = questionRepository.findByAssessment_Treatment_Condition_Experiment_ExperimentId(experiment.getExperimentId());
         this.answersMc = answerMcRepository.findByQuestion_Assessment_Treatment_Condition_Experiment_ExperimentId(experiment.getExperimentId());
         this.exposureGroupConditions = exposureGroupConditionRepository.findByCondition_Experiment_ExperimentId(experiment.getExperimentId());
+        // a treatment can exist without an assessment yet (see AssessmentServiceImpl,
+        // AssignmentTreatmentServiceImpl, ListDataUtils for the same null check) - skip those
+        // rather than exporting a null assessment
         this.assessments = this.treatments.stream()
             .map(Treatment::getAssessment)
+            .filter(Objects::nonNull)
             .toList();
         this.assignments = this.treatments.stream()
             .filter(distinctByKey(treatment -> treatment.getAssignment().getAssignmentId()))
