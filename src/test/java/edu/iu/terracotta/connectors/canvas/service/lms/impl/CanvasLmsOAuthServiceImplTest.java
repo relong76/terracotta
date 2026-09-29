@@ -37,6 +37,8 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.client.HttpClientErrorException;
+import org.springframework.web.client.HttpServerErrorException;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.client.UnknownContentTypeException;
 
@@ -403,6 +405,42 @@ public class CanvasLmsOAuthServiceImplTest {
 
         assertThrows(LmsOAuthException.class, () -> canvasLmsOAuthService.getAccessToken(user));
         verify(apiTokenRepository, never()).save(any(ApiTokenEntity.class));
+    }
+
+    private static HttpClientErrorException invalidGrant() {
+        return HttpClientErrorException.create(
+            HttpStatus.BAD_REQUEST,
+            "Bad Request",
+            new HttpHeaders(),
+            "{\"error\":\"invalid_grant\",\"error_description\":\"refresh_token not found\"}".getBytes(StandardCharsets.UTF_8),
+            StandardCharsets.UTF_8
+        );
+    }
+
+    // a refresh token Canvas has permanently rejected is removed, so every later check (including
+    // the launch-time isAccessTokenAvailable, which otherwise trusts the cached expiry) sees no
+    // token and sends the instructor through re-authorization
+    @Test
+    public void testRefreshRejectedWithInvalidGrantDeletesToken() {
+        ApiTokenEntity stale = staleToken();
+        when(apiTokenRepository.findByUser(user)).thenReturn(Optional.of(stale));
+        when(restTemplate.postForEntity(anyString(), any(HttpEntity.class), any())).thenThrow(invalidGrant());
+
+        assertThrows(LmsOAuthException.class, () -> canvasLmsOAuthService.getAccessToken(user));
+
+        verify(apiTokenRepository).delete(stale);
+    }
+
+    // a transient Canvas failure says nothing about the token itself - keep it
+    @Test
+    public void testRefreshServerErrorKeepsToken() {
+        ApiTokenEntity stale = staleToken();
+        when(apiTokenRepository.findByUser(user)).thenReturn(Optional.of(stale));
+        when(restTemplate.postForEntity(anyString(), any(HttpEntity.class), any())).thenThrow(new HttpServerErrorException(HttpStatus.SERVICE_UNAVAILABLE));
+
+        assertThrows(LmsOAuthException.class, () -> canvasLmsOAuthService.getAccessToken(user));
+
+        verify(apiTokenRepository, never()).delete(any(ApiTokenEntity.class));
     }
 
     @Test
