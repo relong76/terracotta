@@ -578,6 +578,55 @@ class ExperimentCopyCandidateServiceImplTest extends BaseTest {
         assertTrue(capturedRepointTargets().getAssignments().isEmpty());
     }
 
+    // id "1" matches the default-stubbed obsoleteAssignmentRepository entry (already converted to
+    // an OBSOLETE assignment) - must not be offered for re-pointing
+    @Test
+    void testRecreateSkipsRepointForAlreadyObsoletedLmsAssignment() throws Exception {
+        ExperimentCopyCandidate candidate = pendingCandidate();
+        LmsAssignment alreadyObsoleted = LmsAssignment.builder()
+            .id("1")
+            .lmsExternalToolFields(LmsExternalToolFields.builder().url(LTI_URL + "/lti3?experiment=55&assignment=1").build())
+            .build();
+        stubWorkingRecreation(candidate, List.of(alreadyObsoleted));
+
+        experimentCopyCandidateService.recreateForContext(1L, null);
+
+        assertTrue(capturedRepointTargets().getAssignments().isEmpty());
+    }
+
+    // the copied consent assignment has no assignment id of its own - matched by its experiment
+    @Test
+    void testRecreateMatchesCopiedConsentAssignmentByExperimentId() throws Exception {
+        when(experiment.getParticipationType()).thenReturn(ParticipationTypes.CONSENT);
+        ExperimentCopyCandidate candidate = pendingCandidate();
+        LmsAssignment copiedConsent = LmsAssignment.builder()
+            .id("888")
+            .lmsExternalToolFields(LmsExternalToolFields.builder().url(LTI_URL + "/lti3?consent=true&experiment=1").build())
+            .build();
+        stubWorkingRecreation(candidate, List.of(copiedConsent));
+
+        experimentCopyCandidateService.recreateForContext(1L, null);
+
+        LmsRepointTargets repointTargets = capturedRepointTargets();
+        assertEquals(copiedConsent, repointTargets.getConsentAssignment());
+        assertTrue(repointTargets.getAssignments().isEmpty());
+    }
+
+    @Test
+    void testRecreateIgnoresConsentAssignmentForAnotherExperiment() throws Exception {
+        when(experiment.getParticipationType()).thenReturn(ParticipationTypes.CONSENT);
+        ExperimentCopyCandidate candidate = pendingCandidate();
+        LmsAssignment otherConsent = LmsAssignment.builder()
+            .id("889")
+            .lmsExternalToolFields(LmsExternalToolFields.builder().url(LTI_URL + "/lti3?consent=true&experiment=999").build())
+            .build();
+        stubWorkingRecreation(candidate, List.of(otherConsent));
+
+        experimentCopyCandidateService.recreateForContext(1L, null);
+
+        assertNull(capturedRepointTargets().getConsentAssignment());
+    }
+
     // an interrupted attempt's LMS assignments survive its rollback - removed first, or the
     // retry would leave duplicates
     @Test
