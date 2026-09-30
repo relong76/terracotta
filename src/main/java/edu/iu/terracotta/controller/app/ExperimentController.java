@@ -150,7 +150,6 @@ public class ExperimentController {
                                                  HttpServletRequest req)
             throws ExperimentNotMatchingException, BadTokenException, WrongValueException, TitleValidationException, ParticipantNotUpdatedException,
                     DataServiceException, ExperimentStartedException, IOException, NumberFormatException, TerracottaConnectorException {
-        log.debug("Updating Experiment with id {}", id);
         SecuredInfo securedInfo = apijwtService.extractValues(req,false);
         apijwtService.experimentAllowed(securedInfo, id);
 
@@ -159,6 +158,7 @@ public class ExperimentController {
         }
 
         experimentService.updateExperiment(id, securedInfo.getContextId(), experimentDto, securedInfo);
+        log.debug("Updated experiment ID: [{}]", id);
 
         return new ResponseEntity<>(HttpStatus.OK);
     }
