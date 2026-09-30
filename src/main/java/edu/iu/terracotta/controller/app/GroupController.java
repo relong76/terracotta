@@ -94,7 +94,6 @@ public class GroupController {
                                                     HttpServletRequest req)
             throws ExperimentNotMatchingException, BadTokenException, ExperimentLockedException, IdInPostException, DataServiceException, NumberFormatException, TerracottaConnectorException {
         long experimentId = experimentService.getExperimentIdByUuid(experimentUuid);
-        log.debug("Creating Group for experiment ID: {}", experimentId);
         SecuredInfo securedInfo = apijwtService.extractValues(req,false);
         apijwtService.experimentLocked(experimentId,true);
         apijwtService.experimentAllowed(securedInfo, experimentId);
@@ -104,6 +103,7 @@ public class GroupController {
         }
 
         GroupDto returnedDto = groupService.postGroup(groupDto, experimentId, securedInfo);
+        log.debug("Created group ID: [{}] for experiment ID: [{}]", returnedDto.getGroupId(), experimentUuid);
         HttpHeaders headers = groupService.buildHeaders(ucBuilder, experimentUuid, returnedDto.getGroupId());
 
         return new ResponseEntity<>(returnedDto, headers, HttpStatus.CREATED);
@@ -134,7 +134,6 @@ public class GroupController {
             throws ExperimentNotMatchingException, BadTokenException, GroupNotMatchingException, TitleValidationException, NumberFormatException, TerracottaConnectorException {
         long experimentId = experimentService.getExperimentIdByUuid(experimentUuid);
         long groupId = groupService.getGroupIdByUuid(groupUuid);
-        log.debug("Updating group with id {}", groupId);
         SecuredInfo securedInfo = apijwtService.extractValues(req,false);
         apijwtService.experimentAllowed(securedInfo, experimentId);
         apijwtService.groupAllowed(securedInfo, experimentId, groupId);
@@ -144,6 +143,7 @@ public class GroupController {
         }
 
         groupService.updateGroup(groupId, groupDto);
+        log.debug("Updated group ID: [{}]", groupUuid);
 
         return new ResponseEntity<>(HttpStatus.OK);
     }

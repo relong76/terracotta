@@ -119,7 +119,6 @@ public class OutcomeController {
             throws ExperimentNotMatchingException, ExposureNotMatchingException, BadTokenException, TitleValidationException, IdInPostException, DataServiceException, NumberFormatException, TerracottaConnectorException {
         long experimentId = experimentService.getExperimentIdByUuid(experimentUuid);
         long exposureId = exposureService.getExposureIdByUuid(exposureUuid);
-        log.debug("Creating Outcome for exposure ID: {}", exposureId);
         SecuredInfo securedInfo = apijwtService.extractValues(req, false);
         apijwtService.experimentAllowed(securedInfo, experimentId);
         apijwtService.exposureAllowed(securedInfo, experimentId, exposureId);
@@ -129,6 +128,7 @@ public class OutcomeController {
         }
 
         OutcomeDto returnedDto = outcomeService.postOutcome(outcomeDto, exposureId);
+        log.debug("Created outcome ID: [{}] for exposure ID: [{}]", returnedDto.getOutcomeId(), exposureUuid);
         HttpHeaders headers = outcomeService.buildHeaders(ucBuilder, experimentUuid, exposureUuid, returnedDto.getOutcomeId());
 
         return new ResponseEntity<>(returnedDto, headers, HttpStatus.CREATED);
@@ -144,7 +144,6 @@ public class OutcomeController {
         long experimentId = experimentService.getExperimentIdByUuid(experimentUuid);
         long exposureId = exposureService.getExposureIdByUuid(exposureUuid);
         long outcomeId = outcomeService.getOutcomeIdByUuid(outcomeUuid);
-        log.debug("Updating outcome with id {}", outcomeId);
         SecuredInfo securedInfo = apijwtService.extractValues(req, false);
         apijwtService.experimentAllowed(securedInfo, experimentId);
         apijwtService.outcomeAllowed(securedInfo, experimentId, exposureId, outcomeId);
@@ -154,6 +153,7 @@ public class OutcomeController {
         }
 
             outcomeService.updateOutcome(outcomeId, outcomeDto);
+            log.debug("Updated outcome ID: [{}]", outcomeUuid);
 
             return new ResponseEntity<>(HttpStatus.OK);
     }

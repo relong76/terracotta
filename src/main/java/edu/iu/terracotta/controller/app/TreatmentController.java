@@ -125,7 +125,6 @@ public class TreatmentController {
             throws ExperimentNotMatchingException, BadTokenException, ConditionNotMatchingException, ExperimentLockedException, AssessmentNotMatchingException, IdInPostException, ExceedingLimitException, DataServiceException, TreatmentNotMatchingException, NumberFormatException, TerracottaConnectorException {
         long experimentId = experimentService.getExperimentIdByUuid(experimentUuid);
         long conditionId = conditionService.getConditionIdByUuid(conditionUuid);
-        log.debug("Creating Treatment for condition ID: {}", conditionId);
         SecuredInfo securedInfo = apijwtService.extractValues(req, false);
         apijwtService.experimentAllowed(securedInfo, experimentId);
         apijwtService.conditionAllowed(securedInfo, experimentId, conditionId);
@@ -135,6 +134,7 @@ public class TreatmentController {
         }
 
         TreatmentDto returnedDto = treatmentService.postTreatment(treatmentDto, conditionId, securedInfo);
+        log.debug("Created treatment ID: [{}] for condition ID: [{}]", returnedDto.getTreatmentId(), conditionUuid);
         HttpHeaders headers = treatmentService.buildHeaders(ucBuilder, experimentUuid, conditionUuid, returnedDto.getTreatmentId());
 
         return new ResponseEntity<>(returnedDto, headers, HttpStatus.CREATED);
@@ -154,7 +154,6 @@ public class TreatmentController {
         long experimentId = experimentService.getExperimentIdByUuid(experimentUuid);
         long conditionId = conditionService.getConditionIdByUuid(conditionUuid);
         long treatmentId = treatmentService.getTreatmentIdByUuid(treatmentUuid);
-        log.debug("Updating treatment with id: {}", treatmentId);
         SecuredInfo securedInfo = apijwtService.extractValues(req, false);
         apijwtService.experimentAllowed(securedInfo, experimentId);
         apijwtService.treatmentAllowed(securedInfo, experimentId, conditionId, treatmentId);
@@ -163,7 +162,10 @@ public class TreatmentController {
             return new ResponseEntity(TextConstants.NOT_ENOUGH_PERMISSIONS, HttpStatus.UNAUTHORIZED);
         }
 
-        return new ResponseEntity(treatmentService.putTreatment(treatmentDto, treatmentId, securedInfo, questions), HttpStatus.OK);
+        TreatmentDto updatedTreatmentDto = treatmentService.putTreatment(treatmentDto, treatmentId, securedInfo, questions);
+        log.debug("Updated treatment ID: [{}]", treatmentUuid);
+
+        return new ResponseEntity(updatedTreatmentDto, HttpStatus.OK);
     }
 
     @DeleteMapping("/{treatmentId}")

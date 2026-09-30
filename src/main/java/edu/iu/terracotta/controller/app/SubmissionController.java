@@ -142,7 +142,6 @@ public class SubmissionController {
         long conditionId = conditionService.getConditionIdByUuid(conditionUuid);
         long treatmentId = treatmentService.getTreatmentIdByUuid(treatmentUuid);
         long assessmentId = assessmentService.getAssessmentIdByUuid(assessmentUuid);
-        log.debug("Creating Submission for assessment ID: '{}' and participant ID: '{}'", assessmentId, submissionDto.getParticipantId());
         SecuredInfo securedInfo = apijwtService.extractValues(req, false);
         apijwtService.experimentAllowed(securedInfo, experimentId);
         apijwtService.assessmentAllowed(securedInfo, experimentId, conditionId, treatmentId, assessmentId);
@@ -157,11 +156,11 @@ public class SubmissionController {
 
         boolean student = !apijwtService.isInstructorOrHigher(securedInfo);
         SubmissionDto returnedDto = submissionService.postSubmission(submissionDto, experimentId, securedInfo, assessmentId, student);
+        log.debug("Created submission ID: [{}] for assessment ID: [{}] and participant ID: [{}]", returnedDto.getSubmissionId(), assessmentUuid, returnedDto.getParticipantId());
         HttpHeaders headers = submissionService.buildHeaders(ucBuilder, experimentUuid, conditionUuid, treatmentUuid, assessmentUuid, returnedDto.getSubmissionId());
 
         return new ResponseEntity<>(returnedDto, headers, HttpStatus.CREATED);
     }
-
 
     @PutMapping("/{submissionId}")
     public ResponseEntity<Void> updateSubmission(@PathVariable("experimentId") UUID experimentUuid,
@@ -178,7 +177,6 @@ public class SubmissionController {
         long conditionId = conditionService.getConditionIdByUuid(conditionUuid);
         long treatmentId = treatmentService.getTreatmentIdByUuid(treatmentUuid);
         long assessmentId = assessmentService.getAssessmentIdByUuid(assessmentUuid);
-        log.debug("Updating submission with id {}", submissionId);
         SecuredInfo securedInfo = apijwtService.extractValues(req, false);
         apijwtService.experimentAllowed(securedInfo, experimentId);
         apijwtService.assessmentAllowed(securedInfo, experimentId, conditionId, treatmentId, assessmentId);
@@ -193,6 +191,7 @@ public class SubmissionController {
         Submission submission = submissionService.getSubmission(experimentId, securedInfo.getUserId(), submissionId, student);
         map.put(submission, submissionDto);
         submissionService.updateSubmissions(map, student);
+        log.debug("Updated submission ID: [{}]", submissionUuid);
 
         return new ResponseEntity<>(HttpStatus.OK);
     }
@@ -223,12 +222,12 @@ public class SubmissionController {
             long submissionId = submissionService.getSubmissionIdByUuid(submissionDto.getSubmissionId());
             apijwtService.submissionAllowed(securedInfo, assessmentId, submissionId);
             Submission submission = submissionService.getSubmission(experimentId, securedInfo.getUserId(), submissionId, false);
-            log.debug("Updating submission ID: [{}]", submission.getSubmissionId());
             map.put(submission, submissionDto);
         }
 
         try {
             submissionService.updateSubmissions(map, false);
+            log.debug("Updated submission IDs: {}", submissionDtoList.stream().map(SubmissionDto::getSubmissionId).toList());
             return new ResponseEntity<>(HttpStatus.OK);
         } catch (Exception e) {
             throw new DataServiceException("Error 105: There was an error updating the submission list. No submissions were updated. " + e.getMessage(), e);

@@ -138,7 +138,6 @@ public class QuestionController {
         long conditionId = conditionService.getConditionIdByUuid(conditionUuid);
         long treatmentId = treatmentService.getTreatmentIdByUuid(treatmentUuid);
         long assessmentId = assessmentService.getAssessmentIdByUuid(assessmentUuid);
-        log.debug("Creating Question for assessment ID: {}", assessmentId);
         SecuredInfo securedInfo = apijwtService.extractValues(req, false);
         apijwtService.experimentAllowed(securedInfo, experimentId);
         apijwtService.assessmentAllowed(securedInfo, experimentId, conditionId, treatmentId, assessmentId);
@@ -148,6 +147,7 @@ public class QuestionController {
         }
 
         QuestionDto returnedDto = questionService.postQuestion(questionDto, assessmentId, answers, true);
+        log.debug("Created question ID: [{}] for assessment ID: [{}]", returnedDto.getQuestionId(), assessmentUuid);
         HttpHeaders headers = questionService.buildHeaders(ucBuilder, experimentUuid, conditionUuid, treatmentUuid, assessmentUuid, returnedDto.getQuestionId());
 
         return new ResponseEntity<>(returnedDto, headers, HttpStatus.CREATED);
@@ -179,12 +179,12 @@ public class QuestionController {
             long itemQuestionId = questionService.getQuestionIdByUuid(questionDto.getQuestionId());
             apijwtService.questionAllowed(securedInfo, assessmentId, itemQuestionId);
             Question question = questionService.getQuestion(itemQuestionId);
-            log.debug("Updating question with id: {}", question.getQuestionId());
             map.put(question, questionDto);
         }
 
         try {
             questionService.updateQuestion(map);
+            log.debug("Updated question IDs: {}", questionDtoList.stream().map(QuestionDto::getQuestionId).toList());
             return new ResponseEntity<>(HttpStatus.OK);
         } catch (Exception ex) {
             throw new DataServiceException("Error 105: An error occurred trying to update the question list. No questions were updated. " + ex.getMessage(), ex);
@@ -206,7 +206,6 @@ public class QuestionController {
         long treatmentId = treatmentService.getTreatmentIdByUuid(treatmentUuid);
         long assessmentId = assessmentService.getAssessmentIdByUuid(assessmentUuid);
         long questionId = questionService.getQuestionIdByUuid(questionUuid);
-        log.debug("Updating question with id: {}", questionId);
         SecuredInfo securedInfo = apijwtService.extractValues(req, false);
         apijwtService.experimentAllowed(securedInfo, experimentId);
         apijwtService.assessmentAllowed(securedInfo, experimentId, conditionId, treatmentId, assessmentId);
@@ -220,6 +219,7 @@ public class QuestionController {
         Question question = questionService.getQuestion(questionId);
         map.put(question, questionDto);
         questionService.updateQuestion(map);
+        log.debug("Updated question ID: [{}]", questionUuid);
 
         return new ResponseEntity<>(HttpStatus.OK);
     }
