@@ -1,7 +1,9 @@
 package edu.iu.terracotta.service.app.impl;
 
 import java.io.IOException;
+import java.sql.Timestamp;
 import java.util.Arrays;
+import java.util.EnumSet;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -13,11 +15,10 @@ import edu.iu.terracotta.connectors.generic.dao.model.SecuredInfo;
 import edu.iu.terracotta.connectors.generic.dao.repository.lti.LtiUserRepository;
 import edu.iu.terracotta.dao.entity.Assignment;
 import edu.iu.terracotta.dao.entity.AssignmentFileArchive;
-import edu.iu.terracotta.dao.entity.Submission;
 import edu.iu.terracotta.dao.model.dto.AssignmentFileArchiveDto;
 import edu.iu.terracotta.dao.model.enums.AssignmentFileArchiveStatus;
 import edu.iu.terracotta.dao.repository.AssignmentFileArchiveRepository;
-import edu.iu.terracotta.dao.repository.SubmissionRepository;
+import edu.iu.terracotta.dao.repository.AnswerFileSubmissionRepository;
 import edu.iu.terracotta.exceptions.AssignmentFileArchiveNotFoundException;
 import edu.iu.terracotta.service.app.AssignmentFileArchiveService;
 import edu.iu.terracotta.service.app.FileStorageService;
@@ -31,9 +32,18 @@ import lombok.extern.slf4j.Slf4j;
 @SuppressWarnings({"PMD.GuardLogStatement"})
 public class AssignmentFileArchiveServiceImpl implements AssignmentFileArchiveService {
 
+    // an archive in one of these states is compared with the latest uploads; one still being built
+    // or that failed isn't
+    private static final EnumSet<AssignmentFileArchiveStatus> CHECKED_FOR_NEW_UPLOADS = EnumSet.of(
+        AssignmentFileArchiveStatus.READY,
+        AssignmentFileArchiveStatus.DOWNLOADED,
+        AssignmentFileArchiveStatus.OUTDATED,
+        AssignmentFileArchiveStatus.OUTDATED_ACKNOWLEDGED
+    );
+
     private final AssignmentFileArchiveRepository assignmentFileArchiveRepository;
     private final LtiUserRepository ltiUserRepository;
-    private final SubmissionRepository submissionRepository;
+    private final AnswerFileSubmissionRepository answerFileSubmissionRepository;
     private final FileStorageService fileStorageService;
     private final AssignmentAsyncService asyncService;
 
@@ -64,8 +74,20 @@ public class AssignmentFileArchiveServiceImpl implements AssignmentFileArchiveSe
         AssignmentFileArchive assignmentFileArchive = assignmentFileArchiveRepository.findTopByAssignment_AssignmentIdOrderByCreatedAtDesc(assignment.getAssignmentId())
             .orElseThrow(() -> new AssignmentFileArchiveNotFoundException(String.format("No assignment file archive with assignment ID: [%s] found.", assignment.getAssignmentId())));
 
-        // if archive is current, return it; else process a new one
-        if (isArchiveCurrent(assignmentFileArchive)) {
+        if (!CHECKED_FOR_NEW_UPLOADS.contains(assignmentFileArchive.getStatus())) {
+            // still being built, or failed - not something new uploads make outdated; marking it
+            // here would also be overwritten when the build finishes
+            return toDto(assignmentFileArchive, false);
+        }
+
+        // the instructor dismissed the "new uploads" indicator: keep it dismissed until there are
+        // uploads newer than that (the acknowledgement is the archive's last update)
+        Timestamp since = AssignmentFileArchiveStatus.OUTDATED_ACKNOWLEDGED == assignmentFileArchive.getStatus()
+            ? assignmentFileArchive.getUpdatedAt()
+            : assignmentFileArchive.getCreatedAt();
+
+        // if there are no uploads newer than the archive, return it; else it's outdated
+        if (!hasUploadsSince(assignmentFileArchive.getAssignmentId(), since)) {
             return toDto(assignmentFileArchive, false);
         }
 
@@ -114,6 +136,20 @@ public class AssignmentFileArchiveServiceImpl implements AssignmentFileArchiveSe
     }
 
     @Override
+    public void outdatedAcknowledge(UUID uuid, Assignment assignment) throws AssignmentFileArchiveNotFoundException {
+        AssignmentFileArchive assignmentFileArchive = assignmentFileArchiveRepository.findByUuidAndAssignment_AssignmentId(uuid, assignment.getAssignmentId())
+            .orElseThrow(() -> new AssignmentFileArchiveNotFoundException(String.format("No assignment file archive with assignment ID: [%s] found.", assignment.getAssignmentId())));
+
+        if (AssignmentFileArchiveStatus.OUTDATED != assignmentFileArchive.getStatus()) {
+            // nothing to dismiss
+            return;
+        }
+
+        assignmentFileArchive.setStatus(AssignmentFileArchiveStatus.OUTDATED_ACKNOWLEDGED);
+        assignmentFileArchiveRepository.save(assignmentFileArchive);
+    }
+
+    @Override
     public void errorAcknowledge(UUID uuid, Assignment assignment) throws IOException, AssignmentFileArchiveNotFoundException {
         AssignmentFileArchive assignmentFileArchive = assignmentFileArchiveRepository.findByUuidAndAssignment_AssignmentId(uuid, assignment.getAssignmentId())
             .orElseThrow(() -> new AssignmentFileArchiveNotFoundException(String.format("No assignment file archive with assignment ID: [%s] found.", assignment.getAssignmentId())));
@@ -145,11 +181,14 @@ public class AssignmentFileArchiveServiceImpl implements AssignmentFileArchiveSe
     }
 
     private boolean isArchiveCurrent(AssignmentFileArchive assignmentFileArchive) {
-        // get latest submission for the assignment
-        Optional<Submission> submission = submissionRepository.findTopByAssessment_Treatment_Assignment_AssignmentIdAndDateSubmittedNotNullOrderByDateSubmittedDesc(assignmentFileArchive.getAssignmentId());
+        return !hasUploadsSince(assignmentFileArchive.getAssignmentId(), assignmentFileArchive.getCreatedAt());
+    }
 
-        // no submissions or archive is older than the latest submission
-        return submission.isEmpty() || assignmentFileArchive.getCreatedAt().after(submission.get().getDateSubmitted());
+    // whether a consenting participant uploaded or replaced a file for the assignment after the given time
+    private boolean hasUploadsSince(long assignmentId, Timestamp since) {
+        Optional<Timestamp> latestUpload = answerFileSubmissionRepository.findLatestUploadTimeByAssignmentId(assignmentId);
+
+        return latestUpload.isPresent() && latestUpload.get().after(since);
     }
 
 }

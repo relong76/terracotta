@@ -42,6 +42,12 @@
         >
           <b><i>Click here to download</i></b>.
         </a>
+        <a
+          v-if="fileRequestAlert.showRecreateLink"
+          @click="handleFileRequest()"
+        >
+          <b><i>Click here to download a new file archive</i></b>.
+        </a>
       </v-alert>
     </div>
     <div
@@ -256,19 +262,31 @@ const fileArchive = computed(() => {
   if (fr?.ready) return { showStatus: true, color: "success", icon: "mdi-check-circle", status: "File archive ready" };
   if (fr?.processing || fr?.reprocessing) return { showStatus: true, color: "info", icon: "mdi-loading mdi-spin", status: "Processing…" };
   if (fr?.error) return { showStatus: true, color: "error", icon: "mdi-alert-circle", status: "Error preparing archive" };
+  if (fr?.outdated) return { showStatus: true, color: "warning", icon: "mdi-alert", status: "New uploads since last archive" };
   return { showStatus: false };
 });
 
 const fileRequestAlert = computed(() => {
   const fr = fileRequest.value;
-  if (fr?.ready) return { type: "success", text: "Your file archive is ready.", showDownloadLink: true };
-  if (fr?.processing || fr?.reprocessing) return { type: "info", text: "Your file archive is being prepared. Please wait.", showDownloadLink: false };
-  if (fr?.error) return { type: "error", text: "There was an error preparing your file archive.", showDownloadLink: false };
-  return { type: "info", text: "", showDownloadLink: false };
+  if (fr?.ready) return { type: "success", text: "Your file archive is ready.", showDownloadLink: true, showRecreateLink: false };
+  if (fr?.processing || fr?.reprocessing) return { type: "info", text: "Your file archive is being prepared. Please wait.", showDownloadLink: false, showRecreateLink: false };
+  if (fr?.error) return { type: "error", text: "There was an error preparing your file archive.", showDownloadLink: false, showRecreateLink: false };
+  if (fr?.outdated) return { type: "warning", text: "There have been new file uploads since the last file archive for this assignment.", showDownloadLink: false, showRecreateLink: true };
+  return { type: "info", text: "", showDownloadLink: false, showRecreateLink: false };
 });
 
 const handleFileRequestAlertDismiss = () => {
   showFileRequestAlert.value = false;
+
+  // keep the new-uploads indicator dismissed until there are uploads newer than this
+  if (fileRequest.value?.outdated) {
+    assignmentFileArchiveStore.acknowledgeOutdated([
+      experimentId.value,
+      exposureId.value,
+      assignmentId.value,
+      fileRequest.value.id
+    ]);
+  }
 };
 
 const handleAlertFileRequest = async () => {
@@ -350,7 +368,8 @@ const loadData = async () => {
     showFileRequestAlert.value =
       fileRequest.value?.ready ||
       fileRequest.value?.processing ||
-      fileRequest.value?.error;
+      fileRequest.value?.error ||
+      fileRequest.value?.outdated;
   }
 
   isLoading.value = false;

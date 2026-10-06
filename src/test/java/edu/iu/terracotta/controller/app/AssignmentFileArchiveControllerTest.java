@@ -8,6 +8,8 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.io.File;
@@ -187,6 +189,36 @@ public class AssignmentFileArchiveControllerTest extends BaseTest {
         ResponseEntity<Resource> response = assignmentFileArchiveController.retrieve(EXPERIMENT_UUID, EXPOSURE_UUID, ASSIGNMENT_UUID, FILE_ID, httpServletRequest);
 
         assertEquals(HttpStatus.UNAUTHORIZED, response.getStatusCode());
+    }
+
+    @Test
+    void testOutdatedAcknowledgeSuccess() throws Exception {
+        when(apiJwtService.isInstructorOrHigher(securedInfo)).thenReturn(true);
+
+        ResponseEntity<Void> response = assignmentFileArchiveController.outdatedAcknowledge(EXPERIMENT_UUID, EXPOSURE_UUID, ASSIGNMENT_UUID, FILE_ID, httpServletRequest);
+
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        verify(assignmentFileArchiveService).outdatedAcknowledge(FILE_ID, assignment);
+    }
+
+    @Test
+    void testOutdatedAcknowledgeUnauthorized() throws Exception {
+        when(apiJwtService.isInstructorOrHigher(securedInfo)).thenReturn(false);
+
+        ResponseEntity<Void> response = assignmentFileArchiveController.outdatedAcknowledge(EXPERIMENT_UUID, EXPOSURE_UUID, ASSIGNMENT_UUID, FILE_ID, httpServletRequest);
+
+        assertEquals(HttpStatus.UNAUTHORIZED, response.getStatusCode());
+        verify(assignmentFileArchiveService, never()).outdatedAcknowledge(any(), any());
+    }
+
+    @Test
+    void testOutdatedAcknowledgeNotFoundReturnsBadRequest() throws Exception {
+        when(apiJwtService.isInstructorOrHigher(securedInfo)).thenReturn(true);
+        doThrow(new AssignmentFileArchiveNotFoundException("not found")).when(assignmentFileArchiveService).outdatedAcknowledge(FILE_ID, assignment);
+
+        ResponseEntity<Void> response = assignmentFileArchiveController.outdatedAcknowledge(EXPERIMENT_UUID, EXPOSURE_UUID, ASSIGNMENT_UUID, FILE_ID, httpServletRequest);
+
+        assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
     }
 
     @Test

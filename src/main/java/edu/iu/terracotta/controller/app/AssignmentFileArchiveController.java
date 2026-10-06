@@ -137,6 +137,36 @@ public class AssignmentFileArchiveController {
             .body(new InputStreamResource(new FileInputStream(assignmentFileArchiveDto.getFile())));
     }
 
+    // dismisses the "new uploads since the last archive" indicator until there are newer uploads
+    @PutMapping("/{fileId}/outdated/acknowledge")
+    public ResponseEntity<Void> outdatedAcknowledge(@PathVariable("experimentId") UUID experimentUuid,
+                                                    @PathVariable("exposureId") UUID exposureUuid,
+                                                    @PathVariable("assignmentId") UUID assignmentUuid,
+                                                    @PathVariable UUID fileId,
+                                                    HttpServletRequest req)
+            throws ExperimentNotMatchingException, BadTokenException, AssignmentNotMatchingException, AssessmentNotMatchingException, NumberFormatException,
+                TerracottaConnectorException, ExposureNotMatchingException {
+        long experimentId = experimentService.getExperimentIdByUuid(experimentUuid);
+        long exposureId = exposureService.getExposureIdByUuid(exposureUuid);
+        long assignmentId = assignmentService.getAssignmentIdByUuid(assignmentUuid);
+        SecuredInfo securedInfo = apijwtService.extractValues(req, false);
+        apijwtService.experimentAllowed(securedInfo, experimentId);
+        apijwtService.exposureAllowed(securedInfo, experimentId, exposureId);
+        Assignment assignment = apijwtService.assignmentAllowed(securedInfo, experimentId, exposureId, assignmentId);
+
+        if (!apijwtService.isInstructorOrHigher(securedInfo)) {
+            return new ResponseEntity<>(HttpStatus.UNAUTHORIZED);
+        }
+
+        try {
+            assignmentFileArchiveService.outdatedAcknowledge(fileId, assignment);
+            return new ResponseEntity<>(HttpStatus.OK);
+        } catch (AssignmentFileArchiveNotFoundException e) {
+            log.warn("Assignment file archive with ID: [{}] and assignment ID: [{}] not found.", fileId, assignment.getAssignmentId());
+            return new ResponseEntity<>(HttpStatus.BAD_REQUEST);
+        }
+    }
+
     @PutMapping("/{fileId}/error/acknowledge")
     public ResponseEntity<Void> errorAcknowledge(@PathVariable("experimentId") UUID experimentUuid,
                                                        @PathVariable("exposureId") UUID exposureUuid,
