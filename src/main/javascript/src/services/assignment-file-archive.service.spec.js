@@ -58,6 +58,18 @@ describe("assignmentFileArchiveService", () => {
     expect(result).toEqual([]);
   });
 
+  it("acknowledgeOutdated PUTs an acknowledgement for an outdated file", async () => {
+    fetch.mockResolvedValue(mockResponse({ status: 204, text: "" }));
+
+    const result = await assignmentFileArchiveService.acknowledgeOutdated(1, 2, 3, 9);
+
+    expect(fetch).toHaveBeenCalledWith(
+      "https://example.com/api/experiments/1/exposures/2/assignments/3/files/9/outdated/acknowledge",
+      expect.objectContaining({ method: "PUT" })
+    );
+    expect(result).toEqual([]);
+  });
+
   describe("retrieve", () => {
     beforeEach(() => {
       window.URL.createObjectURL = vi.fn(() => "blob:url");

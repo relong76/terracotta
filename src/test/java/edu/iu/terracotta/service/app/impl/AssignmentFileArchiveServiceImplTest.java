@@ -80,7 +80,7 @@ public class AssignmentFileArchiveServiceImplTest extends BaseTest {
     public void testPollArchiveCurrentReturnsExisting() throws Exception {
         AssignmentFileArchive archive = buildArchive(AssignmentFileArchiveStatus.READY, new Timestamp(System.currentTimeMillis()));
         when(assignmentFileArchiveRepository.findTopByAssignment_AssignmentIdOrderByCreatedAtDesc(anyLong())).thenReturn(Optional.of(archive));
-        when(submissionRepository.findTopByAssessment_Treatment_Assignment_AssignmentIdAndDateSubmittedNotNullOrderByDateSubmittedDesc(anyLong())).thenReturn(Optional.empty());
+        when(answerFileSubmissionRepository.findLatestUploadTimeByAssignmentId(anyLong())).thenReturn(Optional.empty());
 
         AssignmentFileArchiveDto dto = assignmentFileArchiveService.poll(assignment, securedInfo, false);
 
@@ -92,7 +92,7 @@ public class AssignmentFileArchiveServiceImplTest extends BaseTest {
     public void testPollOutdatedNoCreateNewReturnsOutdated() throws Exception {
         AssignmentFileArchive archive = buildArchive(AssignmentFileArchiveStatus.READY, new Timestamp(0));
         when(assignmentFileArchiveRepository.findTopByAssignment_AssignmentIdOrderByCreatedAtDesc(anyLong())).thenReturn(Optional.of(archive));
-        when(submissionRepository.findTopByAssessment_Treatment_Assignment_AssignmentIdAndDateSubmittedNotNullOrderByDateSubmittedDesc(anyLong())).thenReturn(Optional.of(submission));
+        when(answerFileSubmissionRepository.findLatestUploadTimeByAssignmentId(anyLong())).thenReturn(Optional.of(new Timestamp(System.currentTimeMillis())));
         when(assignmentFileArchiveRepository.save(any(AssignmentFileArchive.class))).thenReturn(archive);
 
         AssignmentFileArchiveDto dto = assignmentFileArchiveService.poll(assignment, securedInfo, false);
@@ -107,7 +107,7 @@ public class AssignmentFileArchiveServiceImplTest extends BaseTest {
         AssignmentFileArchive archive = buildArchive(AssignmentFileArchiveStatus.READY, new Timestamp(0));
         AssignmentFileArchive reprocessed = buildArchive(AssignmentFileArchiveStatus.REPROCESSING, new Timestamp(System.currentTimeMillis()));
         when(assignmentFileArchiveRepository.findTopByAssignment_AssignmentIdOrderByCreatedAtDesc(anyLong())).thenReturn(Optional.of(archive));
-        when(submissionRepository.findTopByAssessment_Treatment_Assignment_AssignmentIdAndDateSubmittedNotNullOrderByDateSubmittedDesc(anyLong())).thenReturn(Optional.of(submission));
+        when(answerFileSubmissionRepository.findLatestUploadTimeByAssignmentId(anyLong())).thenReturn(Optional.of(new Timestamp(System.currentTimeMillis())));
         when(assignmentFileArchiveRepository.save(any(AssignmentFileArchive.class))).thenReturn(archive, reprocessed);
 
         AssignmentFileArchiveDto dto = assignmentFileArchiveService.poll(assignment, securedInfo, true);
@@ -116,11 +116,100 @@ public class AssignmentFileArchiveServiceImplTest extends BaseTest {
         verify(asyncService).processAssignmentFileArchive(reprocessed);
     }
 
+    // the archive is current as long as no upload is newer than it, even if older uploads exist
+    @Test
+    public void testPollCurrentWhenAllUploadsPredateTheArchive() throws Exception {
+        long now = System.currentTimeMillis();
+        AssignmentFileArchive archive = buildArchive(AssignmentFileArchiveStatus.DOWNLOADED, new Timestamp(now));
+        when(assignmentFileArchiveRepository.findTopByAssignment_AssignmentIdOrderByCreatedAtDesc(anyLong())).thenReturn(Optional.of(archive));
+        when(answerFileSubmissionRepository.findLatestUploadTimeByAssignmentId(anyLong())).thenReturn(Optional.of(new Timestamp(now - 60_000)));
+
+        AssignmentFileArchiveDto dto = assignmentFileArchiveService.poll(assignment, securedInfo, false);
+
+        assertEquals(AssignmentFileArchiveStatus.DOWNLOADED, dto.getStatus());
+        verify(assignmentFileArchiveRepository, never()).save(any(AssignmentFileArchive.class));
+    }
+
+    // still being built - new uploads don't make it "outdated", and marking it would be overwritten
+    // when the build finishes
+    @Test
+    public void testPollLeavesAnArchiveThatsStillProcessingAlone() throws Exception {
+        AssignmentFileArchive archive = buildArchive(AssignmentFileArchiveStatus.PROCESSING, new Timestamp(0));
+        when(assignmentFileArchiveRepository.findTopByAssignment_AssignmentIdOrderByCreatedAtDesc(anyLong())).thenReturn(Optional.of(archive));
+        when(answerFileSubmissionRepository.findLatestUploadTimeByAssignmentId(anyLong())).thenReturn(Optional.of(new Timestamp(System.currentTimeMillis())));
+
+        AssignmentFileArchiveDto dto = assignmentFileArchiveService.poll(assignment, securedInfo, false);
+
+        assertEquals(AssignmentFileArchiveStatus.PROCESSING, dto.getStatus());
+        verify(assignmentFileArchiveRepository, never()).save(any(AssignmentFileArchive.class));
+    }
+
+    // dismissed "new uploads" indicator stays dismissed while nothing newer has been uploaded
+    @Test
+    public void testPollKeepsADismissedIndicatorDismissedWithoutNewerUploads() throws Exception {
+        long now = System.currentTimeMillis();
+        AssignmentFileArchive archive = buildArchive(AssignmentFileArchiveStatus.OUTDATED_ACKNOWLEDGED, new Timestamp(now - 120_000));
+        archive.setUpdatedAt(new Timestamp(now - 30_000));
+        when(assignmentFileArchiveRepository.findTopByAssignment_AssignmentIdOrderByCreatedAtDesc(anyLong())).thenReturn(Optional.of(archive));
+        // newer than the archive, but older than the dismissal
+        when(answerFileSubmissionRepository.findLatestUploadTimeByAssignmentId(anyLong())).thenReturn(Optional.of(new Timestamp(now - 60_000)));
+
+        AssignmentFileArchiveDto dto = assignmentFileArchiveService.poll(assignment, securedInfo, false);
+
+        assertEquals(AssignmentFileArchiveStatus.OUTDATED_ACKNOWLEDGED, dto.getStatus());
+        verify(assignmentFileArchiveRepository, never()).save(any(AssignmentFileArchive.class));
+    }
+
+    // ...but an upload after the dismissal raises it again
+    @Test
+    public void testPollRaisesADismissedIndicatorAgainForNewerUploads() throws Exception {
+        long now = System.currentTimeMillis();
+        AssignmentFileArchive archive = buildArchive(AssignmentFileArchiveStatus.OUTDATED_ACKNOWLEDGED, new Timestamp(now - 120_000));
+        archive.setUpdatedAt(new Timestamp(now - 30_000));
+        when(assignmentFileArchiveRepository.findTopByAssignment_AssignmentIdOrderByCreatedAtDesc(anyLong())).thenReturn(Optional.of(archive));
+        when(answerFileSubmissionRepository.findLatestUploadTimeByAssignmentId(anyLong())).thenReturn(Optional.of(new Timestamp(now)));
+        when(assignmentFileArchiveRepository.save(any(AssignmentFileArchive.class))).thenReturn(archive);
+
+        AssignmentFileArchiveDto dto = assignmentFileArchiveService.poll(assignment, securedInfo, false);
+
+        assertEquals(AssignmentFileArchiveStatus.OUTDATED, dto.getStatus());
+        verify(assignmentFileArchiveRepository).save(archive);
+    }
+
+    @Test
+    public void testOutdatedAcknowledgeDismissesTheIndicator() throws Exception {
+        AssignmentFileArchive archive = buildArchive(AssignmentFileArchiveStatus.OUTDATED, new Timestamp(0));
+        when(assignmentFileArchiveRepository.findByUuidAndAssignment_AssignmentId(any(UUID.class), anyLong())).thenReturn(Optional.of(archive));
+
+        assignmentFileArchiveService.outdatedAcknowledge(archive.getUuid(), assignment);
+
+        assertEquals(AssignmentFileArchiveStatus.OUTDATED_ACKNOWLEDGED, archive.getStatus());
+        verify(assignmentFileArchiveRepository).save(archive);
+    }
+
+    @Test
+    public void testOutdatedAcknowledgeLeavesAnArchiveThatIsntOutdatedAlone() throws Exception {
+        AssignmentFileArchive archive = buildArchive(AssignmentFileArchiveStatus.READY, new Timestamp(0));
+        when(assignmentFileArchiveRepository.findByUuidAndAssignment_AssignmentId(any(UUID.class), anyLong())).thenReturn(Optional.of(archive));
+
+        assignmentFileArchiveService.outdatedAcknowledge(archive.getUuid(), assignment);
+
+        assertEquals(AssignmentFileArchiveStatus.READY, archive.getStatus());
+        verify(assignmentFileArchiveRepository, never()).save(any(AssignmentFileArchive.class));
+    }
+
+    @Test
+    public void testOutdatedAcknowledgeNotFoundThrows() {
+        when(assignmentFileArchiveRepository.findByUuidAndAssignment_AssignmentId(any(UUID.class), anyLong())).thenReturn(Optional.empty());
+
+        assertThrows(AssignmentFileArchiveNotFoundException.class, () -> assignmentFileArchiveService.outdatedAcknowledge(UUID.randomUUID(), assignment));
+    }
+
     @Test
     public void testRetrieveExistingCurrentArchiveReturnsIt() throws Exception {
         AssignmentFileArchive archive = buildArchive(AssignmentFileArchiveStatus.READY, new Timestamp(System.currentTimeMillis()));
         when(assignmentFileArchiveRepository.findTopByAssignment_AssignmentIdAndStatusInOrderByCreatedAtDesc(anyLong(), any())).thenReturn(Optional.of(archive));
-        when(submissionRepository.findTopByAssessment_Treatment_Assignment_AssignmentIdAndDateSubmittedNotNullOrderByDateSubmittedDesc(anyLong())).thenReturn(Optional.empty());
+        when(answerFileSubmissionRepository.findLatestUploadTimeByAssignmentId(anyLong())).thenReturn(Optional.empty());
         when(assignmentFileArchiveRepository.save(any(AssignmentFileArchive.class))).thenReturn(archive);
         when(fileStorageService.getAssignmentFileArchive(anyLong())).thenReturn(file);
 
@@ -155,7 +244,7 @@ public class AssignmentFileArchiveServiceImplTest extends BaseTest {
     public void testFindLatestAvailableArchiveEmptyWhenOutdated() throws Exception {
         AssignmentFileArchive archive = buildArchive(AssignmentFileArchiveStatus.READY, new Timestamp(0));
         when(assignmentFileArchiveRepository.findTopByAssignment_AssignmentIdAndStatusInOrderByCreatedAtDesc(anyLong(), any())).thenReturn(Optional.of(archive));
-        when(submissionRepository.findTopByAssessment_Treatment_Assignment_AssignmentIdAndDateSubmittedNotNullOrderByDateSubmittedDesc(anyLong())).thenReturn(Optional.of(submission));
+        when(answerFileSubmissionRepository.findLatestUploadTimeByAssignmentId(anyLong())).thenReturn(Optional.of(new Timestamp(System.currentTimeMillis())));
 
         assertTrue(assignmentFileArchiveService.findLatestAvailableArchive(1L).isEmpty());
     }
@@ -164,7 +253,7 @@ public class AssignmentFileArchiveServiceImplTest extends BaseTest {
     public void testFindLatestAvailableArchivePresentWhenCurrent() throws Exception {
         AssignmentFileArchive archive = buildArchive(AssignmentFileArchiveStatus.READY, new Timestamp(System.currentTimeMillis()));
         when(assignmentFileArchiveRepository.findTopByAssignment_AssignmentIdAndStatusInOrderByCreatedAtDesc(anyLong(), any())).thenReturn(Optional.of(archive));
-        when(submissionRepository.findTopByAssessment_Treatment_Assignment_AssignmentIdAndDateSubmittedNotNullOrderByDateSubmittedDesc(anyLong())).thenReturn(Optional.empty());
+        when(answerFileSubmissionRepository.findLatestUploadTimeByAssignmentId(anyLong())).thenReturn(Optional.empty());
 
         Optional<AssignmentFileArchive> retVal = assignmentFileArchiveService.findLatestAvailableArchive(1L);
 

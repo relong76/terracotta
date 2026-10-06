@@ -8,6 +8,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.io.File;
@@ -159,6 +160,23 @@ public class AssignmentFileArchiveControllerTest extends BaseTest {
 
         assertEquals(HttpStatus.CONFLICT, response.getStatusCode());
         assertNull(response.getBody());
+    }
+
+    @Test
+    void testOutdatedAcknowledgeSuccess() throws Exception {
+        ResponseEntity<Void> response = assignmentFileArchiveController.outdatedAcknowledge(EXPERIMENT_UUID, EXPOSURE_UUID, ASSIGNMENT_UUID, FILE_ID, httpServletRequest);
+
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        verify(assignmentFileArchiveService).outdatedAcknowledge(FILE_ID, assignment);
+    }
+
+    @Test
+    void testOutdatedAcknowledgeNotFoundReturnsBadRequest() throws Exception {
+        doThrow(new AssignmentFileArchiveNotFoundException("not found")).when(assignmentFileArchiveService).outdatedAcknowledge(FILE_ID, assignment);
+
+        ResponseEntity<Void> response = assignmentFileArchiveController.outdatedAcknowledge(EXPERIMENT_UUID, EXPOSURE_UUID, ASSIGNMENT_UUID, FILE_ID, httpServletRequest);
+
+        assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
     }
 
     @Test

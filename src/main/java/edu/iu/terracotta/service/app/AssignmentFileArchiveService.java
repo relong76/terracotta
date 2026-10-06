@@ -16,6 +16,11 @@ public interface AssignmentFileArchiveService {
     AssignmentFileArchiveDto poll(Assignment assignment, SecuredInfo securedInfo, boolean createNewOnOutdated) throws IOException, AssignmentFileArchiveNotFoundException;
     AssignmentFileArchiveDto retrieve(UUID uuid, Assignment assignment, SecuredInfo securedInfo) throws IOException;
     Optional<AssignmentFileArchive> findLatestAvailableArchive(long assignmentId) throws IOException;
+    /**
+     * Dismisses the "new uploads since the last archive" indicator for an outdated archive, until
+     * there are uploads newer than this.
+     */
+    void outdatedAcknowledge(UUID uuid, Assignment assignment) throws AssignmentFileArchiveNotFoundException;
     void errorAcknowledge(UUID uuid, Assignment assignment) throws IOException, AssignmentFileArchiveNotFoundException;
     AssignmentFileArchiveDto toDto(AssignmentFileArchive assignmentFileArchive, boolean includeFileContent) throws IOException;
 

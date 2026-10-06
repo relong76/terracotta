@@ -29,6 +29,7 @@ AssignmentController#updateAssignment(UUID,UUID,UUID,AssignmentDto,HttpServletRe
 AssignmentController#updateAssignments(UUID,UUID,List,HttpServletRequest) -> InstructorOrHigher
 AssignmentFileArchiveController#errorAcknowledge(UUID,UUID,UUID,UUID,HttpServletRequest) -> InstructorOrHigher
 AssignmentFileArchiveController#files(UUID,UUID,UUID,HttpServletRequest) -> InstructorOrHigher
+AssignmentFileArchiveController#outdatedAcknowledge(UUID,UUID,UUID,UUID,HttpServletRequest) -> InstructorOrHigher
 AssignmentFileArchiveController#poll(UUID,UUID,UUID,boolean,HttpServletRequest) -> InstructorOrHigher
 AssignmentFileArchiveController#retrieve(UUID,UUID,UUID,UUID,HttpServletRequest) -> InstructorOrHigher
 ConditionController#allConditionsByExperiment(UUID,HttpServletRequest) -> LearnerOrHigher

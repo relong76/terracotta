@@ -3,6 +3,7 @@ import { api } from "@/store/api.module";
 
 export const assignmentFileArchiveService = {
   acknowledgeError,
+  acknowledgeOutdated,
   prepare,
   poll,
   retrieve
@@ -79,6 +80,20 @@ async function acknowledgeError(
 ) {
   return request(
     `/api/experiments/${experimentId}/exposures/${exposureId}/assignments/${assignmentId}/files/${fileId}/error/acknowledge`,
+    {
+      method: "PUT"
+    }
+  );
+}
+
+async function acknowledgeOutdated(
+  experimentId,
+  exposureId,
+  assignmentId,
+  fileId
+) {
+  return request(
+    `/api/experiments/${experimentId}/exposures/${exposureId}/assignments/${assignmentId}/files/${fileId}/outdated/acknowledge`,
     {
       method: "PUT"
     }
