@@ -449,7 +449,8 @@ defineExpose({ saveExit });
 .alert-file-request {
   margin: 0 auto;
   & a {
-    color: white;
+    color: inherit !important;
+    cursor: pointer;
   }
 }
 a.link-student-name {
