@@ -19,7 +19,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 /**
- * Encrypts personal values stored before their columns were encrypted, and fills in missing
+ * Encrypts personal values (and LMS OAuth tokens) stored before their columns were encrypted, and fills in missing
  * email hashes. It runs in the background after startup, a batch at a time, and only touches rows
  * that still need it, so it's a no-op once everything is converted.
  *
@@ -39,7 +39,7 @@ public class PiiEncryptionBackfillRunner implements ApplicationListener<Applicat
      */
     static final List<Target> TARGETS = List.of(
         new Target("lti_user", "user_id", List.of("email", "displayname"), "email", "email_hash"),
-        new Target("api_token", "token_id", List.of("lms_user_name"), null, null),
+        new Target("api_token", "token_id", List.of("lms_user_name", "access_token", "refresh_token"), null, null),
         new Target("terr_messaging_email_reply_to", "id", List.of("email"), null, null),
         new Target("terr_submission_comment", "submission_comment_id", List.of("creator"), null, null),
         new Target("terr_question_submission_comment", "question_submission_comment_id", List.of("creator"), null, null),

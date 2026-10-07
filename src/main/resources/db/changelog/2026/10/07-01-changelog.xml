@@ -13,7 +13,8 @@
         (PiiCipher). Existing rows are encrypted by PiiEncryptionBackfillRunner at startup, since
         the keys only exist in the application. An encrypted value is about a third longer than
         the original plus ~50 characters, so the VARCHAR(255) columns are widened to 512. The
-        TEXT columns (lti_user.displayname, lms_user_batch.email/name) already fit.
+        TEXT columns (lti_user.displayname, lms_user_batch.email/name, api_token.access_token and
+        refresh_token) already fit.
     -->
     <!-- an encrypted 255-character email is about 380 characters -->
     <changeSet author="rlong" id="1759795200000-01">

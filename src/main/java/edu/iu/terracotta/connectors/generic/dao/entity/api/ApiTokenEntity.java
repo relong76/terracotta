@@ -49,7 +49,12 @@ public class ApiTokenEntity implements ApiToken {
     )
     private long tokenId;
 
-    @Column(nullable = false) private String refreshToken;
+    // the LMS OAuth credentials, stored encrypted (PiiCipher)
+    @Lob
+    @Column(nullable = false)
+    @Convert(converter = PiiStringConverter.class)
+    private String refreshToken;
+
     @Column(nullable = false) private Timestamp expiresAt;
     @Column(nullable = false) private String lmsUserId;
     // stored encrypted (PiiCipher)
@@ -59,6 +64,7 @@ public class ApiTokenEntity implements ApiToken {
 
     @Lob
     @Column(nullable = false)
+    @Convert(converter = PiiStringConverter.class)
     private String accessToken;
 
     @Lob

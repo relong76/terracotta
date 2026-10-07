@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.sql.Timestamp;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -18,11 +19,13 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
 
 import edu.iu.Terracotta;
+import edu.iu.terracotta.connectors.generic.dao.entity.api.ApiTokenEntity;
 import edu.iu.terracotta.connectors.generic.dao.entity.lms.LmsUserBatch;
 import edu.iu.terracotta.connectors.generic.dao.entity.lms.LmsUserBatchEmailProjection;
 import edu.iu.terracotta.connectors.generic.dao.entity.lti.LtiUserEntity;
 import edu.iu.terracotta.connectors.generic.dao.entity.lti.PlatformDeployment;
 import edu.iu.terracotta.connectors.generic.dao.model.enums.LmsConnector;
+import edu.iu.terracotta.connectors.generic.dao.repository.api.ApiTokenRepository;
 import edu.iu.terracotta.connectors.generic.dao.repository.lms.LmsUserBatchRepository;
 import edu.iu.terracotta.connectors.generic.dao.repository.lti.LtiUserRepository;
 import edu.iu.terracotta.connectors.generic.dao.repository.lti.PlatformDeploymentRepository;
@@ -53,6 +56,7 @@ class PiiEncryptionRealHibernateTest {
 
     @Autowired private LtiUserRepository ltiUserRepository;
     @Autowired private LmsUserBatchRepository lmsUserBatchRepository;
+    @Autowired private ApiTokenRepository apiTokenRepository;
     @Autowired private PlatformDeploymentRepository platformDeploymentRepository;
     @Autowired private PiiCipher piiCipher;
     @Autowired private PiiEncryptionBackfillRunner backfillRunner;
@@ -62,6 +66,7 @@ class PiiEncryptionRealHibernateTest {
 
     @BeforeEach
     void seed() {
+        jdbcTemplate.update("DELETE FROM api_token");
         jdbcTemplate.update("DELETE FROM lti_user");
         jdbcTemplate.update("DELETE FROM lms_user_batch");
         jdbcTemplate.execute("SET REFERENTIAL_INTEGRITY FALSE");
@@ -225,6 +230,49 @@ class PiiEncryptionRealHibernateTest {
         assertTrue(PiiCipher.isEncrypted(body));
         // the comment itself isn't personal data and stays as written
         assertEquals("Nice work", jdbcTemplate.queryForObject("SELECT comment FROM terr_submission_comment WHERE submission_comment_id = 1", String.class));
+    }
+
+    @Test
+    void storesTheLmsOAuthTokensEncrypted() {
+        LtiUserEntity user = save("ada@example.com", "Ada Lovelace");
+        ApiTokenEntity saved = apiTokenRepository.saveAndFlush(
+            ApiTokenEntity.builder()
+                .user(user)
+                .lmsConnector(LmsConnector.CANVAS)
+                .accessToken("canvas-access-token")
+                .refreshToken("canvas-refresh-token")
+                .expiresAt(new Timestamp(System.currentTimeMillis()))
+                .lmsUserId("lms-1")
+                .lmsUserName("Ada Lovelace")
+                .build()
+        );
+
+        Map<String, Object> row = jdbcTemplate.queryForMap("SELECT access_token, refresh_token, lms_user_name FROM api_token WHERE token_id = ?", saved.getTokenId());
+        assertTrue(PiiCipher.isEncrypted((String) row.get("access_token")));
+        assertTrue(PiiCipher.isEncrypted((String) row.get("refresh_token")));
+        assertTrue(PiiCipher.isEncrypted((String) row.get("lms_user_name")));
+
+        ApiTokenEntity loaded = apiTokenRepository.findById(saved.getTokenId()).orElseThrow();
+        assertEquals("canvas-access-token", loaded.getAccessToken());
+        assertEquals("canvas-refresh-token", loaded.getRefreshToken());
+        assertEquals("Ada Lovelace", loaded.getLmsUserName());
+    }
+
+    @Test
+    void backfillEncryptsTheLmsOAuthTokens() {
+        long userId = save("ada@example.com", "Ada Lovelace").getUserId();
+        jdbcTemplate.update(
+            "INSERT INTO api_token (user_id, lms_connector, access_token, refresh_token, expires_at, lms_user_id, lms_user_name) VALUES (?, 'CANVAS', 'legacy-access', 'legacy-refresh', CURRENT_TIMESTAMP, 'lms-1', 'Ada Lovelace')",
+            userId
+        );
+
+        assertEquals(1, backfillRunner.backfill());
+
+        Map<String, Object> row = jdbcTemplate.queryForMap("SELECT access_token, refresh_token FROM api_token");
+        assertEquals("legacy-access", piiCipher.decrypt((String) row.get("access_token")));
+        assertTrue(PiiCipher.isEncrypted((String) row.get("access_token")));
+        assertEquals("legacy-refresh", piiCipher.decrypt((String) row.get("refresh_token")));
+        assertTrue(PiiCipher.isEncrypted((String) row.get("refresh_token")));
     }
 
     private LtiUserEntity save(String email, String displayName) {
