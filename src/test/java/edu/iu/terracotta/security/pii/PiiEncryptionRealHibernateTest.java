@@ -19,12 +19,14 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
 
 import edu.iu.Terracotta;
+import edu.iu.terracotta.connectors.generic.dao.entity.api.ApiOAuthSettings;
 import edu.iu.terracotta.connectors.generic.dao.entity.api.ApiTokenEntity;
 import edu.iu.terracotta.connectors.generic.dao.entity.lms.LmsUserBatch;
 import edu.iu.terracotta.connectors.generic.dao.entity.lms.LmsUserBatchEmailProjection;
 import edu.iu.terracotta.connectors.generic.dao.entity.lti.LtiUserEntity;
 import edu.iu.terracotta.connectors.generic.dao.entity.lti.PlatformDeployment;
 import edu.iu.terracotta.connectors.generic.dao.model.enums.LmsConnector;
+import edu.iu.terracotta.connectors.generic.dao.repository.api.ApiOAuthSettingsRepository;
 import edu.iu.terracotta.connectors.generic.dao.repository.api.ApiTokenRepository;
 import edu.iu.terracotta.connectors.generic.dao.repository.lms.LmsUserBatchRepository;
 import edu.iu.terracotta.connectors.generic.dao.repository.lti.LtiUserRepository;
@@ -57,6 +59,7 @@ class PiiEncryptionRealHibernateTest {
     @Autowired private LtiUserRepository ltiUserRepository;
     @Autowired private LmsUserBatchRepository lmsUserBatchRepository;
     @Autowired private ApiTokenRepository apiTokenRepository;
+    @Autowired private ApiOAuthSettingsRepository apiOAuthSettingsRepository;
     @Autowired private PlatformDeploymentRepository platformDeploymentRepository;
     @Autowired private PiiCipher piiCipher;
     @Autowired private PiiEncryptionBackfillRunner backfillRunner;
@@ -67,6 +70,7 @@ class PiiEncryptionRealHibernateTest {
     @BeforeEach
     void seed() {
         jdbcTemplate.update("DELETE FROM api_token");
+        jdbcTemplate.update("DELETE FROM api_oauth_settings");
         jdbcTemplate.update("DELETE FROM lti_user");
         jdbcTemplate.update("DELETE FROM lms_user_batch");
         jdbcTemplate.execute("SET REFERENTIAL_INTEGRITY FALSE");
@@ -273,6 +277,52 @@ class PiiEncryptionRealHibernateTest {
         assertTrue(PiiCipher.isEncrypted((String) row.get("access_token")));
         assertEquals("legacy-refresh", piiCipher.decrypt((String) row.get("refresh_token")));
         assertTrue(PiiCipher.isEncrypted((String) row.get("refresh_token")));
+    }
+
+    @Test
+    void storesThePlatformAndDeveloperKeySecretsEncrypted() {
+        platformDeployment.setApiToken("platform-api-token");
+        platformDeployment.setCaliperApiKey("caliper-api-key");
+        platformDeploymentRepository.saveAndFlush(platformDeployment);
+        ApiOAuthSettings settings = apiOAuthSettingsRepository.saveAndFlush(
+            ApiOAuthSettings.builder()
+                .clientId("developer-key-id")
+                .clientSecret("developer-key-secret")
+                .oauth2AuthUrl("https://lms.example.org/login/oauth2/auth")
+                .oauth2TokenUrl("https://lms.example.org/login/oauth2/token")
+                .platformDeployment(platformDeployment)
+                .build()
+        );
+
+        Map<String, Object> platformRow = jdbcTemplate.queryForMap("SELECT api_token, caliper_api_key FROM iss_configuration WHERE key_id = ?", platformDeployment.getKeyId());
+        assertTrue(PiiCipher.isEncrypted((String) platformRow.get("api_token")));
+        assertTrue(PiiCipher.isEncrypted((String) platformRow.get("caliper_api_key")));
+        assertTrue(PiiCipher.isEncrypted(jdbcTemplate.queryForObject("SELECT client_secret FROM api_oauth_settings WHERE settings_id = ?", String.class, settings.getSettingsId())));
+
+        PlatformDeployment loaded = platformDeploymentRepository.findById(platformDeployment.getKeyId()).orElseThrow();
+        assertEquals("platform-api-token", loaded.getApiToken());
+        assertEquals("caliper-api-key", loaded.getCaliperApiKey());
+        assertEquals("developer-key-secret", apiOAuthSettingsRepository.findById(settings.getSettingsId()).orElseThrow().getClientSecret());
+    }
+
+    @Test
+    void backfillEncryptsSecretsAddedStraightToTheDatabase() {
+        // how an admin typically sets up a platform: rows written with SQL, secrets in plain text
+        jdbcTemplate.update("UPDATE iss_configuration SET api_token = 'legacy-api-token', caliper_api_key = 'legacy-caliper-key' WHERE key_id = ?", platformDeployment.getKeyId());
+        jdbcTemplate.update(
+            "INSERT INTO api_oauth_settings (client_id, client_secret, oauth2_auth_url, oauth2_token_url, key_id) VALUES ('id', 'legacy-secret', 'https://a', 'https://t', ?)",
+            platformDeployment.getKeyId()
+        );
+
+        assertEquals(2, backfillRunner.backfill());
+
+        Map<String, Object> platformRow = jdbcTemplate.queryForMap("SELECT api_token, caliper_api_key FROM iss_configuration WHERE key_id = ?", platformDeployment.getKeyId());
+        assertEquals("legacy-api-token", piiCipher.decrypt((String) platformRow.get("api_token")));
+        assertTrue(PiiCipher.isEncrypted((String) platformRow.get("api_token")));
+        assertEquals("legacy-caliper-key", piiCipher.decrypt((String) platformRow.get("caliper_api_key")));
+        String secret = jdbcTemplate.queryForObject("SELECT client_secret FROM api_oauth_settings", String.class);
+        assertEquals("legacy-secret", piiCipher.decrypt(secret));
+        assertTrue(PiiCipher.isEncrypted(secret));
     }
 
     private LtiUserEntity save(String email, String displayName) {

@@ -34,7 +34,8 @@ import lombok.extern.slf4j.Slf4j;
 public class PiiEncryptionBackfillRunner implements ApplicationListener<ApplicationReadyEvent> {
 
     /**
-     * The encrypted columns, by table. lms_user_batch isn't here: it only holds a roster while a
+     * The encrypted columns, by table. A secret an admin later adds straight to the database (e.g.
+     * a new iss_configuration row) is read as plain text until the next startup encrypts it. lms_user_batch isn't here: it only holds a roster while a
      * sync runs, and the migration dropped what was left of it.
      */
     static final List<Target> TARGETS = List.of(
@@ -44,7 +45,9 @@ public class PiiEncryptionBackfillRunner implements ApplicationListener<Applicat
         new Target("terr_submission_comment", "submission_comment_id", List.of("creator"), null, null),
         new Target("terr_question_submission_comment", "question_submission_comment_id", List.of("creator"), null, null),
         new Target("terr_messaging_piped_text_item_value", "id", List.of("value"), null, null),
-        new Target("terr_messaging_message_log", "id", List.of("body"), null, null)
+        new Target("terr_messaging_message_log", "id", List.of("body"), null, null),
+        new Target("api_oauth_settings", "settings_id", List.of("client_secret"), null, null),
+        new Target("iss_configuration", "key_id", List.of("api_token", "caliper_api_key"), null, null)
     );
 
     private final JdbcTemplate jdbcTemplate;
@@ -78,7 +81,7 @@ public class PiiEncryptionBackfillRunner implements ApplicationListener<Applicat
                 converted += backfill(target);
             } catch (RuntimeException e) {
                 // the rest of the tables are still worth converting; this one resumes on the next startup
-                log.error("Encrypting the personal data in table [{}] stopped; it resumes on the next startup.", target.table(), e);
+                log.error("Encrypting the sensitive values in table [{}] stopped; it resumes on the next startup.", target.table(), e);
             }
         }
 
@@ -121,7 +124,7 @@ public class PiiEncryptionBackfillRunner implements ApplicationListener<Applicat
 
         if (converted > 0 || skipped > 0) {
             // a skipped row changed while it was being converted; the app saved it encrypted
-            log.info("Encrypted the personal data of [{}] rows in table [{}] ([{}] changed meanwhile and were left as saved).", converted, target.table(), skipped);
+            log.info("Encrypted the sensitive values of [{}] rows in table [{}] ([{}] changed meanwhile and were left as saved).", converted, target.table(), skipped);
         }
 
         return converted;

@@ -71,4 +71,18 @@
             <column name="email_hash"/>
         </createIndex>
     </changeSet>
+    <!-- stored credentials, encrypted the same way -->
+    <changeSet author="rlong" id="1759795200000-13">
+        <modifyDataType tableName="api_oauth_settings" columnName="client_secret" newDataType="VARCHAR(512)"/>
+    </changeSet>
+    <!-- MySQL's MODIFY COLUMN (what modifyDataType runs) drops NOT NULL unless it's restated -->
+    <changeSet author="rlong" id="1759795200000-14">
+        <addNotNullConstraint tableName="api_oauth_settings" columnName="client_secret" columnDataType="VARCHAR(512)"/>
+    </changeSet>
+    <changeSet author="rlong" id="1759795200000-15">
+        <modifyDataType tableName="iss_configuration" columnName="api_token" newDataType="VARCHAR(512)"/>
+    </changeSet>
+    <changeSet author="rlong" id="1759795200000-16">
+        <modifyDataType tableName="iss_configuration" columnName="caliper_api_key" newDataType="VARCHAR(512)"/>
+    </changeSet>
 </databaseChangeLog>
