@@ -97,7 +97,7 @@ public class AssignmentFileArchiveController {
 
         try {
             return new ResponseEntity<>(assignmentFileArchiveService.poll(assignment, securedInfo, createNewOnOutdated), HttpStatus.OK);
-        } catch (AssignmentFileArchiveNotFoundException e) {
+        } catch (AssignmentFileArchiveNotFoundException _) {
             return new ResponseEntity<>(HttpStatus.BAD_REQUEST);
         }
     }
@@ -161,7 +161,7 @@ public class AssignmentFileArchiveController {
         try {
             assignmentFileArchiveService.outdatedAcknowledge(fileId, assignment);
             return new ResponseEntity<>(HttpStatus.OK);
-        } catch (AssignmentFileArchiveNotFoundException e) {
+        } catch (AssignmentFileArchiveNotFoundException _) {
             log.warn("Assignment file archive with ID: [{}] and assignment ID: [{}] not found.", fileId, assignment.getAssignmentId());
             return new ResponseEntity<>(HttpStatus.BAD_REQUEST);
         }
@@ -190,7 +190,7 @@ public class AssignmentFileArchiveController {
         try {
             assignmentFileArchiveService.errorAcknowledge(fileId, assignment);
             return new ResponseEntity<>(HttpStatus.OK);
-        } catch (AssignmentFileArchiveNotFoundException e) {
+        } catch (AssignmentFileArchiveNotFoundException _) {
             log.warn("Assignment file archive with ID: [{}] and assignment ID: [{}] not found.", fileId, assignment.getAssignmentId());
             return new ResponseEntity<>(HttpStatus.BAD_REQUEST);
         }

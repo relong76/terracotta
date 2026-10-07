@@ -32,6 +32,8 @@ import lombok.extern.slf4j.Slf4j;
 @SuppressWarnings({"PMD.GuardLogStatement"})
 public class AssignmentFileArchiveServiceImpl implements AssignmentFileArchiveService {
 
+    private static final String ARCHIVE_NOT_FOUND_FOR_ASSIGNMENT = "No assignment file archive with assignment ID: [%s] found.";
+
     // an archive in one of these states is compared with the latest uploads; one still being built
     // or that failed isn't
     private static final EnumSet<AssignmentFileArchiveStatus> CHECKED_FOR_NEW_UPLOADS = EnumSet.of(
@@ -72,7 +74,7 @@ public class AssignmentFileArchiveServiceImpl implements AssignmentFileArchiveSe
     @Override
     public AssignmentFileArchiveDto poll(Assignment assignment, SecuredInfo securedInfo, boolean createNewOnOutdated) throws IOException, AssignmentFileArchiveNotFoundException {
         AssignmentFileArchive assignmentFileArchive = assignmentFileArchiveRepository.findTopByAssignment_AssignmentIdOrderByCreatedAtDesc(assignment.getAssignmentId())
-            .orElseThrow(() -> new AssignmentFileArchiveNotFoundException(String.format("No assignment file archive with assignment ID: [%s] found.", assignment.getAssignmentId())));
+            .orElseThrow(() -> new AssignmentFileArchiveNotFoundException(String.format(ARCHIVE_NOT_FOUND_FOR_ASSIGNMENT, assignment.getAssignmentId())));
 
         if (!CHECKED_FOR_NEW_UPLOADS.contains(assignmentFileArchive.getStatus())) {
             // still being built, or failed - not something new uploads make outdated; marking it
@@ -138,7 +140,7 @@ public class AssignmentFileArchiveServiceImpl implements AssignmentFileArchiveSe
     @Override
     public void outdatedAcknowledge(UUID uuid, Assignment assignment) throws AssignmentFileArchiveNotFoundException {
         AssignmentFileArchive assignmentFileArchive = assignmentFileArchiveRepository.findByUuidAndAssignment_AssignmentId(uuid, assignment.getAssignmentId())
-            .orElseThrow(() -> new AssignmentFileArchiveNotFoundException(String.format("No assignment file archive with assignment ID: [%s] found.", assignment.getAssignmentId())));
+            .orElseThrow(() -> new AssignmentFileArchiveNotFoundException(String.format(ARCHIVE_NOT_FOUND_FOR_ASSIGNMENT, assignment.getAssignmentId())));
 
         if (AssignmentFileArchiveStatus.OUTDATED != assignmentFileArchive.getStatus()) {
             // nothing to dismiss
@@ -152,7 +154,7 @@ public class AssignmentFileArchiveServiceImpl implements AssignmentFileArchiveSe
     @Override
     public void errorAcknowledge(UUID uuid, Assignment assignment) throws IOException, AssignmentFileArchiveNotFoundException {
         AssignmentFileArchive assignmentFileArchive = assignmentFileArchiveRepository.findByUuidAndAssignment_AssignmentId(uuid, assignment.getAssignmentId())
-            .orElseThrow(() -> new AssignmentFileArchiveNotFoundException(String.format("No assignment file archive with assignment ID: [%s] found.", assignment.getAssignmentId())));
+            .orElseThrow(() -> new AssignmentFileArchiveNotFoundException(String.format(ARCHIVE_NOT_FOUND_FOR_ASSIGNMENT, assignment.getAssignmentId())));
 
         assignmentFileArchive.setStatus(AssignmentFileArchiveStatus.ERROR_ACKNOWLEDGED);
         assignmentFileArchiveRepository.save(assignmentFileArchive);
