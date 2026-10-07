@@ -6,7 +6,8 @@ import org.apache.commons.lang3.Strings;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 
 import edu.iu.terracotta.connectors.generic.dao.entity.UuidAwareEntity;
-import edu.iu.terracotta.security.pii.LtiUserPiiListener;
+import edu.iu.terracotta.security.pii.EmailHashListener;
+import edu.iu.terracotta.security.pii.HashedEmail;
 import edu.iu.terracotta.security.pii.PiiStringConverter;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -42,7 +43,7 @@ import java.util.Set;
 @NoArgsConstructor
 @AllArgsConstructor
 @JsonIgnoreProperties(ignoreUnknown = true)
-@EntityListeners(LtiUserPiiListener.class)
+@EntityListeners(EmailHashListener.class)
 @Table(
     name = "lti_user",
     uniqueConstraints = {
@@ -52,7 +53,7 @@ import java.util.Set;
         @Index(name = "IDX_LTI_USER_EMAIL_HASH", columnList = "email_hash, key_id")
     }
 )
-public class LtiUserEntity extends UuidAwareEntity {
+public class LtiUserEntity extends UuidAwareEntity implements HashedEmail {
 
     public static final String TEST_STUDENT_DISPLAY_NAME = "Test Student";
 
@@ -93,7 +94,7 @@ public class LtiUserEntity extends UuidAwareEntity {
     @Convert(converter = PiiStringConverter.class)
     private String email;
 
-    // keyed hash of the email (PiiCipher.hashEmail), kept current by LtiUserPiiListener
+    // keyed hash of the email (PiiCipher.hashEmail), kept current by EmailHashListener
     @Column(
         name = "email_hash",
         length = 64

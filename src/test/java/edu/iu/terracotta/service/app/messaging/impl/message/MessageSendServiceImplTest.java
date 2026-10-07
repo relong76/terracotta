@@ -143,7 +143,7 @@ public class MessageSendServiceImplTest extends BaseTest {
             .thenReturn(List.of(participant))
             .thenReturn(List.of());
         when(apiClient.listUsersForCourse(any(), any(LtiUserEntity.class))).thenReturn(List.of(student));
-        when(lmsUserBatchRepository.findBatchProjectionsByBatchIdAndEmailIn(any(UUID.class), any(), any())).thenReturn(List.of(batchEmailProjection));
+        when(lmsUserBatchRepository.findBatchProjectionsByBatchIdAndEmailHashIn(any(UUID.class), any(), any())).thenReturn(List.of(batchEmailProjection));
         when(ltiUserRepository.findAllByEmailHashInAndPlatformDeployment_KeyId(any(), anyLong())).thenReturn(List.of(recipient));
         when(ruleComparisonService.getLmsSubmissions(message)).thenReturn(
             Map.of("q1", List.of(LmsSubmission.builder().userId("s1").build()))
@@ -167,7 +167,7 @@ public class MessageSendServiceImplTest extends BaseTest {
 
     @Test
     public void testGetRecipientsNoStudentsReturnsEmpty() throws Exception {
-        when(lmsUserBatchRepository.findBatchProjectionsByBatchIdAndEmailIn(any(UUID.class), any(), any())).thenReturn(List.of());
+        when(lmsUserBatchRepository.findBatchProjectionsByBatchIdAndEmailHashIn(any(UUID.class), any(), any())).thenReturn(List.of());
 
         List<LtiUserEntity> recipients = messageSendService.getRecipients(message);
 

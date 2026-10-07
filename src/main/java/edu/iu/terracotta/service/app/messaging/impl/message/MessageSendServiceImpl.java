@@ -117,10 +117,12 @@ public class MessageSendServiceImpl implements MessageSendService {
         }
 
         while (CollectionUtils.isNotEmpty(participants.get())) {
-            List<LmsUserBatchEmailProjection> batchEmails = lmsUserBatchRepository.findBatchProjectionsByBatchIdAndEmailIn(
+            // emails are stored encrypted, so staged users are matched by email hash
+            List<LmsUserBatchEmailProjection> batchEmails = lmsUserBatchRepository.findBatchProjectionsByBatchIdAndEmailHashIn(
                 batchId,
                 participants.get().stream()
-                    .map(p -> p.getLtiUserEntity().getEmail())
+                    .map(p -> piiCipher.hashEmail(p.getLtiUserEntity().getEmail()))
+                    .filter(Objects::nonNull)
                     .toList(),
                 PageRequest.of(0, batchSize)
             );

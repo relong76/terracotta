@@ -16,6 +16,7 @@ import static org.mockito.Mockito.when;
 
 import java.sql.Timestamp;
 import java.time.Instant;
+import java.util.Base64;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -39,6 +40,7 @@ import edu.iu.terracotta.dao.entity.Experiment;
 import edu.iu.terracotta.dao.entity.projection.LmsParticipantSummary;
 import edu.iu.terracotta.dao.exceptions.ParticipantNotUpdatedException;
 import edu.iu.terracotta.dao.model.enums.FeatureType;
+import edu.iu.terracotta.security.pii.PiiCipher;
 import edu.iu.terracotta.service.app.FeatureService;
 import edu.iu.terracotta.service.app.async.LmsUserBatchAsyncService;
 
@@ -65,6 +67,7 @@ public class ParticipantAsyncServiceImplTest extends BaseTest {
             experimentRepository,
             ltiContextRepository,
             ltiUserRepository,
+            new PiiCipher("1", Base64.getEncoder().encodeToString(new byte[32]), "", Base64.getEncoder().encodeToString(new byte[32])),
             participantRepository,
             apiClient,
             featureService,
@@ -183,7 +186,7 @@ public class ParticipantAsyncServiceImplTest extends BaseTest {
         LmsUserBatchEmailProjection batchEmail = mock(LmsUserBatchEmailProjection.class);
         when(batchEmail.getEmail()).thenReturn(EMAIL);
         when(batchEmail.getLmsUserId()).thenReturn("lms-user-1");
-        when(lmsUserBatchRepository.findBatchProjectionsByBatchIdAndEmailIn(any(UUID.class), any(), any())).thenReturn(List.of(batchEmail));
+        when(lmsUserBatchRepository.findBatchProjectionsByBatchIdAndEmailHashIn(any(UUID.class), any(), any())).thenReturn(List.of(batchEmail));
 
         participantAsyncService.updateParticipantData(securedInfo);
 
@@ -203,7 +206,7 @@ public class ParticipantAsyncServiceImplTest extends BaseTest {
             .thenReturn(List.of(firstPageSummary))
             .thenReturn(List.of());
         when(participantRepository.findAllById(any())).thenReturn(List.of(participant));
-        when(lmsUserBatchRepository.findBatchProjectionsByBatchIdAndEmailIn(any(UUID.class), any(), any())).thenReturn(List.of());
+        when(lmsUserBatchRepository.findBatchProjectionsByBatchIdAndEmailHashIn(any(UUID.class), any(), any())).thenReturn(List.of());
 
         participantAsyncService.updateParticipantData(securedInfo);
 
@@ -219,7 +222,7 @@ public class ParticipantAsyncServiceImplTest extends BaseTest {
             .thenReturn(List.of(unmatchedSummary))
             .thenReturn(List.of());
         when(participantRepository.findAllById(any())).thenReturn(List.of());
-        when(lmsUserBatchRepository.findBatchProjectionsByBatchIdAndEmailIn(any(UUID.class), any(), any())).thenReturn(List.of());
+        when(lmsUserBatchRepository.findBatchProjectionsByBatchIdAndEmailHashIn(any(UUID.class), any(), any())).thenReturn(List.of());
 
         assertDoesNotThrow(() -> participantAsyncService.updateParticipantData(securedInfo));
 
@@ -237,7 +240,7 @@ public class ParticipantAsyncServiceImplTest extends BaseTest {
             .thenReturn(List.of(secondPageSummary))
             .thenReturn(List.of());
         when(participantRepository.findAllById(any())).thenReturn(List.of(participant));
-        when(lmsUserBatchRepository.findBatchProjectionsByBatchIdAndEmailIn(any(UUID.class), any(), any())).thenReturn(List.of());
+        when(lmsUserBatchRepository.findBatchProjectionsByBatchIdAndEmailHashIn(any(UUID.class), any(), any())).thenReturn(List.of());
 
         participantAsyncService.updateParticipantData(securedInfo);
 
