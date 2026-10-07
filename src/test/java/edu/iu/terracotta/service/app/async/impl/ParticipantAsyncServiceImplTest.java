@@ -83,10 +83,9 @@ public class ParticipantAsyncServiceImplTest extends BaseTest {
         when(participantRepository.existsLmsParticipantSummaryToUpdateByContextId(anyLong())).thenReturn(1L);
     }
 
-    private LmsParticipantSummary summary(long id, String email) {
+    private LmsParticipantSummary summary(long id) {
         LmsParticipantSummary summary = mock(LmsParticipantSummary.class);
         when(summary.getId()).thenReturn(id);
-        when(summary.getEmail()).thenReturn(email);
 
         return summary;
     }
@@ -175,7 +174,7 @@ public class ParticipantAsyncServiceImplTest extends BaseTest {
     @Test
     public void testUpdateParticipantDataSuccessUpdatesLmsUserIdByEmail() throws Exception {
         when(ltiUserRepository.findFirstByUserKeyAndPlatformDeployment_KeyId(anyString(), anyLong())).thenReturn(ltiUserEntity);
-        LmsParticipantSummary firstPageSummary = summary(1L, EMAIL);
+        LmsParticipantSummary firstPageSummary = summary(1L);
         when(participantRepository.findLmsParticipantSummaryToUpdateByContextId(anyLong(), anyInt(), anyLong()))
             .thenReturn(List.of(firstPageSummary))
             .thenReturn(List.of());
@@ -199,7 +198,7 @@ public class ParticipantAsyncServiceImplTest extends BaseTest {
     @Test
     public void testUpdateParticipantDataNoMatchingEmailSetsLmsUserIdNull() throws Exception {
         when(ltiUserRepository.findFirstByUserKeyAndPlatformDeployment_KeyId(anyString(), anyLong())).thenReturn(ltiUserEntity);
-        LmsParticipantSummary firstPageSummary = summary(1L, EMAIL);
+        LmsParticipantSummary firstPageSummary = summary(1L);
         when(participantRepository.findLmsParticipantSummaryToUpdateByContextId(anyLong(), anyInt(), anyLong()))
             .thenReturn(List.of(firstPageSummary))
             .thenReturn(List.of());
@@ -215,7 +214,7 @@ public class ParticipantAsyncServiceImplTest extends BaseTest {
     @Test
     public void testUpdateParticipantDataSummaryWithNoMatchingParticipantIsSkipped() throws Exception {
         when(ltiUserRepository.findFirstByUserKeyAndPlatformDeployment_KeyId(anyString(), anyLong())).thenReturn(ltiUserEntity);
-        LmsParticipantSummary unmatchedSummary = summary(99L, EMAIL);
+        LmsParticipantSummary unmatchedSummary = summary(99L);
         when(participantRepository.findLmsParticipantSummaryToUpdateByContextId(anyLong(), anyInt(), anyLong()))
             .thenReturn(List.of(unmatchedSummary))
             .thenReturn(List.of());
@@ -231,8 +230,8 @@ public class ParticipantAsyncServiceImplTest extends BaseTest {
     @Test
     public void testUpdateParticipantDataMultiplePagesProcessed() throws Exception {
         when(ltiUserRepository.findFirstByUserKeyAndPlatformDeployment_KeyId(anyString(), anyLong())).thenReturn(ltiUserEntity);
-        LmsParticipantSummary firstPageSummary = summary(1L, EMAIL);
-        LmsParticipantSummary secondPageSummary = summary(1L, EMAIL);
+        LmsParticipantSummary firstPageSummary = summary(1L);
+        LmsParticipantSummary secondPageSummary = summary(1L);
         when(participantRepository.findLmsParticipantSummaryToUpdateByContextId(anyLong(), anyInt(), anyLong()))
             .thenReturn(List.of(firstPageSummary))
             .thenReturn(List.of(secondPageSummary))
