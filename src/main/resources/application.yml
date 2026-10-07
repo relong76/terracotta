@@ -197,10 +197,6 @@ app:
     encryption:
       backfill:
         enabled: true
-      # ONLY to roll back to a build without encryption: on startup, decrypt everything back to
-      # plain text and save new values unencrypted. Turn it on, start once, wait for the
-      # "Decryption finished" log line, then stop Terracotta and deploy the earlier build.
-      decrypt-all: false
   # convert consent files to secure encryption and storage
   consent:
     documents:
@@ -323,6 +319,10 @@ pii:
     key-id: ${PII_ENCRYPTION_KEY_ID:1}
     key: ${PII_ENCRYPTION_KEY:}
     retired-keys: ${PII_ENCRYPTION_RETIRED_KEYS:}
+    # ONLY to roll back to a build without encryption: on startup, decrypt everything back to
+    # plain text and save new values unencrypted. Turn it on, start once, wait for the
+    # "Decryption finished" log line, then stop Terracotta and deploy the earlier build.
+    decrypt-all: false
   hash:
     key: ${PII_HASH_KEY:}
 

@@ -27,7 +27,7 @@ import lombok.extern.slf4j.Slf4j;
  * email isn't hashed yet can't be matched by email, though, so messaging may miss them until the
  * backfill reaches their row.
  *
- * With app.pii.encryption.decrypt-all on, it does the reverse instead: every encrypted value is
+ * With pii.encryption.decrypt-all on, it does the reverse instead: every encrypted value is
  * decrypted back to plain text, so a build without encryption can read the database again. That
  * is only for rolling back. The email hashes are left in place: the older build ignores them, and
  * they're recomputed if encryption is turned back on.
@@ -64,13 +64,13 @@ public class PiiEncryptionBackfillRunner implements ApplicationListener<Applicat
     @Value("${app.pii.encryption.backfill.batch-size:500}")
     private int batchSize;
 
-    @Value("${app.pii.encryption.decrypt-all:false}")
+    @Value("${pii.encryption.decrypt-all:false}")
     private boolean decryptAll;
 
     @Override
     public void onApplicationEvent(ApplicationReadyEvent event) {
         if (decryptAll) {
-            log.warn("app.pii.encryption.decrypt-all is on: decrypting all stored personal data and secrets back to plain text, and saving new values unencrypted. Only use this to roll back to a build without encryption.");
+            log.warn("pii.encryption.decrypt-all is on: decrypting all stored personal data and secrets back to plain text, and saving new values unencrypted. Only use this to roll back to a build without encryption.");
             start(this::decryptAll, "pii-decrypt-all");
             return;
         }
@@ -113,7 +113,7 @@ public class PiiEncryptionBackfillRunner implements ApplicationListener<Applicat
         }
 
         if (complete) {
-            log.warn("Decryption finished: [{}] rows were decrypted and no encrypted values remain. Stop Terracotta and deploy the earlier build; to keep encryption instead, turn app.pii.encryption.decrypt-all off and restart.", decrypted);
+            log.warn("Decryption finished: [{}] rows were decrypted and no encrypted values remain. Stop Terracotta and deploy the earlier build; to keep encryption instead, turn pii.encryption.decrypt-all off and restart.", decrypted);
         }
 
         return decrypted;

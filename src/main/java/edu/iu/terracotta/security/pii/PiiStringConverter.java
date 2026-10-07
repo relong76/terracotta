@@ -10,7 +10,7 @@ import jakarta.persistence.Converter;
  * Stores a PII string column encrypted. Hibernate gets this converter from Spring, so the
  * configured keys are injected.
  *
- * With app.pii.encryption.decrypt-all on (only while preparing to roll back to a build without
+ * With pii.encryption.decrypt-all on (only while preparing to roll back to a build without
  * encryption), values are saved in plain text, so nothing is re-encrypted after the startup
  * decryption has run.
  */
@@ -21,7 +21,7 @@ public class PiiStringConverter implements AttributeConverter<String, String> {
     private final PiiCipher piiCipher;
     private final boolean decryptAll;
 
-    public PiiStringConverter(PiiCipher piiCipher, @Value("${app.pii.encryption.decrypt-all:false}") boolean decryptAll) {
+    public PiiStringConverter(PiiCipher piiCipher, @Value("${pii.encryption.decrypt-all:false}") boolean decryptAll) {
         this.piiCipher = piiCipher;
         this.decryptAll = decryptAll;
     }
