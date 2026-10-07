@@ -93,7 +93,7 @@ public final class PiiCli {
             return 2;
         }
 
-        if (console != null) {
+        if (console != null && console.isTerminal()) {
             char[] value = console.readPassword("Value: ");
 
             if (value == null) {
