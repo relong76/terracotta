@@ -76,6 +76,8 @@ class PiiEncryptionRealHibernateTest {
         jdbcTemplate.execute("SET REFERENTIAL_INTEGRITY FALSE");
         jdbcTemplate.update("DELETE FROM terr_submission_comment");
         jdbcTemplate.update("DELETE FROM terr_messaging_message_log");
+        // platforms earlier tests created (and encrypted secrets on) would otherwise count here too
+        jdbcTemplate.update("DELETE FROM iss_configuration");
         jdbcTemplate.execute("SET REFERENTIAL_INTEGRITY TRUE");
 
         platformDeployment = platformDeploymentRepository.saveAndFlush(
@@ -323,6 +325,52 @@ class PiiEncryptionRealHibernateTest {
         String secret = jdbcTemplate.queryForObject("SELECT client_secret FROM api_oauth_settings", String.class);
         assertEquals("legacy-secret", piiCipher.decrypt(secret));
         assertTrue(PiiCipher.isEncrypted(secret));
+    }
+
+    @Test
+    void decryptAllTurnsEverythingBackIntoPlainTextForARollback() {
+        long userId = save("ada@example.com", "Ada Lovelace").getUserId();
+        apiTokenRepository.saveAndFlush(
+            ApiTokenEntity.builder()
+                .user(ltiUserRepository.findById(userId).orElseThrow())
+                .lmsConnector(LmsConnector.CANVAS)
+                .accessToken("canvas-access-token")
+                .refreshToken("canvas-refresh-token")
+                .expiresAt(new Timestamp(System.currentTimeMillis()))
+                .lmsUserId("lms-1")
+                .lmsUserName("Ada Lovelace")
+                .build()
+        );
+        lmsUserBatchRepository.saveAndFlush(LmsUserBatch.builder().batchId(UUID.randomUUID()).email("ada@example.com").name("Ada").build());
+
+        assertEquals(2, backfillRunner.decryptAll());
+
+        Map<String, Object> user = rawRow(userId);
+        assertEquals("ada@example.com", user.get("email"));
+        assertEquals("Ada Lovelace", user.get("displayname"));
+        Map<String, Object> token = jdbcTemplate.queryForMap("SELECT access_token, refresh_token, lms_user_name FROM api_token");
+        assertEquals("canvas-access-token", token.get("access_token"));
+        assertEquals("canvas-refresh-token", token.get("refresh_token"));
+        assertEquals("Ada Lovelace", token.get("lms_user_name"));
+        // the staged roster is dropped rather than decrypted
+        assertEquals(0, jdbcTemplate.queryForObject("SELECT COUNT(*) FROM lms_user_batch", Integer.class));
+        // a second run finds nothing left to decrypt
+        assertEquals(0, backfillRunner.decryptAll());
+    }
+
+    @Test
+    void encryptionCanBeTurnedBackOnAfterADecryptAll() {
+        long userId = save("ada@example.com", "Ada Lovelace").getUserId();
+        backfillRunner.decryptAll();
+        // the older build changes the email while it's in plain text, leaving a stale hash behind
+        jdbcTemplate.update("UPDATE lti_user SET email = 'countess@example.com' WHERE user_id = ?", userId);
+
+        assertEquals(1, backfillRunner.backfill());
+
+        Map<String, Object> row = rawRow(userId);
+        assertTrue(PiiCipher.isEncrypted((String) row.get("email")));
+        assertTrue(PiiCipher.isEncrypted((String) row.get("displayname")));
+        assertEquals(piiCipher.hashEmail("countess@example.com"), row.get("email_hash"));
     }
 
     private LtiUserEntity save(String email, String displayName) {

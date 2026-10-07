@@ -26,6 +26,11 @@ import lombok.extern.slf4j.Slf4j;
  * Until a row is converted it still works: the converter reads plain text as-is. A user whose
  * email isn't hashed yet can't be matched by email, though, so messaging may miss them until the
  * backfill reaches their row.
+ *
+ * With app.pii.encryption.decrypt-all on, it does the reverse instead: every encrypted value is
+ * decrypted back to plain text, so a build without encryption can read the database again. That
+ * is only for rolling back. The email hashes are left in place: the older build ignores them, and
+ * they're recomputed if encryption is turned back on.
  */
 @Slf4j
 @Component
@@ -59,15 +64,59 @@ public class PiiEncryptionBackfillRunner implements ApplicationListener<Applicat
     @Value("${app.pii.encryption.backfill.batch-size:500}")
     private int batchSize;
 
+    @Value("${app.pii.encryption.decrypt-all:false}")
+    private boolean decryptAll;
+
     @Override
     public void onApplicationEvent(ApplicationReadyEvent event) {
-        if (!enabled) {
+        if (decryptAll) {
+            log.warn("app.pii.encryption.decrypt-all is on: decrypting all stored personal data and secrets back to plain text, and saving new values unencrypted. Only use this to roll back to a build without encryption.");
+            start(this::decryptAll, "pii-decrypt-all");
             return;
         }
 
-        Thread thread = new Thread(this::backfill, "pii-encryption-backfill");
+        if (enabled) {
+            start(this::backfill, "pii-encryption-backfill");
+        }
+    }
+
+    private static void start(Runnable work, String name) {
+        Thread thread = new Thread(work, name);
         thread.setDaemon(true);
         thread.start();
+    }
+
+    /**
+     * Decrypts every encrypted value back to plain text, for rolling back to a build without
+     * encryption.
+     *
+     * @return the number of rows decrypted, across all tables
+     */
+    public int decryptAll() {
+        int decrypted = 0;
+        boolean complete = true;
+
+        // a roster staged mid-sync; the older build's next sync stages it again
+        int staged = jdbcTemplate.update("DELETE FROM lms_user_batch");
+
+        if (staged > 0) {
+            log.info("Deleted [{}] staged roster rows from table [lms_user_batch]; the next roster sync stages them again.", staged);
+        }
+
+        for (Target target : TARGETS) {
+            try {
+                decrypted += run(target, true);
+            } catch (RuntimeException e) {
+                complete = false;
+                log.error("Decrypting table [{}] stopped; restart with decrypt-all still on to finish it before rolling back.", target.table(), e);
+            }
+        }
+
+        if (complete) {
+            log.warn("Decryption finished: [{}] rows were decrypted and no encrypted values remain. Stop Terracotta and deploy the earlier build; to keep encryption instead, turn app.pii.encryption.decrypt-all off and restart.", decrypted);
+        }
+
+        return decrypted;
     }
 
     /**
@@ -78,7 +127,7 @@ public class PiiEncryptionBackfillRunner implements ApplicationListener<Applicat
 
         for (Target target : TARGETS) {
             try {
-                converted += backfill(target);
+                converted += run(target, false);
             } catch (RuntimeException e) {
                 // the rest of the tables are still worth converting; this one resumes on the next startup
                 log.error("Encrypting the sensitive values in table [{}] stopped; it resumes on the next startup.", target.table(), e);
@@ -88,7 +137,7 @@ public class PiiEncryptionBackfillRunner implements ApplicationListener<Applicat
         return converted;
     }
 
-    private int backfill(Target target) {
+    private int run(Target target, boolean decrypting) {
         int converted = 0;
         int skipped = 0;
         long lastId = 0;
@@ -98,7 +147,7 @@ public class PiiEncryptionBackfillRunner implements ApplicationListener<Applicat
             List<Long> ids = new ArrayList<>();
 
             jdbcTemplate.query(
-                target.selectSql(),
+                decrypting ? target.encryptedSelectSql() : target.selectSql(),
                 rs -> {
                     ids.add(rs.getLong(target.idColumn()));
                     rows.add(values(rs, target));
@@ -114,7 +163,7 @@ public class PiiEncryptionBackfillRunner implements ApplicationListener<Applicat
             for (int i = 0; i < rows.size(); i++) {
                 lastId = ids.get(i);
 
-                if (convert(target, lastId, rows.get(i))) {
+                if (convert(target, lastId, rows.get(i), decrypting)) {
                     converted++;
                 } else {
                     skipped++;
@@ -123,23 +172,28 @@ public class PiiEncryptionBackfillRunner implements ApplicationListener<Applicat
         }
 
         if (converted > 0 || skipped > 0) {
-            // a skipped row changed while it was being converted; the app saved it encrypted
-            log.info("Encrypted the sensitive values of [{}] rows in table [{}] ([{}] changed meanwhile and were left as saved).", converted, target.table(), skipped);
+            // a skipped row changed while it was being converted, and the app saved it in the new form
+            log.info("{} the sensitive values of [{}] rows in table [{}] ([{}] changed meanwhile and were left as saved).", decrypting ? "Decrypted" : "Encrypted", converted, target.table(), skipped);
         }
 
         return converted;
     }
 
-    private boolean convert(Target target, long id, Map<String, String> read) {
+    private boolean convert(Target target, long id, Map<String, String> read, boolean decrypting) {
         List<String> sets = new ArrayList<>();
         List<Object> setArgs = new ArrayList<>();
 
         for (String column : target.columns()) {
             sets.add(column + " = ?");
-            setArgs.add(PiiCipher.isEncrypted(read.get(column)) ? read.get(column) : piiCipher.encrypt(read.get(column)));
+
+            if (decrypting) {
+                setArgs.add(piiCipher.decrypt(read.get(column)));
+            } else {
+                setArgs.add(PiiCipher.isEncrypted(read.get(column)) ? read.get(column) : piiCipher.encrypt(read.get(column)));
+            }
         }
 
-        if (target.hashColumn() != null) {
+        if (!decrypting && target.hashColumn() != null) {
             sets.add(target.hashColumn() + " = ?");
             setArgs.add(piiCipher.hashEmail(piiCipher.decrypt(read.get(target.hashSource()))));
         }
@@ -178,6 +232,19 @@ public class PiiEncryptionBackfillRunner implements ApplicationListener<Applicat
      * A table's encrypted columns, and optionally the hash column kept for one of them.
      */
     record Target(String table, String idColumn, List<String> columns, String hashSource, String hashColumn) {
+
+        // rows with any value still encrypted
+        String encryptedSelectSql() {
+            String encrypted = columns.stream()
+                .map(column -> column + " LIKE '" + PiiCipher.PREFIX + "%'")
+                .collect(Collectors.joining(" OR "));
+
+            return "SELECT " + idColumn + ", " + String.join(", ", columns)
+                + " FROM " + table
+                + " WHERE " + idColumn + " > ? AND (" + encrypted + ")"
+                + " ORDER BY " + idColumn
+                + " LIMIT ?";
+        }
 
         // rows with a value not yet encrypted, or an email not yet hashed
         String selectSql() {

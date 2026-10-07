@@ -192,11 +192,15 @@ app:
       output:
         participant:
           threshold: 400
-  # encrypt lti_user emails and display names saved before those columns were encrypted
+  # encrypt personal data and secrets saved before their columns were encrypted
   pii:
     encryption:
       backfill:
         enabled: true
+      # ONLY to roll back to a build without encryption: on startup, decrypt everything back to
+      # plain text and save new values unencrypted. Turn it on, start once, wait for the
+      # "Decryption finished" log line, then stop Terracotta and deploy the earlier build.
+      decrypt-all: false
   # convert consent files to secure encryption and storage
   consent:
     documents:
