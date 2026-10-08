@@ -395,6 +395,7 @@ public class CanvasApiJwtServiceImpl implements ApiJwtService {
 
         String experimentIdText = queryParams.getFirst(JwtClaim.EXPERIMENT.key());
         UUID experimentId = resolveExperimentUuid(experimentIdText);
+        Integer allowedAttempts = extractAllowedAttempts(lti3Request.getLtiCustom());
 
         return buildJwt(
             oneUse,
@@ -416,8 +417,8 @@ public class CanvasApiJwtServiceImpl implements ApiJwtService {
             MapUtils.getString(lti3Request.getLtiCustom(), JwtClaim.LOCK_AT.key(), ""),
             MapUtils.getString(lti3Request.getLtiCustom(), JwtClaim.UNLOCK_AT.key(), ""),
             lti3Request.getNonce(),
-            extractAllowedAttempts(lti3Request.getLtiCustom()),
-            extractStudentAttempts(lti3Request.getLtiCustom()));
+            allowedAttempts,
+            extractStudentAttempts(lti3Request.getLtiCustom(), allowedAttempts));
     }
 
     @Override
@@ -780,21 +781,36 @@ public class CanvasApiJwtServiceImpl implements ApiJwtService {
      * Get student_attempts from LTI custom claims (variable substitution). If
      * student_attempts claim exists, but the value is null, return 0 instead.
      *
+     * In an assignment launch (allowed_attempts resolved), Canvas leaves
+     * $Canvas.assignment.submission.studentAttempts unreplaced when the student has no
+     * submission yet, so that also means 0 attempts. Without this, a student's first attempt
+     * had no count and every attempt check fell back to Canvas API calls.
+     *
      * @param ltiCustomClaims
+     * @param allowedAttempts the launch's allowed_attempts, as extracted
      * @return
      */
-    private Integer extractStudentAttempts(Map<String, Object> ltiCustomClaims) {
+    private Integer extractStudentAttempts(Map<String, Object> ltiCustomClaims, Integer allowedAttempts) {
         if (ltiCustomClaims.containsKey(CanvasJwtClaim.STUDENT_ATTEMPTS.key(1))) {
-            Integer allowedAttempts = parseInt(ltiCustomClaims.get(CanvasJwtClaim.STUDENT_ATTEMPTS.key(1)));
+            Object value = ltiCustomClaims.get(CanvasJwtClaim.STUDENT_ATTEMPTS.key(1));
+            Integer studentAttempts = parseInt(value);
 
-            if (allowedAttempts != null) {
-                return allowedAttempts;
-            } else if (ltiCustomClaims.get(CanvasJwtClaim.STUDENT_ATTEMPTS.key(1)) == null) {
+            if (studentAttempts != null) {
+                return studentAttempts;
+            } else if (value == null) {
+                return 0;
+            } else if (allowedAttempts != null && isUnreplacedCanvasVariable(value)) {
                 return 0;
             }
         }
 
         return null;
+    }
+
+    // Canvas sends a custom variable back as written (e.g. "$Canvas.assignment.allowedAttempts")
+    // when it has no value for this launch
+    private static boolean isUnreplacedCanvasVariable(Object value) {
+        return value instanceof String text && text.startsWith("$Canvas.");
     }
 
     private boolean isBearerToken(String rawHeaderValue) {
