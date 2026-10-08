@@ -533,6 +533,33 @@ class ExperimentImportAsyncServiceImplTest extends BaseTest {
         verify(integrationClientRepository, never()).save(any(IntegrationClient.class));
     }
 
+    @Test
+    void testProcessKeepsTheConsentFileName() throws IOException, AssignmentNotCreatedException, TerracottaConnectorException {
+        Export export = fullExport();
+        export.getExperiment().setParticipationType(ParticipationTypes.CONSENT);
+        export.setConsentDocument(ConsentDocumentExport.builder().id("200").title("consent title").fileName("xyz.pdf").html("<p>consent</p>").experimentId("100").build());
+        writeExportJson(export);
+
+        File consentDir = importDirectory.resolve("consent").toFile();
+        consentDir.mkdirs();
+        Files.writeString(consentDir.toPath().resolve(ExperimentImport.CONSENT_FILE_NAME), "pdf-bytes");
+
+        when(fileStorageService.saveConsentFile(any(), anyString())).thenReturn(
+            edu.iu.terracotta.dao.entity.FileSubmissionLocal.builder()
+                .encryptionMethod("AES")
+                .encryptionPhrase("phrase")
+                .filePath("/tmp/consent.pdf")
+                .build()
+        );
+        when(assignmentService.createAssignmentInLms(any(), any(), anyLong(), anyString())).thenReturn(assignment);
+
+        experimentImportAsyncServiceImpl.process(experimentImport, securedInfo, LmsRepointTargets.builder().build(), false, true);
+
+        ArgumentCaptor<ConsentDocument> saved = ArgumentCaptor.forClass(ConsentDocument.class);
+        verify(consentDocumentRepository, atLeastOnce()).save(saved.capture());
+        assertEquals("xyz.pdf", saved.getAllValues().get(0).getFileName());
+    }
+
     // a copied course already has its consent assignment - point it at the recreated experiment
     // rather than creating a second, unpublished one
     @Test
