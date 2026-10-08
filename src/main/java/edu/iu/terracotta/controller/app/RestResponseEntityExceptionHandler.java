@@ -55,6 +55,7 @@ import lombok.extern.slf4j.Slf4j;
 import java.io.IOException;
 
 import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.lang3.Strings;
 import org.apache.commons.lang3.exception.ExceptionUtils;
 import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.http.HttpHeaders;
@@ -565,7 +566,7 @@ public class RestResponseEntityExceptionHandler
             .anyMatch(
                 throwable -> "org.apache.catalina.connector.ClientAbortException".equals(throwable.getClass().getName())
                     || (throwable instanceof IOException
-                        && StringUtils.containsAnyIgnoreCase(throwable.getMessage(), "Broken pipe", "Connection reset"))
+                        && Strings.CI.containsAny(throwable.getMessage(), "Broken pipe", "Connection reset"))
             );
     }
 
