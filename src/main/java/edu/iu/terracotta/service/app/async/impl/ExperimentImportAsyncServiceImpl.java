@@ -335,6 +335,8 @@ public class ExperimentImportAsyncServiceImpl implements ExperimentImportAsyncSe
                         .lmsAssignmentId(null)
                         .resourceLinkId(null)
                         .title(export.getConsentDocument().getTitle())
+                        // exports made before file names were kept don't carry one
+                        .fileName(export.getConsentDocument().getFileName())
                         .build()
                 );
                 idMap.get(ConsentDocument.class).put(export.getConsentDocument().getId(), consentDocument);
