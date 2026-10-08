@@ -247,26 +247,43 @@ public class CanvasApiJwtServiceImplTest extends BaseTest {
         assertEquals(0, claims.get("studentAttempts"));
     }
 
-    // assignment context, the student's first attempt: Canvas leaves student_attempts unreplaced
+    // an assignment with unlimited attempts (Terracotta's default): Canvas leaves allowed_attempts unreplaced
     @Test
-    public void testBuildJwtWithUnreplacedStudentAttemptsCustomVariable() throws GeneralSecurityException, IOException, TerracottaConnectorException {
+    public void testBuildJwtWithUnreplacedAllowedAttemptsInAnAssignmentLaunch() throws GeneralSecurityException, IOException, TerracottaConnectorException {
 
+        customVars.put("canvas_assignment_id", "11323");
+        customVars.put("allowed_attempts", "$Canvas.assignment.allowedAttempts");
+        customVars.put("student_attempts", "2");
+
+        String jwt = canvasApiJWTService.buildJwt(false, lti3Request);
+        Map<String, Object> claims = canvasApiJWTService.unsecureToken(jwt, platformDeployment);
+
+        // unlimited, so the attempt check needs no Canvas API calls
+        assertEquals(-1, claims.get("allowedAttempts"));
+        assertEquals(2, claims.get("studentAttempts"));
+    }
+
+    // a limited-attempt assignment, the student's first attempt: Canvas leaves student_attempts unreplaced
+    @Test
+    public void testBuildJwtWithUnreplacedStudentAttemptsInAnAssignmentLaunch() throws GeneralSecurityException, IOException, TerracottaConnectorException {
+
+        customVars.put("canvas_assignment_id", "11323");
         customVars.put("allowed_attempts", "3");
         customVars.put("student_attempts", "$Canvas.assignment.submission.studentAttempts");
 
         String jwt = canvasApiJWTService.buildJwt(false, lti3Request);
         Map<String, Object> claims = canvasApiJWTService.unsecureToken(jwt, platformDeployment);
 
-        // no submission yet is 0 attempts, so the attempt check can use the launch values
         assertEquals(3, claims.get("allowedAttempts"));
         assertEquals(0, claims.get("studentAttempts"));
     }
 
-    // assignment context, unlimited attempts, the student's first attempt
+    // unlimited attempts and the student's first attempt: both unreplaced
     @Test
-    public void testBuildJwtWithUnlimitedAttemptsAndUnreplacedStudentAttempts() throws GeneralSecurityException, IOException, TerracottaConnectorException {
+    public void testBuildJwtWithBothAttemptsUnreplacedInAnAssignmentLaunch() throws GeneralSecurityException, IOException, TerracottaConnectorException {
 
-        customVars.put("allowed_attempts", null);
+        customVars.put("canvas_assignment_id", "11323");
+        customVars.put("allowed_attempts", "$Canvas.assignment.allowedAttempts");
         customVars.put("student_attempts", "$Canvas.assignment.submission.studentAttempts");
 
         String jwt = canvasApiJWTService.buildJwt(false, lti3Request);
