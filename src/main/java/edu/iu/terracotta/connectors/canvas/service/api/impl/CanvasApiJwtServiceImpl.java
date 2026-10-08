@@ -395,7 +395,7 @@ public class CanvasApiJwtServiceImpl implements ApiJwtService {
 
         String experimentIdText = queryParams.getFirst(JwtClaim.EXPERIMENT.key());
         UUID experimentId = resolveExperimentUuid(experimentIdText);
-        Integer allowedAttempts = extractAllowedAttempts(lti3Request.getLtiCustom());
+        boolean assignmentLaunch = isAssignmentLaunch(lti3Request.getLtiCustom());
 
         return buildJwt(
             oneUse,
@@ -417,8 +417,8 @@ public class CanvasApiJwtServiceImpl implements ApiJwtService {
             MapUtils.getString(lti3Request.getLtiCustom(), JwtClaim.LOCK_AT.key(), ""),
             MapUtils.getString(lti3Request.getLtiCustom(), JwtClaim.UNLOCK_AT.key(), ""),
             lti3Request.getNonce(),
-            allowedAttempts,
-            extractStudentAttempts(lti3Request.getLtiCustom(), allowedAttempts));
+            extractAllowedAttempts(lti3Request.getLtiCustom(), assignmentLaunch),
+            extractStudentAttempts(lti3Request.getLtiCustom(), assignmentLaunch));
     }
 
     @Override
@@ -763,13 +763,17 @@ public class CanvasApiJwtServiceImpl implements ApiJwtService {
      * @param ltiCustomClaims
      * @return
      */
-    private Integer extractAllowedAttempts(Map<String, Object> ltiCustomClaims) {
+    private Integer extractAllowedAttempts(Map<String, Object> ltiCustomClaims, boolean assignmentLaunch) {
         if (ltiCustomClaims.containsKey(CanvasJwtClaim.ALLOWED_ATTEMPTS.key(1))) {
-            Integer allowedAttempts = parseInt(ltiCustomClaims.get(CanvasJwtClaim.ALLOWED_ATTEMPTS.key(1)));
+            Object value = ltiCustomClaims.get(CanvasJwtClaim.ALLOWED_ATTEMPTS.key(1));
+            Integer allowedAttempts = parseInt(value);
 
             if (allowedAttempts != null) {
                 return allowedAttempts;
-            } else if (ltiCustomClaims.get(CanvasJwtClaim.ALLOWED_ATTEMPTS.key(1)) == null) {
+            } else if (value == null || (assignmentLaunch && isUnreplacedCanvasVariable(value))) {
+                // Canvas has no attempt limit to substitute for an assignment with unlimited
+                // attempts (the default for the assignments Terracotta creates), and leaves the
+                // variable unreplaced
                 return -1;
             }
         }
@@ -781,16 +785,16 @@ public class CanvasApiJwtServiceImpl implements ApiJwtService {
      * Get student_attempts from LTI custom claims (variable substitution). If
      * student_attempts claim exists, but the value is null, return 0 instead.
      *
-     * In an assignment launch (allowed_attempts resolved), Canvas leaves
-     * $Canvas.assignment.submission.studentAttempts unreplaced when the student has no
-     * submission yet, so that also means 0 attempts. Without this, a student's first attempt
-     * had no count and every attempt check fell back to Canvas API calls.
+     * In an assignment launch, Canvas leaves $Canvas.assignment.submission.studentAttempts
+     * unreplaced when the student has no submission yet, so that also means 0 attempts.
+     * Without these defaults the attempt check had nothing to go on and fell back to Canvas API
+     * calls on every save and submit.
      *
      * @param ltiCustomClaims
-     * @param allowedAttempts the launch's allowed_attempts, as extracted
+     * @param assignmentLaunch whether this launch is for a Canvas assignment
      * @return
      */
-    private Integer extractStudentAttempts(Map<String, Object> ltiCustomClaims, Integer allowedAttempts) {
+    private Integer extractStudentAttempts(Map<String, Object> ltiCustomClaims, boolean assignmentLaunch) {
         if (ltiCustomClaims.containsKey(CanvasJwtClaim.STUDENT_ATTEMPTS.key(1))) {
             Object value = ltiCustomClaims.get(CanvasJwtClaim.STUDENT_ATTEMPTS.key(1));
             Integer studentAttempts = parseInt(value);
@@ -799,12 +803,18 @@ public class CanvasApiJwtServiceImpl implements ApiJwtService {
                 return studentAttempts;
             } else if (value == null) {
                 return 0;
-            } else if (allowedAttempts != null && isUnreplacedCanvasVariable(value)) {
+            } else if (assignmentLaunch && isUnreplacedCanvasVariable(value)) {
                 return 0;
             }
         }
 
         return null;
+    }
+
+    // a launch for a Canvas assignment has its numeric ID substituted; any other launch (e.g. a
+    // course navigation link) leaves the assignment variables unreplaced
+    private static boolean isAssignmentLaunch(Map<String, Object> ltiCustomClaims) {
+        return StringUtils.isNumeric(MapUtils.getString(ltiCustomClaims, CanvasJwtClaim.CANVAS_ASSIGNMENT_ID.key(1), ""));
     }
 
     // Canvas sends a custom variable back as written (e.g. "$Canvas.assignment.allowedAttempts")
