@@ -1,7 +1,6 @@
 package edu.iu.terracotta.controller.app;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
@@ -51,7 +50,6 @@ public class ExperimentFileArchiveControllerTest extends BaseTest {
 
     @Test
     void testOutdatedReturnsTheExperimentsOutdatedArchives() throws Exception {
-        when(apiJwtService.isInstructorOrHigher(securedInfo)).thenReturn(true);
         List<AssignmentFileArchiveDto> outdated = List.of(AssignmentFileArchiveDto.builder().assignmentId(UUID.randomUUID()).build());
         when(assignmentFileArchiveService.findOutdated(EXPERIMENT_ID)).thenReturn(outdated);
 
@@ -60,17 +58,6 @@ public class ExperimentFileArchiveControllerTest extends BaseTest {
         assertEquals(HttpStatus.OK, response.getStatusCode());
         assertEquals(outdated, response.getBody());
         verify(apiJwtService).experimentAllowed(securedInfo, EXPERIMENT_ID);
-    }
-
-    @Test
-    void testOutdatedUnauthorizedForLearners() throws Exception {
-        when(apiJwtService.isInstructorOrHigher(securedInfo)).thenReturn(false);
-
-        ResponseEntity<List<AssignmentFileArchiveDto>> response = experimentFileArchiveController.outdated(EXPERIMENT_UUID, httpServletRequest);
-
-        assertEquals(HttpStatus.UNAUTHORIZED, response.getStatusCode());
-        assertNull(response.getBody());
-        verify(assignmentFileArchiveService, never()).findOutdated(anyLong());
     }
 
     @Test

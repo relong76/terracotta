@@ -20,6 +20,7 @@ import edu.iu.terracotta.dao.model.dto.AssignmentFileArchiveDto;
 import edu.iu.terracotta.exceptions.BadTokenException;
 import edu.iu.terracotta.service.app.AssignmentFileArchiveService;
 import edu.iu.terracotta.service.app.ExperimentService;
+import edu.iu.terracotta.security.app.roles.InstructorOrHigher;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 
@@ -40,15 +41,12 @@ public class ExperimentFileArchiveController {
 
     // the assignments with new uploads since their last file archive was made
     @GetMapping("/outdated")
+    @InstructorOrHigher
     public ResponseEntity<List<AssignmentFileArchiveDto>> outdated(@PathVariable("experimentId") UUID experimentUuid, HttpServletRequest req)
             throws ExperimentNotMatchingException, BadTokenException, NumberFormatException, TerracottaConnectorException, IOException {
         long experimentId = experimentService.getExperimentIdByUuid(experimentUuid);
         SecuredInfo securedInfo = apijwtService.extractValues(req, false);
         apijwtService.experimentAllowed(securedInfo, experimentId);
-
-        if (!apijwtService.isInstructorOrHigher(securedInfo)) {
-            return new ResponseEntity<>(HttpStatus.UNAUTHORIZED);
-        }
 
         return new ResponseEntity<>(assignmentFileArchiveService.findOutdated(experimentId), HttpStatus.OK);
     }
