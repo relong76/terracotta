@@ -162,6 +162,13 @@ describe("StudentSubmissionGrading", () => {
     const commentBox = wrapper => wrapper.findAllComponents({ name: "VTextarea" })
       .find(textarea => textarea.props("label") === "Comment for the student");
 
+    const addCommentButtons = wrapper => wrapper.findAll("button.add-comment");
+
+    const openCommentBox = async wrapper => {
+      await addCommentButtons(wrapper)[0].trigger("click");
+      await wrapper.vm.$nextTick();
+    };
+
     const withSavedComment = async (comment, test) => {
       essayResponse().questionSubmissionCommentDtoList = [{ questionSubmissionCommentId: "c1", comment }];
 
@@ -172,19 +179,28 @@ describe("StudentSubmissionGrading", () => {
       }
     };
 
-    it("shows a comment box for the short answer question only", async () => {
+    it("offers an Add comment button for the short answer question only, with the box hidden", async () => {
       const wrapper = await mountLoaded();
 
-      const boxes = wrapper.findAllComponents({ name: "VTextarea" }).filter(textarea => textarea.props("label") === "Comment for the student");
+      expect(addCommentButtons(wrapper)).toHaveLength(1);
+      expect(addCommentButtons(wrapper)[0].text()).toBe("Add comment");
+      expect(commentBox(wrapper)).toBeUndefined();
+    });
 
-      expect(boxes).toHaveLength(1);
-      expect(boxes[0].props("modelValue")).toBe("");
+    it("opens an empty comment box when Add comment is clicked", async () => {
+      const wrapper = await mountLoaded();
+
+      await openCommentBox(wrapper);
+
+      expect(addCommentButtons(wrapper)).toHaveLength(0);
+      expect(commentBox(wrapper).props("modelValue")).toBe("");
     });
 
     it("fills the box with the saved comment", async () => {
       await withSavedComment("Cite your sources.", async () => {
         const wrapper = await mountLoaded();
 
+        expect(addCommentButtons(wrapper)).toHaveLength(0);
         expect(commentBox(wrapper).props("modelValue")).toBe("Cite your sources.");
       });
     });
@@ -194,6 +210,7 @@ describe("StudentSubmissionGrading", () => {
       const wrapper = await mountLoaded();
       const reportStepSpy = vi.spyOn(apiModule(), "reportStep");
 
+      await openCommentBox(wrapper);
       commentBox(wrapper).vm.$emit("update:modelValue", "  Nice work  ");
       await wrapper.vm.$nextTick();
       expect(wrapper.text()).toContain("Unsaved Changes");
@@ -241,6 +258,7 @@ describe("StudentSubmissionGrading", () => {
       submissionService.createQuestionSubmissionComment.mockResolvedValue({ status: 500, error: "boom" });
       const wrapper = await mountLoaded();
 
+      await openCommentBox(wrapper);
       commentBox(wrapper).vm.$emit("update:modelValue", "Nice work");
       await wrapper.vm.saveExit();
       await flushPromises();

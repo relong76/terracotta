@@ -409,12 +409,26 @@
               <v-col
                 cols="10"
               >
+                <!-- the box stays out of the way until a comment is wanted; one already saved shows -->
+                <v-btn
+                  v-if="!currentAttempt.comments[question.questionId].open"
+                  :aria-label="`add a comment for the student on question ${questionPage.questionStartIndex + index + 1}`"
+                  class="add-comment"
+                  color="primary"
+                  prepend-icon="mdi-comment-plus-outline"
+                  variant="text"
+                  @click="currentAttempt.comments[question.questionId].open = true"
+                >
+                  Add comment
+                </v-btn>
                 <v-textarea
+                  v-else
                   v-model="currentAttempt.comments[question.questionId].text"
                   :aria-label="`comment for the student on question ${questionPage.questionStartIndex + index + 1}`"
                   hint="The student sees this with their grade, in the LMS and on their submission in Terracotta."
                   label="Comment for the student"
                   rows="2"
+                  :autofocus="!currentAttempt.comments[question.questionId].savedText"
                   auto-grow
                   persistent-hint
                   variant="outlined"
@@ -938,7 +952,8 @@ const loadComments = () => {
       questionSubmissionId: response.questionSubmissionId,
       commentId: saved?.questionSubmissionCommentId || null,
       text: saved?.comment || "",
-      savedText: saved?.comment || ""
+      savedText: saved?.comment || "",
+      open: Boolean(saved?.comment)
     };
   }
 
