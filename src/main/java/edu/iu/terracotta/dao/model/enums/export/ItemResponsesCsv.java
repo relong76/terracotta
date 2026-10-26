@@ -24,7 +24,8 @@ public enum ItemResponsesCsv {
     RESPONDED_AT("responded_at"),
     POINTS_POSSIBLE("points_possible"),
     CALCULATED_SCORE("calculated_score"),
-    OVERRIDE_SCORE("override_score");
+    OVERRIDE_SCORE("override_score"),
+    GRADER_COMMENT("grader_comment");
 
     public static final String FILENAME = "item_responses.csv";
 

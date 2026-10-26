@@ -22,6 +22,7 @@ import edu.iu.terracotta.dao.entity.Participant;
 import edu.iu.terracotta.dao.entity.Question;
 import edu.iu.terracotta.dao.entity.QuestionMc;
 import edu.iu.terracotta.dao.entity.QuestionSubmission;
+import edu.iu.terracotta.dao.entity.QuestionSubmissionComment;
 import edu.iu.terracotta.dao.entity.Submission;
 import edu.iu.terracotta.dao.entity.Treatment;
 import edu.iu.terracotta.dao.entity.events.Event;
@@ -57,6 +58,7 @@ import edu.iu.terracotta.dao.repository.OutcomeRepository;
 import edu.iu.terracotta.dao.repository.OutcomeScoreRepository;
 import edu.iu.terracotta.dao.repository.ParticipantRepository;
 import edu.iu.terracotta.dao.repository.QuestionRepository;
+import edu.iu.terracotta.dao.repository.QuestionSubmissionCommentRepository;
 import edu.iu.terracotta.dao.repository.QuestionSubmissionRepository;
 import edu.iu.terracotta.dao.repository.SubmissionRepository;
 import edu.iu.terracotta.dao.repository.TreatmentRepository;
@@ -108,6 +110,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.stream.Collectors;
 
 @Slf4j
 @Service
@@ -134,6 +137,7 @@ public class ExportServiceImpl implements ExportService {
     private final ParticipantRepository participantRepository;
     private final QuestionRepository questionRepository;
     private final QuestionSubmissionRepository questionSubmissionRepository;
+    private final QuestionSubmissionCommentRepository questionSubmissionCommentRepository;
     private final SubmissionRepository submissionRepository;
     private final TreatmentRepository treatmentRepository;
     private final AssignmentTreatmentService assignmentTreatmentService;
@@ -629,7 +633,8 @@ public class ExportServiceImpl implements ExportService {
                             questionSubmission.getSubmission().getDateSubmitted() != null ?  questionSubmission.getSubmission().getDateSubmitted().toString() : NA,
                             questionSubmission.getQuestion().getPoints().toString(),
                             calculatedScore,
-                            overrideScore
+                            overrideScore,
+                            graderComment(questionSubmission)
                         });
                     });
 
@@ -637,6 +642,17 @@ public class ExportServiceImpl implements ExportService {
                 questionSubmissions = questionSubmissionRepository.findBySubmission_Participant_Experiment_ExperimentId(experimentId, PageRequest.of(page, exportBatchSize)).getContent();
             }
         }
+    }
+
+    // the grader's comment on this response (several, oldest first, if more were added); N/A when none
+    private String graderComment(QuestionSubmission questionSubmission) {
+        String comments = CollectionUtils.emptyIfNull(questionSubmissionCommentRepository.findByQuestionSubmission_QuestionSubmissionId(questionSubmission.getQuestionSubmissionId())).stream()
+            .map(QuestionSubmissionComment::getComment)
+            .filter(StringUtils::isNotBlank)
+            .map(String::strip)
+            .collect(Collectors.joining("\n\n"));
+
+        return StringUtils.isNotBlank(comments) ? comments : NA;
     }
 
     private void handleResponseOptionsCsv(long experimentId, Map<String, String> files) throws IOException {

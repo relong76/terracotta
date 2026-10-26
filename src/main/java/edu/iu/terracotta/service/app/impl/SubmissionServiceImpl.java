@@ -3,6 +3,7 @@ package edu.iu.terracotta.service.app.impl;
 import edu.iu.terracotta.connectors.generic.dao.entity.lti.LtiUserEntity;
 import edu.iu.terracotta.connectors.generic.dao.entity.lti.PlatformDeployment;
 import edu.iu.terracotta.connectors.generic.dao.model.SecuredInfo;
+import edu.iu.terracotta.connectors.generic.dao.model.enums.LmsConnector;
 import edu.iu.terracotta.connectors.generic.dao.model.lms.LmsSubmission;
 import edu.iu.terracotta.connectors.generic.dao.model.lti.LtiToken;
 import edu.iu.terracotta.connectors.generic.dao.model.lti.ags.LineItem;
@@ -27,6 +28,7 @@ import edu.iu.terracotta.dao.entity.Experiment;
 import edu.iu.terracotta.dao.entity.ExposureGroupCondition;
 import edu.iu.terracotta.dao.entity.Group;
 import edu.iu.terracotta.dao.entity.Participant;
+import edu.iu.terracotta.dao.entity.Question;
 import edu.iu.terracotta.dao.entity.QuestionMc;
 import edu.iu.terracotta.dao.entity.QuestionSubmission;
 import edu.iu.terracotta.dao.entity.RegradeDetails;
@@ -47,6 +49,7 @@ import edu.iu.terracotta.dao.repository.AssessmentRepository;
 import edu.iu.terracotta.dao.repository.AssignmentRepository;
 import edu.iu.terracotta.dao.repository.ExposureGroupConditionRepository;
 import edu.iu.terracotta.dao.repository.ParticipantRepository;
+import edu.iu.terracotta.dao.repository.QuestionSubmissionCommentRepository;
 import edu.iu.terracotta.dao.repository.QuestionSubmissionRepository;
 import edu.iu.terracotta.dao.repository.SubmissionCommentRepository;
 import edu.iu.terracotta.dao.repository.SubmissionRepository;
@@ -70,6 +73,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.collections4.CollectionUtils;
 import org.apache.commons.collections4.MapUtils;
 import org.apache.commons.lang3.BooleanUtils;
+import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.http.HttpHeaders;
@@ -80,6 +84,9 @@ import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
 
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.sql.Timestamp;
 import java.text.SimpleDateFormat;
 import java.time.Instant;
@@ -87,8 +94,10 @@ import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.Date;
 import java.util.HashMap;
+import java.util.HexFormat;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -112,6 +121,7 @@ public class SubmissionServiceImpl implements SubmissionService {
     private final ExposureGroupConditionRepository exposureGroupConditionRepository;
     private final ParticipantRepository participantRepository;
     private final QuestionSubmissionRepository questionSubmissionRepository;
+    private final QuestionSubmissionCommentRepository questionSubmissionCommentRepository;
     private final SubmissionCommentRepository submissionCommentRepository;
     private final SubmissionRepository submissionRepository;
     private final TreatmentRepository treatmentRepository;
@@ -610,8 +620,75 @@ public class SubmissionServiceImpl implements SubmissionService {
         String strDate = dt.format(date);
         score.setTimestamp(strDate);
 
+        String comment = gradeComment(submission);
+        String commentHash = comment != null ? sha256(comment) : null;
+        // Brightspace keeps one feedback per grade and replaces it with each score, so it always gets
+        // the current comment. Canvas adds every comment it receives as a new submission comment, so it
+        // only gets one that changed since it was last sent.
+        boolean lmsReplacesComment = experiment.getPlatformDeployment().getLmsConnector() == LmsConnector.BRIGHTSPACE;
+        boolean commentChanged = commentHash != null && !commentHash.equals(submission.getLmsCommentHash());
+
+        if (comment != null && (lmsReplacesComment || commentChanged)) {
+            score.setComment(comment);
+        }
+
         apiClient.addLmsExtensions(score, submission, studentSubmission);
         advantageAgsService.postScore(ltiTokenScore, ltiTokenResults, experiment.getLtiContextEntity(), lineitemId, score);
+
+        if (score.getComment() != null && commentChanged) {
+            submission.setLmsCommentHash(commentHash);
+            submissionRepository.save(submission);
+        }
+    }
+
+    /**
+     * The graders' comments on this attempt, as the plain text sent with its score: one paragraph per
+     * question that has a comment, numbered as the student saw the questions. Null when there are none.
+     */
+    String gradeComment(Submission submission) {
+        List<QuestionSubmission> questionSubmissions = CollectionUtils.emptyIfNull(submission.getQuestionSubmissions()).stream().toList();
+
+        if (questionSubmissions.isEmpty()) {
+            return null;
+        }
+
+        Map<Long, List<String>> commentsByQuestionSubmissionId = questionSubmissionCommentRepository
+            .findByQuestionSubmission_QuestionSubmissionIdIn(questionSubmissions.stream().map(QuestionSubmission::getQuestionSubmissionId).toList())
+            .stream()
+            .filter(questionSubmissionComment -> StringUtils.isNotBlank(questionSubmissionComment.getComment()))
+            .collect(Collectors.groupingBy(
+                questionSubmissionComment -> questionSubmissionComment.getQuestionSubmission().getQuestionSubmissionId(),
+                Collectors.mapping(questionSubmissionComment -> questionSubmissionComment.getComment().strip(), Collectors.toList())
+            ));
+
+        if (commentsByQuestionSubmissionId.isEmpty()) {
+            return null;
+        }
+
+        // the student's numbering: questions in order, page breaks not counted
+        List<Long> questionIds = CollectionUtils.emptyIfNull(submission.getAssessment().getQuestions()).stream()
+            .filter(question -> question.getQuestionType() != QuestionTypes.PAGE_BREAK)
+            .sorted(Comparator.comparing(Question::getQuestionOrder, Comparator.nullsLast(Comparator.naturalOrder())))
+            .map(Question::getQuestionId)
+            .toList();
+
+        return questionSubmissions.stream()
+            .filter(questionSubmission -> commentsByQuestionSubmissionId.containsKey(questionSubmission.getQuestionSubmissionId()))
+            .sorted(Comparator.comparingInt(questionSubmission -> questionIds.indexOf(questionSubmission.getQuestion().getQuestionId())))
+            .map(questionSubmission -> String.format(
+                "Question %d: %s",
+                questionIds.indexOf(questionSubmission.getQuestion().getQuestionId()) + 1,
+                String.join("\n", commentsByQuestionSubmissionId.get(questionSubmission.getQuestionSubmissionId()))
+            ))
+            .collect(Collectors.joining("\n\n"));
+    }
+
+    private static String sha256(String value) {
+        try {
+            return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(value.getBytes(StandardCharsets.UTF_8)));
+        } catch (NoSuchAlgorithmException e) {
+            throw new IllegalStateException("SHA-256 isn't available", e);
+        }
     }
 
     @Override

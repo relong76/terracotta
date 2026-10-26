@@ -42,7 +42,9 @@ import java.util.concurrent.atomic.AtomicReference;
 
 import edu.iu.terracotta.base.BaseTest;
 import edu.iu.terracotta.connectors.generic.dao.entity.lti.PlatformDeployment;
+import edu.iu.terracotta.connectors.generic.dao.model.enums.LmsConnector;
 import edu.iu.terracotta.connectors.generic.dao.model.lms.LmsSubmission;
+import edu.iu.terracotta.connectors.generic.dao.model.lti.ags.Score;
 import edu.iu.terracotta.connectors.generic.dao.model.lti.enums.LtiAgsScope;
 import edu.iu.terracotta.connectors.generic.exceptions.ApiException;
 import edu.iu.terracotta.connectors.generic.exceptions.ConnectionException;
@@ -54,6 +56,7 @@ import edu.iu.terracotta.dao.entity.Group;
 import edu.iu.terracotta.dao.entity.Participant;
 import edu.iu.terracotta.dao.entity.Question;
 import edu.iu.terracotta.dao.entity.QuestionSubmission;
+import edu.iu.terracotta.dao.entity.QuestionSubmissionComment;
 import edu.iu.terracotta.dao.entity.Submission;
 import edu.iu.terracotta.dao.entity.SubmissionComment;
 import edu.iu.terracotta.dao.exceptions.ParticipantNotMatchingException;
@@ -105,6 +108,7 @@ public class SubmissionServiceImplTest extends BaseTest {
             exposureGroupConditionRepository,
             participantRepository,
             questionSubmissionRepository,
+            questionSubmissionCommentRepository,
             submissionCommentRepository,
             submissionRepository,
             treatmentRepository,
@@ -827,6 +831,120 @@ public class SubmissionServiceImplTest extends BaseTest {
         verify(advantageAgsService, times(1)).getToken(eq(LtiAgsScope.SCORES), any(PlatformDeployment.class));
         verify(advantageAgsService, times(1)).getToken(eq(LtiAgsScope.RESULTS), any(PlatformDeployment.class));
         verify(advantageAgsService, times(2)).postScore(any(), any(), any(), eq("1"), any());
+    }
+
+    // the grader's comments go to the student with the score
+
+    private QuestionSubmissionComment commentOn(QuestionSubmission commentedQuestionSubmission, String text) {
+        QuestionSubmissionComment comment = mock(QuestionSubmissionComment.class);
+        when(comment.getQuestionSubmission()).thenReturn(commentedQuestionSubmission);
+        when(comment.getComment()).thenReturn(text);
+
+        return comment;
+    }
+
+    private static String sha256(String value) throws java.security.NoSuchAlgorithmException {
+        return java.util.HexFormat.of().formatHex(java.security.MessageDigest.getInstance("SHA-256").digest(value.getBytes(java.nio.charset.StandardCharsets.UTF_8)));
+    }
+
+    private Score postedScore() throws ConnectionException, TerracottaConnectorException {
+        ArgumentCaptor<Score> score = ArgumentCaptor.forClass(Score.class);
+        verify(advantageAgsService).postScore(any(), any(), any(), any(), score.capture());
+
+        return score.getValue();
+    }
+
+    @Test
+    public void testGradeCommentNumbersQuestionsAsTheStudentSawThem() {
+        Question first = mock(Question.class);
+        Question pageBreak = mock(Question.class);
+        Question second = mock(Question.class);
+        when(first.getQuestionId()).thenReturn(1L);
+        when(first.getQuestionOrder()).thenReturn(0);
+        when(first.getQuestionType()).thenReturn(QuestionTypes.ESSAY);
+        when(pageBreak.getQuestionId()).thenReturn(2L);
+        when(pageBreak.getQuestionOrder()).thenReturn(1);
+        when(pageBreak.getQuestionType()).thenReturn(QuestionTypes.PAGE_BREAK);
+        when(second.getQuestionId()).thenReturn(3L);
+        when(second.getQuestionOrder()).thenReturn(2);
+        when(second.getQuestionType()).thenReturn(QuestionTypes.FILE);
+        when(assessment.getQuestions()).thenReturn(List.of(second, pageBreak, first));
+
+        QuestionSubmission firstAnswer = mock(QuestionSubmission.class);
+        QuestionSubmission secondAnswer = mock(QuestionSubmission.class);
+        when(firstAnswer.getQuestionSubmissionId()).thenReturn(10L);
+        when(firstAnswer.getQuestion()).thenReturn(first);
+        when(secondAnswer.getQuestionSubmissionId()).thenReturn(11L);
+        when(secondAnswer.getQuestion()).thenReturn(second);
+        when(submission.getQuestionSubmissions()).thenReturn(List.of(secondAnswer, firstAnswer));
+        List<QuestionSubmissionComment> comments = List.of(
+            commentOn(secondAnswer, "Good analysis."),
+            commentOn(firstAnswer, "  Cite your sources.  "),
+            commentOn(firstAnswer, " ")
+        );
+        when(questionSubmissionCommentRepository.findByQuestionSubmission_QuestionSubmissionIdIn(any())).thenReturn(comments);
+
+        assertEquals("Question 1: Cite your sources.\n\nQuestion 2: Good analysis.", submissionService.gradeComment(submission));
+    }
+
+    @Test
+    public void testGradeCommentIsNullWithoutComments() {
+        when(questionSubmissionCommentRepository.findByQuestionSubmission_QuestionSubmissionIdIn(any())).thenReturn(Collections.emptyList());
+
+        assertNull(submissionService.gradeComment(submission));
+    }
+
+    @Test
+    public void testSendsANewCommentWithTheScoreAndRemembersIt() throws ConnectionException, DataServiceException, ApiException, IOException, TerracottaConnectorException {
+        when(assignment.getResourceLinkId()).thenReturn(RESOURCE_LINK_ID);
+        QuestionSubmissionComment comment = commentOn(questionSubmission, "Nice work");
+        when(questionSubmissionCommentRepository.findByQuestionSubmission_QuestionSubmissionIdIn(any())).thenReturn(List.of(comment));
+
+        submissionService.sendSubmissionGradeToLmsWithLti(submission, false);
+
+        assertEquals("Question 1: Nice work", postedScore().getComment());
+        verify(submission).setLmsCommentHash(any(String.class));
+        verify(submissionRepository).save(submission);
+    }
+
+    // Canvas adds each comment it receives as a new submission comment
+    @Test
+    public void testDoesNotResendAnUnchangedCommentToCanvas() throws Exception {
+        when(assignment.getResourceLinkId()).thenReturn(RESOURCE_LINK_ID);
+        QuestionSubmissionComment comment = commentOn(questionSubmission, "Nice work");
+        when(questionSubmissionCommentRepository.findByQuestionSubmission_QuestionSubmissionIdIn(any())).thenReturn(List.of(comment));
+        when(submission.getLmsCommentHash()).thenReturn(sha256("Question 1: Nice work"));
+
+        submissionService.sendSubmissionGradeToLmsWithLti(submission, false);
+
+        assertNull(postedScore().getComment());
+        verify(submission, never()).setLmsCommentHash(any());
+    }
+
+    // Brightspace replaces the grade's feedback with each score, so it always gets the current comment
+    @Test
+    public void testAlwaysSendsTheCommentToBrightspace() throws Exception {
+        when(assignment.getResourceLinkId()).thenReturn(RESOURCE_LINK_ID);
+        when(platformDeployment.getLmsConnector()).thenReturn(LmsConnector.BRIGHTSPACE);
+        QuestionSubmissionComment comment = commentOn(questionSubmission, "Nice work");
+        when(questionSubmissionCommentRepository.findByQuestionSubmission_QuestionSubmissionIdIn(any())).thenReturn(List.of(comment));
+        when(submission.getLmsCommentHash()).thenReturn(sha256("Question 1: Nice work"));
+
+        submissionService.sendSubmissionGradeToLmsWithLti(submission, false);
+
+        assertEquals("Question 1: Nice work", postedScore().getComment());
+        verify(submission, never()).setLmsCommentHash(any());
+    }
+
+    @Test
+    public void testSendsNoCommentWhenThereIsNone() throws ConnectionException, DataServiceException, ApiException, IOException, TerracottaConnectorException {
+        when(assignment.getResourceLinkId()).thenReturn(RESOURCE_LINK_ID);
+        when(questionSubmissionCommentRepository.findByQuestionSubmission_QuestionSubmissionIdIn(any())).thenReturn(Collections.emptyList());
+
+        submissionService.sendSubmissionGradeToLmsWithLti(submission, false);
+
+        assertNull(postedScore().getComment());
+        verify(submission, never()).setLmsCommentHash(any());
     }
 
     // createNewSubmission: createIntegrationLaunchUrl swallows NoSubmissionsException

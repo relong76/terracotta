@@ -460,6 +460,34 @@ public class ExportServiceImplTest extends BaseTest {
     }
 
     @Test
+    public void testHandleItemResponsesCsvIncludesTheGraderComment() throws Exception {
+        when(answerEssaySubmissionRepository.findByQuestionSubmission_QuestionSubmissionId(anyLong())).thenReturn(List.of(answerEssaySubmission));
+        when(answerEssaySubmission.getResponse()).thenReturn("my essay response");
+        when(questionSubmissionComment.getComment()).thenReturn("  Good use of evidence.  ");
+        when(questionSubmissionCommentRepository.findByQuestionSubmission_QuestionSubmissionId(anyLong())).thenReturn(List.of(questionSubmissionComment));
+
+        Map<String, String> files = new HashMap<>();
+        ReflectionTestUtils.invokeMethod(exportService, "handleItemResponsesCsv", 1L, files);
+
+        List<String> lines = Files.readAllLines(Path.of(files.get(ItemResponsesCsv.FILENAME)));
+        assertTrue(lines.get(0).endsWith("\"grader_comment\""), lines.get(0));
+        assertTrue(lines.get(1).endsWith("\"Good use of evidence.\""), lines.get(1));
+    }
+
+    @Test
+    public void testHandleItemResponsesCsvWithoutAGraderComment() throws Exception {
+        when(answerEssaySubmissionRepository.findByQuestionSubmission_QuestionSubmissionId(anyLong())).thenReturn(List.of(answerEssaySubmission));
+        when(answerEssaySubmission.getResponse()).thenReturn("my essay response");
+        when(questionSubmissionCommentRepository.findByQuestionSubmission_QuestionSubmissionId(anyLong())).thenReturn(Collections.emptyList());
+
+        Map<String, String> files = new HashMap<>();
+        ReflectionTestUtils.invokeMethod(exportService, "handleItemResponsesCsv", 1L, files);
+
+        List<String> lines = Files.readAllLines(Path.of(files.get(ItemResponsesCsv.FILENAME)));
+        assertTrue(lines.get(1).endsWith("\"N/A\""), lines.get(1));
+    }
+
+    @Test
     public void testHandleItemResponsesCsvEssayRichTextExportsPlainText() throws Exception {
         when(answerEssaySubmissionRepository.findByQuestionSubmission_QuestionSubmissionId(anyLong())).thenReturn(List.of(answerEssaySubmission));
         when(answerEssaySubmission.getResponse()).thenReturn("<p>my <strong>essay</strong> response</p>");

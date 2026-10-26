@@ -1,0 +1,21 @@
+<?xml
+    version="1.1"
+    encoding="UTF-8"
+    standalone="no"
+?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd"
+>
+    <!--
+        TCOTA-837: the grader's comments go to the student with the grade. Canvas adds every comment
+        it receives as a new submission comment, so Terracotta keeps a SHA-256 of the comment it last
+        sent for each submission and only sends one that changed.
+    -->
+    <changeSet author="rlong" id="1792972800000-01">
+        <addColumn tableName="terr_submission">
+            <column name="lms_comment_hash" type="VARCHAR(64)"/>
+        </addColumn>
+    </changeSet>
+</databaseChangeLog>

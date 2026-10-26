@@ -9,6 +9,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
+import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
@@ -49,6 +50,10 @@ public class Submission extends UuidAwareEntity {
     private Timestamp dateSubmitted;
     private boolean lateSubmission;
     private boolean gradeOverridden;
+
+    // SHA-256 of the grader's comment last sent to the LMS with this submission's score
+    @Column(name = "lms_comment_hash", length = 64)
+    private String lmsCommentHash;
 
     @ManyToOne(optional = false)
     @JoinColumn(
