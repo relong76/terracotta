@@ -261,3 +261,49 @@ describe("StudentQuizQuestionCard", () => {
     expect(editor.props("answer")).toEqual({ questionSubmissionId: 200, response: "Existing answer" });
   });
 });
+
+describe("StudentQuizQuestionCard grader comments", () => {
+  const question = { questionId: 2, questionType: "ESSAY", html: "Explain", points: 3 };
+  const questionValues = [{ questionId: 2, answerId: null, response: null }];
+  const questionSubmissions = [{
+    questionId: 2,
+    questionSubmissionId: "qs-2",
+    answerSubmissionDtoList: [{ questionSubmissionId: "qs-2", response: "<p>My answer</p>" }],
+    questionSubmissionCommentDtoList: [
+      { questionSubmissionCommentId: "c1", comment: "Good use of evidence.\nCite one more source." },
+      { questionSubmissionCommentId: "c2", comment: "   " }
+    ]
+  }];
+
+  const mount = readonly => mountComponent(StudentQuizQuestionCard, {
+    props: { ...baseProps, question, questionValues, questionSubmissions, readonly }
+  });
+
+  it("shows the instructor's comment on a submitted answer", () => {
+    const wrapper = mount(true);
+
+    expect(wrapper.text()).toContain("Comment from your instructor");
+    expect(wrapper.findAll(".grader-comment")).toHaveLength(1);
+    expect(wrapper.find(".grader-comment").text()).toBe("Good use of evidence.\nCite one more source.");
+  });
+
+  it("shows no comment while the student is still answering", () => {
+    const wrapper = mount(false);
+
+    expect(wrapper.text()).not.toContain("Comment from your instructor");
+  });
+
+  it("shows nothing when there's no comment", () => {
+    const wrapper = mountComponent(StudentQuizQuestionCard, {
+      props: {
+        ...baseProps,
+        question,
+        questionValues,
+        questionSubmissions: [{ ...questionSubmissions[0], questionSubmissionCommentDtoList: [] }],
+        readonly: true
+      }
+    });
+
+    expect(wrapper.find(".grader-comments").exists()).toBe(false);
+  });
+});

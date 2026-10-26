@@ -198,6 +198,36 @@ export const submission = defineStore("submission", {
       }
     },
 
+    async createQuestionSubmissionComment(payload) {
+      try {
+        return await submissionService.createQuestionSubmissionComment(...payload);
+      } catch (error) {
+        console.error("submissions/createQuestionSubmissionComment | catch", { error });
+
+        return null;
+      }
+    },
+
+    async updateQuestionSubmissionComment(payload) {
+      try {
+        return await submissionService.updateQuestionSubmissionComment(...payload);
+      } catch (error) {
+        console.error("submissions/updateQuestionSubmissionComment | catch", { error });
+
+        return null;
+      }
+    },
+
+    async deleteQuestionSubmissionComment(payload) {
+      try {
+        return await submissionService.deleteQuestionSubmissionComment(...payload);
+      } catch (error) {
+        console.error("submissions/deleteQuestionSubmissionComment | catch", { error });
+
+        return null;
+      }
+    },
+
     async createAnswerSubmissions(payload) {
       try {
         return await submissionService.createAnswerSubmissions(

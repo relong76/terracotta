@@ -395,6 +395,32 @@
                 </v-card>
               </template>
             </div>
+            <!-- the grader's comment: sent to the student with their grade, and shown on their
+                 submission in Terracotta -->
+            <v-row
+              v-if="currentAttempt.comments?.[question.questionId]"
+              class="grader-comment mt-4"
+            >
+              <v-col
+                cols="1"
+              >
+                &nbsp;
+              </v-col>
+              <v-col
+                cols="10"
+              >
+                <v-textarea
+                  v-model="currentAttempt.comments[question.questionId].text"
+                  :aria-label="`comment for the student on question ${questionPage.questionStartIndex + index + 1}`"
+                  hint="The student sees this with their grade, in the LMS and on their submission in Terracotta."
+                  label="Comment for the student"
+                  rows="2"
+                  auto-grow
+                  persistent-hint
+                  variant="outlined"
+                />
+              </v-col>
+            </v-row>
           </v-card-title>
         </v-card>
       </div>
@@ -472,6 +498,7 @@ const currentAttempt = computed(() =>
     gradeOverridden: false,
     studentResponse: [],
     questionScoreMap: [],
+    comments: {},
     loaded: false
   }
 );
@@ -486,6 +513,7 @@ const initAttempts = () => {
     gradeOverridden: submission.gradeOverridden || false,
     studentResponse: [],
     questionScoreMap: [],
+    comments: {},
     loaded: false
   }));
 };
@@ -494,6 +522,9 @@ const initAttempts = () => {
 const fetchStudentResponse = payload => submissionsStore.fetchStudentResponse(payload);
 const updateSubmissions = payload => submissionsStore.updateSubmissions(payload);
 const updateQuestionSubmissions = payload => submissionsStore.updateQuestionSubmissions(payload);
+const createQuestionSubmissionComment = payload => submissionsStore.createQuestionSubmissionComment(payload);
+const updateQuestionSubmissionComment = payload => submissionsStore.updateQuestionSubmissionComment(payload);
+const deleteQuestionSubmissionComment = payload => submissionsStore.deleteQuestionSubmissionComment(payload);
 const reportStep = payload => apiStore.reportStep(payload);
 const downloadAnswerFileSubmission = payload => submissionsStore.downloadAnswerFileSubmission(payload);
 const fetchAssessment = payload => assessmentStore.fetchAssessment(payload);
@@ -828,7 +859,7 @@ const currentAttemptOverrideGradeTouched = computed(() => {
 });
 
 const showUnsavedChangeWarning = computed(() => {
-  if (currentAttemptTypeChanged.value) {
+  if (currentAttemptTypeChanged.value || currentAttemptCommentsChanged.value) {
     return true;
   }
 
@@ -885,6 +916,86 @@ const downloadFileResponse = async fileResponse => {
   }
 };
 
+// short answer and file questions the student answered get a comment box, holding the comment saved
+// on that response (the first, if there are several)
+const loadComments = () => {
+  const comments = {};
+
+  for (const question of gradableQuestions.value) {
+    if (!["ESSAY", "FILE"].includes(question.questionType)) {
+      continue;
+    }
+
+    const response = studentResponseForQuestionId(question.questionId);
+
+    if (!response.questionSubmissionId) {
+      continue;
+    }
+
+    const saved = response.questionSubmissionCommentDtoList?.[0];
+
+    comments[question.questionId] = {
+      questionSubmissionId: response.questionSubmissionId,
+      commentId: saved?.questionSubmissionCommentId || null,
+      text: saved?.comment || "",
+      savedText: saved?.comment || ""
+    };
+  }
+
+  return comments;
+};
+
+const commentChanged = comment => (comment.text || "").trim() !== (comment.savedText || "").trim();
+
+const currentAttemptCommentsChanged = computed(() => {
+  return Object.values(currentAttempt.value?.comments || {}).some(commentChanged);
+});
+
+const succeeded = result => result?.status >= 200 && result?.status < 300;
+
+// creates, changes or removes each comment that was edited; one that fails to save stays unsaved,
+// so the unsaved changes warning keeps showing
+const saveComments = async attempt => {
+  for (const comment of Object.values(attempt.comments || {})) {
+    if (!commentChanged(comment)) {
+      continue;
+    }
+
+    const text = (comment.text || "").trim();
+    const ids = [
+      experimentId.value,
+      conditionId.value,
+      treatmentId.value,
+      assessmentId.value,
+      attempt.submissionId,
+      comment.questionSubmissionId
+    ];
+
+    if (!text) {
+      if (comment.commentId && !succeeded(await deleteQuestionSubmissionComment([...ids, comment.commentId]))) {
+        continue;
+      }
+
+      comment.commentId = null;
+    } else if (comment.commentId) {
+      if (!succeeded(await updateQuestionSubmissionComment([...ids, comment.commentId, text]))) {
+        continue;
+      }
+    } else {
+      const result = await createQuestionSubmissionComment([...ids, text]);
+
+      if (!succeeded(result)) {
+        continue;
+      }
+
+      comment.commentId = result.data?.questionSubmissionCommentId || null;
+    }
+
+    comment.text = text;
+    comment.savedText = text;
+  }
+};
+
 const loadSubmissionResponses = async submissionId => {
   if (currentAttempt.value.loaded) {
     return;
@@ -923,6 +1034,8 @@ const loadSubmissionResponses = async submissionId => {
 
   currentAttempt.value.questionScoreMap =
     questionScoreMap;
+
+  currentAttempt.value.comments = loadComments();
 
   updateCalculatedGrade();
 
@@ -1012,6 +1125,9 @@ const saveExit = async () => {
         questionSubmissions
       ]);
 
+      // before the grade is reported: sending it to the LMS sends these comments with it
+      await saveComments(attempt);
+
       await reportStep({
         experimentId: experimentId.value,
         step: "student_submission",
@@ -1063,6 +1179,12 @@ defineExpose({
 </script>
 
 <style lang="scss" scoped>
+// the card title it sits in keeps text on one line, which would cut the hint off
+.grader-comment {
+  white-space: normal;
+  font-weight: 400;
+}
+
 .essay-response {
   // the size students wrote it at
   :deep(.ProseMirror) {

@@ -17,7 +17,10 @@ export const submissionService = {
   studentResponse,
   createAnswerSubmissions,
   updateAnswerSubmission,
-  downloadAnswerFileSubmission
+  downloadAnswerFileSubmission,
+  createQuestionSubmissionComment,
+  updateQuestionSubmissionComment,
+  deleteQuestionSubmissionComment
 };
 
 async function getAll(
@@ -272,7 +275,7 @@ async function studentResponse(
       conditionId,
       treatmentId,
       assessmentId
-    )}/${submissionId}/question_submissions/?answer_submissions=true`
+    )}/${submissionId}/question_submissions/?answer_submissions=true&question_submission_comments=true`
   );
 }
 
@@ -453,6 +456,45 @@ async function downloadAnswerFileSubmission(
   }, 1000);
 
   return true;
+}
+
+// a grader's comment on one question response
+function buildCommentPath(experimentId, conditionId, treatmentId, assessmentId, submissionId, questionSubmissionId) {
+  return `${buildSubmissionPath(
+    experimentId,
+    conditionId,
+    treatmentId,
+    assessmentId
+  )}/${submissionId}/question_submissions/${questionSubmissionId}/question_submission_comments`;
+}
+
+async function createQuestionSubmissionComment(experimentId, conditionId, treatmentId, assessmentId, submissionId, questionSubmissionId, comment) {
+  return request(
+    buildCommentPath(experimentId, conditionId, treatmentId, assessmentId, submissionId, questionSubmissionId),
+    {
+      method: "POST",
+      body: { comment }
+    }
+  );
+}
+
+async function updateQuestionSubmissionComment(experimentId, conditionId, treatmentId, assessmentId, submissionId, questionSubmissionId, questionSubmissionCommentId, comment) {
+  return request(
+    `${buildCommentPath(experimentId, conditionId, treatmentId, assessmentId, submissionId, questionSubmissionId)}/${questionSubmissionCommentId}`,
+    {
+      method: "PUT",
+      body: { questionSubmissionCommentId, comment }
+    }
+  );
+}
+
+async function deleteQuestionSubmissionComment(experimentId, conditionId, treatmentId, assessmentId, submissionId, questionSubmissionId, questionSubmissionCommentId) {
+  return request(
+    `${buildCommentPath(experimentId, conditionId, treatmentId, assessmentId, submissionId, questionSubmissionId)}/${questionSubmissionCommentId}`,
+    {
+      method: "DELETE"
+    }
+  );
 }
 
 function buildSubmissionPath(

@@ -65,6 +65,31 @@
         :question-id="question.questionId"
         @download-file-response="$emit('download-file-response', $event)"
       />
+
+      <!-- the grader's comments on this response, once submitted -->
+      <v-row
+        v-if="readonly && graderComments.length"
+        class="grader-comments"
+      >
+        <v-col cols="1">
+          &nbsp;
+        </v-col>
+        <v-col cols="10">
+          <v-alert
+            icon="mdi-comment-text-outline"
+            title="Comment from your instructor"
+            variant="tonal"
+          >
+            <p
+              v-for="comment in graderComments"
+              :key="comment.questionSubmissionCommentId"
+              class="grader-comment"
+            >
+              {{ comment.comment }}
+            </p>
+          </v-alert>
+        </v-col>
+      </v-row>
     </v-card-text>
   </v-card>
 </template>
@@ -145,8 +170,30 @@ const getEssayResponse = question => {
   return submission?.answerSubmissionDtoList?.find(answer => answer.questionSubmissionId === submission.questionSubmissionId) || null;
 };
 
+const graderComments = computed(() => {
+  return (questionSubmission(props.question)?.questionSubmissionCommentDtoList || [])
+    .filter(comment => comment.comment?.trim());
+});
+
 const getFileResponses = question => {
   if (!props.readonly) return null;
   return questionSubmission(question)?.answerSubmissionDtoList || null;
 };
 </script>
+
+<style lang="scss" scoped>
+.grader-comments :deep(.v-alert-title) {
+  font-size: 16px;
+  font-weight: 600;
+  line-height: 24px;
+}
+
+// plain text as the grader typed it, line breaks included
+.grader-comment {
+  white-space: pre-wrap;
+  font-size: 16px;
+  line-height: 24px;
+  margin-bottom: 0;
+  padding-bottom: 0;
+}
+</style>

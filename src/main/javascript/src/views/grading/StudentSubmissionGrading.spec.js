@@ -21,7 +21,10 @@ vi.mock("@/services", () => ({
     studentResponse: vi.fn(),
     updateSubmissions: vi.fn(),
     updateQuestionSubmissions: vi.fn(),
-    downloadAnswerFileSubmission: vi.fn()
+    downloadAnswerFileSubmission: vi.fn(),
+    createQuestionSubmissionComment: vi.fn(),
+    updateQuestionSubmissionComment: vi.fn(),
+    deleteQuestionSubmissionComment: vi.fn()
   },
   apiService: {
     reportStep: vi.fn()
@@ -137,6 +140,112 @@ describe("StudentSubmissionGrading", () => {
     submissionService.updateSubmissions.mockResolvedValue({ status: 200 });
     submissionService.updateQuestionSubmissions.mockResolvedValue({
       status: 200
+    });
+    submissionService.createQuestionSubmissionComment.mockResolvedValue({ data: { questionSubmissionCommentId: "c-new" }, status: 201 });
+    submissionService.updateQuestionSubmissionComment.mockResolvedValue({ status: 200 });
+    submissionService.deleteQuestionSubmissionComment.mockResolvedValue({ status: 200 });
+  });
+
+  describe("grader comments", () => {
+    const essayResponse = () => studentResponseFixture[1];
+
+    const mountLoaded = async () => {
+      const wrapper = mount();
+      await flushPromises();
+      await wrapper.vm.$nextTick();
+      await flushPromises();
+      await wrapper.vm.$nextTick();
+
+      return wrapper;
+    };
+
+    const commentBox = wrapper => wrapper.findAllComponents({ name: "VTextarea" })
+      .find(textarea => textarea.props("label") === "Comment for the student");
+
+    const withSavedComment = async (comment, test) => {
+      essayResponse().questionSubmissionCommentDtoList = [{ questionSubmissionCommentId: "c1", comment }];
+
+      try {
+        await test();
+      } finally {
+        delete essayResponse().questionSubmissionCommentDtoList;
+      }
+    };
+
+    it("shows a comment box for the short answer question only", async () => {
+      const wrapper = await mountLoaded();
+
+      const boxes = wrapper.findAllComponents({ name: "VTextarea" }).filter(textarea => textarea.props("label") === "Comment for the student");
+
+      expect(boxes).toHaveLength(1);
+      expect(boxes[0].props("modelValue")).toBe("");
+    });
+
+    it("fills the box with the saved comment", async () => {
+      await withSavedComment("Cite your sources.", async () => {
+        const wrapper = await mountLoaded();
+
+        expect(commentBox(wrapper).props("modelValue")).toBe("Cite your sources.");
+      });
+    });
+
+    // the grade goes to the LMS when the step is reported, and takes the comment with it
+    it("saves a new comment before reporting the grade", async () => {
+      const wrapper = await mountLoaded();
+      const reportStepSpy = vi.spyOn(apiModule(), "reportStep");
+
+      commentBox(wrapper).vm.$emit("update:modelValue", "  Nice work  ");
+      await wrapper.vm.$nextTick();
+      expect(wrapper.text()).toContain("Unsaved Changes");
+
+      await wrapper.vm.saveExit();
+      await flushPromises();
+
+      expect(submissionService.createQuestionSubmissionComment).toHaveBeenCalledWith("1", "10", "100", "500", 900, 22, "Nice work");
+      expect(submissionService.createQuestionSubmissionComment.mock.invocationCallOrder[0])
+        .toBeLessThan(reportStepSpy.mock.invocationCallOrder[0]);
+    });
+
+    it("updates a changed comment and removes an emptied one", async () => {
+      await withSavedComment("Old note", async () => {
+        const wrapper = await mountLoaded();
+
+        commentBox(wrapper).vm.$emit("update:modelValue", "New note");
+        await wrapper.vm.saveExit();
+        await flushPromises();
+
+        expect(submissionService.updateQuestionSubmissionComment).toHaveBeenCalledWith("1", "10", "100", "500", 900, 22, "c1", "New note");
+
+        commentBox(wrapper).vm.$emit("update:modelValue", "   ");
+        await wrapper.vm.saveExit();
+        await flushPromises();
+
+        expect(submissionService.deleteQuestionSubmissionComment).toHaveBeenCalledWith("1", "10", "100", "500", 900, 22, "c1");
+      });
+    });
+
+    it("leaves an unchanged comment alone", async () => {
+      await withSavedComment("Same note", async () => {
+        const wrapper = await mountLoaded();
+
+        await wrapper.vm.saveExit();
+        await flushPromises();
+
+        expect(submissionService.createQuestionSubmissionComment).not.toHaveBeenCalled();
+        expect(submissionService.updateQuestionSubmissionComment).not.toHaveBeenCalled();
+        expect(submissionService.deleteQuestionSubmissionComment).not.toHaveBeenCalled();
+      });
+    });
+
+    it("keeps a comment that failed to save as unsaved", async () => {
+      submissionService.createQuestionSubmissionComment.mockResolvedValue({ status: 500, error: "boom" });
+      const wrapper = await mountLoaded();
+
+      commentBox(wrapper).vm.$emit("update:modelValue", "Nice work");
+      await wrapper.vm.saveExit();
+      await flushPromises();
+
+      expect(wrapper.text()).toContain("Unsaved Changes");
     });
   });
 

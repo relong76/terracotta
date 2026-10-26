@@ -260,17 +260,55 @@ describe("submission.service", () => {
   });
 
   describe("studentResponse", () => {
-    it("fetches the student response with the answer_submissions query param", async () => {
+    it("fetches the student response with its answers and grader comments", async () => {
       const payload = { questionSubmissionId: 1 };
       global.fetch.mockResolvedValue(jsonResponse(payload, 200));
 
       const result = await submissionService.studentResponse(1, 2, 3, 4, 5);
 
       expect(global.fetch).toHaveBeenCalledWith(
-        `${BASE_URL}${SUBMISSION_PATH}/5/question_submissions/?answer_submissions=true`,
+        `${BASE_URL}${SUBMISSION_PATH}/5/question_submissions/?answer_submissions=true&question_submission_comments=true`,
         expect.objectContaining({ method: "GET" })
       );
       expect(result).toEqual({ data: payload, status: 200 });
+    });
+  });
+
+  describe("grader comments", () => {
+    const COMMENTS_PATH = `${BASE_URL}${SUBMISSION_PATH}/5/question_submissions/6/question_submission_comments`;
+
+    it("creates a comment on a question response", async () => {
+      global.fetch.mockResolvedValue(jsonResponse({ questionSubmissionCommentId: "c1" }, 201));
+
+      const result = await submissionService.createQuestionSubmissionComment(1, 2, 3, 4, 5, 6, "Nice work");
+
+      expect(global.fetch).toHaveBeenCalledWith(
+        COMMENTS_PATH,
+        expect.objectContaining({ method: "POST", body: JSON.stringify({ comment: "Nice work" }) })
+      );
+      expect(result).toEqual({ data: { questionSubmissionCommentId: "c1" }, status: 201 });
+    });
+
+    it("updates a comment", async () => {
+      global.fetch.mockResolvedValue(jsonResponse(null, 200));
+
+      await submissionService.updateQuestionSubmissionComment(1, 2, 3, 4, 5, 6, "c1", "Better");
+
+      expect(global.fetch).toHaveBeenCalledWith(
+        `${COMMENTS_PATH}/c1`,
+        expect.objectContaining({ method: "PUT", body: JSON.stringify({ questionSubmissionCommentId: "c1", comment: "Better" }) })
+      );
+    });
+
+    it("deletes a comment", async () => {
+      global.fetch.mockResolvedValue(jsonResponse(null, 200));
+
+      await submissionService.deleteQuestionSubmissionComment(1, 2, 3, 4, 5, 6, "c1");
+
+      expect(global.fetch).toHaveBeenCalledWith(
+        `${COMMENTS_PATH}/c1`,
+        expect.objectContaining({ method: "DELETE" })
+      );
     });
   });
 
