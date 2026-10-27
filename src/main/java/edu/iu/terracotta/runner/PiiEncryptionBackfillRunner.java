@@ -40,6 +40,7 @@ public class PiiEncryptionBackfillRunner implements ApplicationListener<Applicat
 
     private static final String EMAIL = "email";
     private static final String WHERE = " WHERE ";
+    private static final int PROGRESS_ROWS = 10_000;
 
     /**
      * The encrypted columns, by table. A secret an admin later adds straight to the database (e.g.
@@ -86,6 +87,8 @@ public class PiiEncryptionBackfillRunner implements ApplicationListener<Applicat
     private static void start(Runnable work, String name) {
         Thread thread = new Thread(work, name);
         thread.setDaemon(true);
+        // an Error (e.g. OutOfMemoryError) would otherwise only reach stderr, not the app log
+        thread.setUncaughtExceptionHandler((t, e) -> log.error("[{}] stopped unexpectedly; it resumes on the next startup.", t.getName(), e));
         thread.start();
     }
 
@@ -127,14 +130,22 @@ public class PiiEncryptionBackfillRunner implements ApplicationListener<Applicat
      */
     public int backfill() {
         int converted = 0;
+        boolean complete = true;
+
+        log.info("Encrypting any sensitive values still stored in plain text, in tables {}.", TARGETS.stream().map(Target::table).toList());
 
         for (Target target : TARGETS) {
             try {
                 converted += run(target, false);
             } catch (RuntimeException e) {
                 // the rest of the tables are still worth converting; this one resumes on the next startup
+                complete = false;
                 log.error("Encrypting the sensitive values in table [{}] stopped; it resumes on the next startup.", target.table(), e);
             }
+        }
+
+        if (complete) {
+            log.info("Encryption backfill finished: [{}] rows were encrypted.", converted);
         }
 
         return converted;
@@ -171,6 +182,11 @@ public class PiiEncryptionBackfillRunner implements ApplicationListener<Applicat
                 } else {
                     skipped++;
                 }
+            }
+
+            // a large table takes a while, so show it's still moving
+            if ((converted + skipped) / PROGRESS_ROWS > (converted + skipped - rows.size()) / PROGRESS_ROWS) {
+                log.info("{} table [{}]: [{}] rows so far, up to ID [{}].", decrypting ? "Decrypting" : "Encrypting", target.table(), converted + skipped, lastId);
             }
         }
 
