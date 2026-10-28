@@ -411,7 +411,7 @@
                  submission in Terracotta -->
             <v-row
               v-if="currentAttempt.comments?.[question.questionId]"
-              class="grader-comment mt-4"
+              class="grader-comment mt-6"
             >
               <v-col
                 cols="1"
@@ -1213,6 +1213,10 @@ defineExpose({
 }
 
 .essay-response {
+  // the editor's own bottom margin (mb-6) put more space under an essay than under a submitted
+  // file; the comment row's margin sets the gap for both
+  margin-bottom: 0 !important;
+
   // the size students wrote it at
   :deep(.ProseMirror) {
     font-size: 16px;
