@@ -357,42 +357,54 @@
               <template
                 v-else-if="question.questionType === 'FILE'"
               >
-                <v-card
-                  class="w-100 h-100"
-                >
-                  <v-card-text>
-                    <v-row
-                      class="d-flex flex-column"
-                      align="center"
-                      justify="center"
+                <!-- the same columns as an essay response, so it lines up with the question and comment -->
+                <v-row>
+                  <v-col
+                    cols="1"
+                  >
+                    &nbsp;
+                  </v-col>
+                  <v-col
+                    cols="10"
+                  >
+                    <v-card
+                      class="w-100 h-100"
                     >
-                      <h2>
-                        File submitted:
-                      </h2>
-                      <div
-                        v-for="fileResponse in studentSubmittedFileResponse(question.questionId)"
-                        :key="fileResponse.answerSubmissionId"
-                        class="v-btn uploaded-file-row"
-                      >
-                        {{ fileResponse.fileName }}
-                        <tool-tip
-                          v-if="fileResponse.answerSubmissionId != downloadId"
-                          @clicked="downloadFileResponse(fileResponse)"
-                          activatorType="button"
-                          activatorClass="btn-uploaded-file"
-                          activatorIconClass="btn-uploaded-file-icon"
-                          icon="mdi-file-download-outline"
-                          content="Download file"
-                        />
-                        <span
-                          v-if="fileResponse.answerSubmissionId === downloadId"
+                      <v-card-text>
+                        <v-row
+                          class="d-flex flex-column"
+                          align="center"
+                          justify="center"
                         >
-                          <Spinner />
-                        </span>
-                      </div>
-                    </v-row>
-                  </v-card-text>
-                </v-card>
+                          <h2>
+                            File submitted:
+                          </h2>
+                          <div
+                            v-for="fileResponse in studentSubmittedFileResponse(question.questionId)"
+                            :key="fileResponse.answerSubmissionId"
+                            class="v-btn uploaded-file-row"
+                          >
+                            {{ fileResponse.fileName }}
+                            <tool-tip
+                              v-if="fileResponse.answerSubmissionId != downloadId"
+                              @clicked="downloadFileResponse(fileResponse)"
+                              activatorType="button"
+                              activatorClass="btn-uploaded-file"
+                              activatorIconClass="btn-uploaded-file-icon"
+                              icon="mdi-file-download-outline"
+                              content="Download file"
+                            />
+                            <span
+                              v-if="fileResponse.answerSubmissionId === downloadId"
+                            >
+                              <Spinner />
+                            </span>
+                          </div>
+                        </v-row>
+                      </v-card-text>
+                    </v-card>
+                  </v-col>
+                </v-row>
               </template>
             </div>
             <!-- the grader's comment: sent to the student with their grade, and shown on their
