@@ -887,6 +887,26 @@ public class SubmissionServiceImplTest extends BaseTest {
         assertEquals("Question 1: Cite your sources.\n\nQuestion 2: Good analysis.", submissionService.gradeComment(submission));
     }
 
+    // Canvas files every comment under the student's latest Canvas attempt, so the comment says which one was graded
+    @Test
+    public void testGradeCommentNamesTheAttemptAsNumberedInTerracotta() {
+        Submission firstAttempt = mock(Submission.class);
+        Submission laterAttempt = mock(Submission.class);
+        when(firstAttempt.getSubmissionId()).thenReturn(500L);
+        when(laterAttempt.getSubmissionId()).thenReturn(502L);
+        when(submission.getSubmissionId()).thenReturn(501L);
+        when(submission.getParticipant()).thenReturn(participant);
+        when(submission.getAssessment()).thenReturn(assessment);
+        when(participant.getParticipantId()).thenReturn(7L);
+        when(assessment.getAssessmentId()).thenReturn(8L);
+        when(submissionRepository.findByParticipant_IdAndAssessment_AssessmentIdAndDateSubmittedNotNullOrderByDateSubmitted(7L, 8L))
+            .thenReturn(List.of(firstAttempt, submission, laterAttempt));
+        QuestionSubmissionComment comment = commentOn(questionSubmission, "Nice work");
+        when(questionSubmissionCommentRepository.findByQuestionSubmission_QuestionSubmissionIdIn(any())).thenReturn(List.of(comment));
+
+        assertEquals("Attempt 2, Question 1: Nice work", submissionService.gradeComment(submission));
+    }
+
     @Test
     public void testGradeCommentIsNullWithoutComments() {
         when(questionSubmissionCommentRepository.findByQuestionSubmission_QuestionSubmissionIdIn(any())).thenReturn(Collections.emptyList());

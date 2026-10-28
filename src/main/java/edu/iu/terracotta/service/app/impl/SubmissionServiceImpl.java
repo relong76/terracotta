@@ -644,6 +644,9 @@ public class SubmissionServiceImpl implements SubmissionService {
     /**
      * The graders' comments on this attempt, as the plain text sent with its score: one paragraph per
      * question that has a comment, numbered as the student saw the questions. Null when there are none.
+     *
+     * Each paragraph names the attempt, numbered as in Terracotta (oldest first): Canvas files every
+     * comment under the student's latest Canvas attempt, whichever attempt was graded.
      */
     String gradeComment(Submission submission) {
         List<QuestionSubmission> questionSubmissions = CollectionUtils.emptyIfNull(submission.getQuestionSubmissions()).stream().toList();
@@ -672,15 +675,34 @@ public class SubmissionServiceImpl implements SubmissionService {
             .map(Question::getQuestionId)
             .toList();
 
+        String attempt = attemptPrefix(submission);
+
         return questionSubmissions.stream()
             .filter(questionSubmission -> commentsByQuestionSubmissionId.containsKey(questionSubmission.getQuestionSubmissionId()))
             .sorted(Comparator.comparingInt(questionSubmission -> questionIds.indexOf(questionSubmission.getQuestion().getQuestionId())))
             .map(questionSubmission -> String.format(
-                "Question %d: %s",
+                "%sQuestion %d: %s",
+                attempt,
                 questionIds.indexOf(questionSubmission.getQuestion().getQuestionId()) + 1,
                 String.join("\n", commentsByQuestionSubmissionId.get(questionSubmission.getQuestionSubmissionId()))
             ))
             .collect(Collectors.joining("\n\n"));
+    }
+
+    // "Attempt 2, ", or nothing when the attempt isn't one of the student's submitted attempts
+    private String attemptPrefix(Submission submission) {
+        if (submission.getParticipant() == null || submission.getAssessment() == null) {
+            return StringUtils.EMPTY;
+        }
+
+        List<Long> attemptIds = submissionRepository.findByParticipant_IdAndAssessment_AssessmentIdAndDateSubmittedNotNullOrderByDateSubmitted(
+                submission.getParticipant().getParticipantId(), submission.getAssessment().getAssessmentId())
+            .stream()
+            .map(Submission::getSubmissionId)
+            .toList();
+        int attempt = attemptIds.indexOf(submission.getSubmissionId());
+
+        return attempt < 0 ? StringUtils.EMPTY : String.format("Attempt %d, ", attempt + 1);
     }
 
     private static String sha256(String value) {
