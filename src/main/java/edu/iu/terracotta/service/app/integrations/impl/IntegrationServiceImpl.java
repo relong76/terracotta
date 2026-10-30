@@ -169,6 +169,7 @@ public class IntegrationServiceImpl implements IntegrationService {
             throw new IntegrationUrlIframeInvalidException(String.format("Cannot validate iframe embedding for URL: [%s]. Error: [%s]", url, e.getMessage()), e);
         }
 
+        ResponseEntity<String> response;
         // a redirect could point at an internal address that the check above never saw
         SimpleClientHttpRequestFactory requestFactory = new SimpleClientHttpRequestFactory() {
             @Override
@@ -178,27 +179,37 @@ public class IntegrationServiceImpl implements IntegrationService {
             }
         };
 
-        // Use HEAD request to get headers without downloading full content
-        Optional<ResponseEntity<String>> response = fetchHeaders(url, HttpMethod.HEAD, requestFactory);
-
-        if (response.isEmpty() || !response.get().getStatusCode().is2xxSuccessful()) {
-            // some servers reject HEAD or answer it differently than GET
-            Optional<ResponseEntity<String>> getResponse = fetchHeaders(url, HttpMethod.GET, requestFactory);
-
-            if (getResponse.isPresent()) {
-                response = getResponse;
-            }
+        try {
+            // Use HEAD request to get headers without downloading full content
+            // deepcode ignore Ssrf: the URL is checked by validatePublicUrl above and redirects are not followed
+            response = new RestTemplate(requestFactory).exchange(
+                url,
+                HttpMethod.HEAD,
+                null,
+                String.class
+            );
+        } catch (Exception e) {
+            try {
+                // deepcode ignore Ssrf: the URL is checked by validatePublicUrl above and redirects are not followed
+                response = new RestTemplate(requestFactory).exchange(
+                    url,
+                    HttpMethod.GET,
+                    null,
+                    String.class
+                );
+                } catch (Exception ex) {
+                    throw new IntegrationUrlIframeInvalidException(
+                        String.format(
+                            "Error validating iframe embedding for URL: [%s]. Error: [%s]",
+                            url,
+                            ex.getMessage()
+                        ),
+                        ex
+                    );
+                }
         }
 
-        if (response.isEmpty()) {
-            // only the site's own headers can block embedding; not being able to reach it from
-            // here (an untrusted certificate, a network error) says nothing about whether the
-            // instructor's browser can frame it, so it isn't treated as blocked
-            log.warn("Could not reach URL: [{}] to check whether it can be embedded in an iframe; allowing it", url);
-            return;
-        }
-
-        Optional<String> validationErrors = analyzeHeaders(response.get().getHeaders(), url, platformDeployment.getLocalUrl());
+        Optional<String> validationErrors = analyzeHeaders(response.getHeaders(), url, platformDeployment.getLocalUrl());
 
         if (validationErrors.isPresent()) {
             String errorMessage = String.format(
@@ -208,20 +219,6 @@ public class IntegrationServiceImpl implements IntegrationService {
             );
             log.warn(errorMessage);
             throw new IntegrationUrlIframeInvalidException(errorMessage);
-        }
-    }
-
-    private Optional<ResponseEntity<String>> fetchHeaders(String url, HttpMethod method, SimpleClientHttpRequestFactory requestFactory) {
-        RestTemplate restTemplate = new RestTemplate(requestFactory);
-        // an error page still carries the headers that decide whether the site can be framed
-        restTemplate.setErrorHandler(clientHttpResponse -> false);
-
-        try {
-            // deepcode ignore Ssrf: the URL is checked by validatePublicUrl before this and redirects are not followed
-            return Optional.of(restTemplate.exchange(url, method, null, String.class));
-        } catch (RuntimeException e) {
-            log.warn("Error sending {} request to URL: [{}] for iframe validation. Error: [{}]", method, url, e.getMessage());
-            return Optional.empty();
         }
     }
 
