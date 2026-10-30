@@ -17,10 +17,16 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import java.io.IOException;
+import java.net.InetSocketAddress;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+
+import com.sun.net.httpserver.HttpHandler;
+import com.sun.net.httpserver.HttpServer;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -395,13 +401,37 @@ public class IntegrationServiceImplTest extends BaseTest {
     }
 
     @Test
-    void testValidateIntegrationUrlIframeHeadAndGetBothFail() {
+    void testValidateIntegrationUrlIframeHeadAndGetBothFailAllowed() throws IntegrationUrlIframeInvalidException {
         when(platformDeploymentRepository.findByKeyId(anyLong())).thenReturn(Optional.of(platformDeployment));
 
         try (
             MockedConstruction<RestTemplate> mocked = mockConstruction(
                 RestTemplate.class,
-                (mock, context) -> when(mock.exchange(anyString(), any(HttpMethod.class), isNull(), eq(String.class))).thenThrow(new RestTemplateTestException("failed"))
+                (mock, context) -> when(mock.exchange(anyString(), any(HttpMethod.class), isNull(), eq(String.class))).thenThrow(new RestTemplateTestException("PKIX path building failed"))
+            )
+        ) {
+            integrationService.validateIntegrationUrlIframe("https://example.com", securedInfo);
+
+            assertEquals(2, mocked.constructed().size());
+        }
+    }
+
+    @Test
+    void testValidateIntegrationUrlIframeHeadErrorStatusFallsBackToGet() {
+        when(platformDeploymentRepository.findByKeyId(anyLong())).thenReturn(Optional.of(platformDeployment));
+        HttpHeaders getHeaders = new HttpHeaders();
+        getHeaders.set("X-Frame-Options", "DENY");
+
+        try (
+            MockedConstruction<RestTemplate> mocked = mockConstruction(
+                RestTemplate.class,
+                (mock, context) -> {
+                    if (context.getCount() == 1) {
+                        when(mock.exchange(anyString(), eq(HttpMethod.HEAD), isNull(), eq(String.class))).thenReturn(new ResponseEntity<>(null, new HttpHeaders(), HttpStatus.METHOD_NOT_ALLOWED));
+                    } else {
+                        when(mock.exchange(anyString(), eq(HttpMethod.GET), isNull(), eq(String.class))).thenReturn(new ResponseEntity<>(null, getHeaders, HttpStatus.OK));
+                    }
+                }
             )
         ) {
             Exception exception = assertThrows(
@@ -410,7 +440,72 @@ public class IntegrationServiceImplTest extends BaseTest {
             );
 
             assertEquals(2, mocked.constructed().size());
-            assertTrue(exception.getMessage().contains("Error validating iframe embedding"));
+            assertTrue(exception.getMessage().contains("X-Frame-Options: DENY"));
+        }
+    }
+
+    @Test
+    void testValidateIntegrationUrlIframeHeadErrorStatusUsedWhenGetFails() {
+        when(platformDeploymentRepository.findByKeyId(anyLong())).thenReturn(Optional.of(platformDeployment));
+        HttpHeaders headHeaders = new HttpHeaders();
+        headHeaders.set("X-Frame-Options", "DENY");
+
+        try (
+            MockedConstruction<RestTemplate> _ = mockConstruction(
+                RestTemplate.class,
+                (mock, context) -> {
+                    if (context.getCount() == 1) {
+                        when(mock.exchange(anyString(), eq(HttpMethod.HEAD), isNull(), eq(String.class))).thenReturn(new ResponseEntity<>(null, headHeaders, HttpStatus.FORBIDDEN));
+                    } else {
+                        when(mock.exchange(anyString(), eq(HttpMethod.GET), isNull(), eq(String.class))).thenThrow(new RestTemplateTestException("failed"));
+                    }
+                }
+            )
+        ) {
+            assertThrows(
+                IntegrationUrlIframeInvalidException.class,
+                () -> { integrationService.validateIntegrationUrlIframe("https://example.com", securedInfo); }
+            );
+        }
+    }
+
+    @Test
+    void testValidateIntegrationUrlIframeReadsHeadersFromAnErrorPage() throws IOException {
+        when(platformDeploymentRepository.findByKeyId(anyLong())).thenReturn(Optional.of(platformDeployment));
+        HttpServer server = startServer(exchange -> {
+            exchange.getResponseHeaders().set("X-Frame-Options", "DENY");
+            exchange.sendResponseHeaders(403, -1);
+            exchange.close();
+        });
+
+        try {
+            Exception exception = assertThrows(
+                IntegrationUrlIframeInvalidException.class,
+                () -> { integrationService.validateIntegrationUrlIframe(serverUrl(server), securedInfo); }
+            );
+
+            assertTrue(exception.getMessage().contains("X-Frame-Options: DENY"));
+        } finally {
+            server.stop(0);
+        }
+    }
+
+    @Test
+    void testValidateIntegrationUrlIframeHeadRejectedThenGetAllowed() throws IOException, IntegrationUrlIframeInvalidException {
+        when(platformDeploymentRepository.findByKeyId(anyLong())).thenReturn(Optional.of(platformDeployment));
+        List<String> methods = new ArrayList<>();
+        HttpServer server = startServer(exchange -> {
+            methods.add(exchange.getRequestMethod());
+            exchange.sendResponseHeaders("HEAD".equals(exchange.getRequestMethod()) ? 405 : 200, -1);
+            exchange.close();
+        });
+
+        try {
+            integrationService.validateIntegrationUrlIframe(serverUrl(server), securedInfo);
+
+            assertEquals(List.of("HEAD", "GET"), methods);
+        } finally {
+            server.stop(0);
         }
     }
 
@@ -440,6 +535,18 @@ public class IntegrationServiceImplTest extends BaseTest {
         }
 
         verify(outboundUrlService).validatePublicUrl("https://example.com");
+    }
+
+    private HttpServer startServer(HttpHandler handler) throws IOException {
+        HttpServer server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
+        server.createContext("/page", handler);
+        server.start();
+
+        return server;
+    }
+
+    private String serverUrl(HttpServer server) {
+        return "http://127.0.0.1:" + server.getAddress().getPort() + "/page";
     }
 
     private MockedConstruction<RestTemplate> mockHeadResponse(HttpHeaders headers) {
