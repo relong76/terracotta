@@ -1,5 +1,6 @@
 package edu.iu.terracotta.service.app.impl;
 
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -20,6 +21,7 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import java.io.FileReader;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -30,6 +32,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+import com.opencsv.CSVReader;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -69,6 +72,7 @@ import edu.iu.terracotta.dao.model.enums.export.ParticipantTreatmentCsv;
 import edu.iu.terracotta.dao.model.enums.export.ParticipantsCsv;
 import edu.iu.terracotta.dao.model.enums.export.ResponseOptionsCsv;
 import edu.iu.terracotta.dao.model.enums.export.SubmissionsCsv;
+import edu.iu.terracotta.dao.model.enums.export.TreatmentCsv;
 import edu.iu.terracotta.dao.model.enums.messaging.MessageRecipientMatchType;
 import edu.iu.terracotta.dao.model.enums.messaging.MessageType;
 import edu.iu.terracotta.dao.model.enums.messaging.rule.MessageRuleComparison;
@@ -348,6 +352,68 @@ public class ExportServiceImplTest extends BaseTest {
 
         String content = Files.readString(Path.of(files.get(ParticipantTreatmentCsv.FILENAME)));
         assertEquals(1, content.lines().count());
+    }
+
+    // ---------------------------------------------------------------------------------------------
+    // handleTreatmentCsv
+    // ---------------------------------------------------------------------------------------------
+
+    private List<String[]> readTreatmentCsv(Map<String, String> files) throws Exception {
+        try (CSVReader reader = new CSVReader(new FileReader(files.get(TreatmentCsv.FILENAME)))) {
+            return reader.readAll();
+        }
+    }
+
+    @Test
+    public void testHandleTreatmentCsvWritesTheRequestedColumnsAndEachTreatmentsInstructions() throws Exception {
+        String instructions = "<p>Read the chapter, then answer:</p>\n<ul><li>one, \"quoted\"</li></ul>";
+        when(assessment.getHtml()).thenReturn(instructions);
+        when(assessment.getNumOfSubmissions()).thenReturn(3);
+        when(assignment.getHoursBetweenSubmissions()).thenReturn(2F);
+        ReflectionTestUtils.setField(exportService, "treatments", List.of(treatment));
+
+        Map<String, String> files = new HashMap<>();
+        ReflectionTestUtils.invokeMethod(exportService, "handleTreatmentCsv", files);
+        List<String[]> rows = readTreatmentCsv(files);
+
+        assertArrayEquals(
+            new String[] {
+                "assignment_name", "assignment_due_date", "lms_assignment_id", "assignment_id", "treatment_id",
+                "treatment_instructions", "exposure_id", "condition_id", "condition_name", "grade_type",
+                "attempts_allowed", "time_required_between_attempts"
+            },
+            rows.get(0)
+        );
+        assertEquals(2, rows.size());
+        assertArrayEquals(
+            new String[] {
+                ASSIGNMENT_TITLE, "N/A", "1", "1", "1", instructions, "1", "1", CONDITION_TITLE,
+                "MOST_RECENT", "3", "2.0 hours"
+            },
+            rows.get(1)
+        );
+    }
+
+    @Test
+    public void testHandleTreatmentCsvUsesNaForBlankInstructions() throws Exception {
+        when(assessment.getHtml()).thenReturn("  ");
+        ReflectionTestUtils.setField(exportService, "treatments", List.of(treatment));
+
+        Map<String, String> files = new HashMap<>();
+        ReflectionTestUtils.invokeMethod(exportService, "handleTreatmentCsv", files);
+
+        assertEquals("N/A", readTreatmentCsv(files).get(1)[TreatmentCsv.TREATMENT_INSTRUCTIONS.ordinal()]);
+    }
+
+    @Test
+    public void testHandleTreatmentCsvLeavesOutDeletedAssignments() throws Exception {
+        when(assignment.getSoftDeleted()).thenReturn(true);
+        ReflectionTestUtils.setField(exportService, "treatments", List.of(treatment));
+
+        Map<String, String> files = new HashMap<>();
+        ReflectionTestUtils.invokeMethod(exportService, "handleTreatmentCsv", files);
+
+        assertEquals(1, readTreatmentCsv(files).size());
     }
 
     // ---------------------------------------------------------------------------------------------
