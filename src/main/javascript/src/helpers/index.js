@@ -6,3 +6,4 @@ export * from "./assignment-lock";
 export * from "./date-time";
 export * from "./sanitize-html";
 export * from "./experiment-resume";
+export * from "./sort";
