@@ -437,8 +437,8 @@ public class ExportServiceImpl implements ExportService {
                             assignment.getLmsAssignmentId() != null ? assignment.getLmsAssignmentId() : NA,
                             assignment.getAssignmentId().toString(),
                             treatment.getTreatmentId().toString(),
-                            // plain text, like essay responses in item_responses.csv
-                            assessment != null && StringUtils.isNotBlank(assessment.getHtml()) ? RichTextUtils.toPlainText(assessment.getHtml()) : NA,
+                            // plain text, like essay responses in item_responses.csv; instructions are always HTML
+                            assessment != null && StringUtils.isNotBlank(assessment.getHtml()) ? RichTextUtils.htmlToPlainText(assessment.getHtml()) : NA,
                             assignment.getExposure().getExposureId().toString(),
                             treatment.getCondition().getConditionId().toString(),
                             StringUtils.isNotBlank(treatment.getCondition().getName()) ? treatment.getCondition().getName() : NA,
