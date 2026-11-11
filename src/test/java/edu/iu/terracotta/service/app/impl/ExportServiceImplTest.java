@@ -366,7 +366,7 @@ public class ExportServiceImplTest extends BaseTest {
 
     @Test
     public void testHandleTreatmentCsvWritesTheRequestedColumnsAndEachTreatmentsInstructions() throws Exception {
-        String instructions = "<p>Read the chapter, then answer:</p>\n<ul><li>one, \"quoted\"</li></ul>";
+        String instructions = "<p>Read <a href=\"https://example.com/ch1\">the chapter</a>, then answer:</p>\n<ul><li><p>one, \"quoted\"</p></li></ul>";
         when(assessment.getHtml()).thenReturn(instructions);
         when(assessment.getNumOfSubmissions()).thenReturn(3);
         when(assignment.getHoursBetweenSubmissions()).thenReturn(2F);
@@ -387,7 +387,10 @@ public class ExportServiceImplTest extends BaseTest {
         assertEquals(2, rows.size());
         assertArrayEquals(
             new String[] {
-                ASSIGNMENT_TITLE, "N/A", "1", "1", "1", instructions, "1", "1", CONDITION_TITLE,
+                ASSIGNMENT_TITLE, "N/A", "1", "1", "1",
+                // plain text, like essay responses in item_responses.csv
+                "Read the chapter (https://example.com/ch1), then answer:\n\n- one, \"quoted\"",
+                "1", "1", CONDITION_TITLE,
                 "MOST_RECENT", "3", "2.0 hours"
             },
             rows.get(1)
