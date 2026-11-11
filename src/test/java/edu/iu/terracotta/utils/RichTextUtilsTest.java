@@ -80,4 +80,30 @@ public class RichTextUtilsTest {
         );
     }
 
+    @Test
+    void testHtmlToPlainTextConvertsHtmlThatStartsWithInlineContent() {
+        assertEquals(
+            "Bold intro, see the guide (https://example.com/guide)\n\nNext paragraph",
+            RichTextUtils.htmlToPlainText("<strong>Bold</strong> intro, see <a href=\"https://example.com/guide\">the guide</a><p>Next paragraph</p>")
+        );
+    }
+
+    @Test
+    void testHtmlToPlainTextConvertsHtmlThatStartsWithASpan() {
+        assertEquals("Hello there", RichTextUtils.htmlToPlainText("<span style=\"color: red\">Hello <em>there</em></span>"));
+    }
+
+    @Test
+    void testHtmlToPlainTextConvertsEditorHtmlLikeToPlainText() {
+        String html = "<p>One</p><p></p><ul><li><p>a</p></li></ul>";
+
+        assertEquals("One\n\n- a", RichTextUtils.htmlToPlainText(html));
+    }
+
+    @Test
+    void testHtmlToPlainTextLeavesPlainTextAsItIs() {
+        assertEquals("just words", RichTextUtils.htmlToPlainText("just words"));
+        assertNull(RichTextUtils.htmlToPlainText(null));
+    }
+
 }
