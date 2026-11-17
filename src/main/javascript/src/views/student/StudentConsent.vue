@@ -231,9 +231,12 @@ watch(pageFullyLoaded, isLoaded => {
   emit("loaded");
 
   if (props.continuesToAssignment) {
+    // at the top: in the LMS, Terracotta's frame grows to the whole page, so a centered popup
+    // would sit halfway down a long consent PDF, out of sight
     void Swal.fire({
       text: "You have not yet completed the consent form. Please approve or revoke consent. You will be redirected to your assignment upon completion.",
-      icon: "info"
+      icon: "info",
+      position: "top"
     });
   }
 });
@@ -297,9 +300,13 @@ const submitParticipant = async participantData => {
       ...response
     };
 
+    // at the bottom, by the submit button the student just used: in the LMS the frame grows to the
+    // whole page, so a centered popup could be out of sight after a long consent PDF - and before an
+    // assignment, closing this popup is what opens it
     await Swal.fire({
       text: "Successfully submitted consent",
-      icon: "success"
+      icon: "success",
+      position: "bottom"
     });
 
     if (response?.message) {
