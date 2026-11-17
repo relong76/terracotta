@@ -65,7 +65,7 @@
         </v-radio-group>
       </v-card>
 
-      <v-row class="mt-5 submit-row">
+      <v-row class="submit-row">
         <v-btn
           :disabled="disableSubmit"
           elevation="0"
@@ -363,7 +363,8 @@ div.vue-pdf-embed {
 }
 
 .submit-row {
-  margin: 0;
+  // space between the question card and the submit button (a v-row's own margins are reset here)
+  margin: 24px 0 0;
 
   > .please-wait {
     max-height: fit-content;
