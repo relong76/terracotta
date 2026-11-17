@@ -57,6 +57,7 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -76,6 +77,7 @@ public class StepsController {
     public static final String LAUNCH_ASSIGNMENT = "launch_assignment";
     public static final String LAUNCH_CONSENT_ASSIGNMENT = "launch_consent_assignment";
     public static final String VIEW_ASSIGNMENT = "view_assignment";
+    public static final String CONSENT_STATUS = "consent_status";
 
     private final ExposureService exposureService;
     private final ParticipantService participantService;
@@ -111,6 +113,7 @@ public class StepsController {
             case LAUNCH_ASSIGNMENT -> handleLaunchAssignment(experimentId, securedInfo, preferLmsChecks);
             case LAUNCH_CONSENT_ASSIGNMENT -> handleLaunchConsentAssignment(experimentId, securedInfo);
             case VIEW_ASSIGNMENT -> handleViewAssignment(experimentId, securedInfo);
+            case CONSENT_STATUS -> handleConsentStatus(experimentId, securedInfo);
             default -> new ResponseEntity<>(HttpStatus.BAD_REQUEST);
         };
     }
@@ -295,6 +298,18 @@ public class StepsController {
         }
 
         return new ResponseEntity<>(studentUserAsParticipant.get(0), HttpStatus.OK);
+    }
+
+    // whether this student must answer the consent form before the assignment they launched -
+    // asked before the assignment launch step, which would otherwise mark them as started and
+    // keep them out of the study. Only reads: creating the participant is left to the consent
+    // form's own launch step, so this never changes who's in the study.
+    private ResponseEntity<Object> handleConsentStatus(long experimentId, SecuredInfo securedInfo) {
+        if (!apijwtService.isLearner(securedInfo)) {
+            return new ResponseEntity<>(TextConstants.NOT_ENOUGH_PERMISSIONS, HttpStatus.UNAUTHORIZED);
+        }
+
+        return new ResponseEntity<>(Map.of("consentPending", participantService.isConsentPending(experimentId, securedInfo)), HttpStatus.OK);
     }
 
     // any Learner-role holder may view their own assignment, regardless of whatever

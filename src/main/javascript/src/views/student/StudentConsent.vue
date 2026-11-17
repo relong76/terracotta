@@ -13,6 +13,16 @@
     </v-row>
 
     <v-alert
+      v-if="continuesToAssignment"
+      class="consent-before-assignment mb-6"
+      type="info"
+      variant="tonal"
+    >
+      Please respond to this consent form before starting your assignment. Your
+      assignment will open as soon as you submit your response.
+    </v-alert>
+
+    <v-alert
       v-if="respondedAlert.show"
       type="info"
       variant="outlined"
@@ -115,11 +125,17 @@ const props = defineProps({
   userId: {
     type: String,
     required: true
+  },
+  // shown before an assignment the student launched without having answered: their answer opens it
+  continuesToAssignment: {
+    type: Boolean,
+    default: false
   }
 });
 
 const emit = defineEmits([
-  "loaded"
+  "loaded",
+  "answered"
 ]);
 
 const consentStore = consentModule();
@@ -292,7 +308,11 @@ const submitParticipant = async participantData => {
         text: response.message,
         icon: "error"
       });
+
+      return;
     }
+
+    emit("answered");
   } catch (error) {
     console.log(
       "submitParticipant | catch",

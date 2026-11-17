@@ -57,6 +57,7 @@
           <IntegrationsTokenAlert
             v-if="
               !consent &&
+              !consentPending &&
               assignmentId &&
               childLoaded &&
               integrationsTokenAlert
@@ -70,11 +71,14 @@
             class="mt-5"
           />
 
+          <!-- the consent form, launched itself or before an assignment while consent is pending -->
           <StudentConsent
-            v-if="consent"
+            v-if="consent || consentPending"
             :experiment-id="experimentId"
             :user-id="userId"
+            :continues-to-assignment="consentPending"
             @loaded="childLoaded = true"
+            @answered="handleConsentAnswered"
           />
 
           <!-- opened from the course navigation rather than an assignment -->
@@ -84,7 +88,7 @@
           />
 
           <StudentQuiz
-            v-if="!consent && assignmentId"
+            v-if="!consent && assignmentId && consentChecked && !consentPending"
             :experiment-id="experimentId"
             :assignment-id="assignmentId"
             :preview="false"
@@ -206,6 +210,11 @@ const configurationStore = configurationModule();
 
 const childLoaded = ref(false);
 const integrationsTokenAlert = ref(null);
+// a student who launches an assignment before answering the experiment's consent form answers it
+// first, then goes on to the assignment. Checked before the assignment launches, since launching
+// it would mark them as started, which keeps them out of the study whatever they answer
+const consentChecked = ref(false);
+const consentPending = ref(false);
 
 let refreshInterval = null;
 let refreshInFlight = false; // avoid overlapping calls if the interval tick and a
@@ -477,6 +486,44 @@ const handleVisibilityChange = () => {
 // -------------------------------------
 // Lifecycle
 // -------------------------------------
+
+const checkConsentStatus = async () => {
+  if (consentChecked.value) {
+    return;
+  }
+
+  if (userInfo.value === "Learner" && !consent.value && assignmentId.value && experimentId.value) {
+    const response = await apiStore.reportStep({
+      experimentId: experimentId.value,
+      step: "consent_status"
+    });
+
+    // if the check fails, the assignment opens as before rather than blocking the student
+    consentPending.value = response?.data?.consentPending === true;
+  }
+
+  consentChecked.value = true;
+};
+
+watch(
+  () => [hasTokens.value, userInfo.value, assignmentId.value],
+  ([tokens]) => {
+    if (tokens) {
+      void checkConsentStatus();
+    }
+  },
+  { immediate: true }
+);
+
+const handleConsentAnswered = () => {
+  if (!consentPending.value) {
+    return;
+  }
+
+  // on to the assignment they launched
+  consentPending.value = false;
+  childLoaded.value = false;
+};
 
 onMounted(async () => {
   clearStaleStorageExceptDrafts();

@@ -40,7 +40,7 @@ const baseParticipant = {
   dateRevoked: null
 };
 
-async function mountAndLoad(participantOverrides = {}) {
+async function mountAndLoad(participantOverrides = {}, extraProps = {}) {
   consentService.getConsentFile.mockResolvedValue({
     status: 200,
     base: "PDFDATA"
@@ -54,7 +54,8 @@ async function mountAndLoad(participantOverrides = {}) {
   const wrapper = mountComponent(StudentConsent, {
     props: {
       experimentId: "1",
-      userId: "u1"
+      userId: "u1",
+      ...extraProps
     }
   });
 
@@ -202,6 +203,36 @@ describe("StudentConsent", () => {
     expect(Swal.fire).toHaveBeenCalledWith(
       expect.objectContaining({ text: "Successfully submitted consent", icon: "success" })
     );
+  });
+
+  it("says the assignment opens next, and lets App open it once the answer is saved", async () => {
+    const wrapper = await mountAndLoad({}, { continuesToAssignment: true });
+
+    expect(wrapper.find(".consent-before-assignment").text()).toContain("before starting your assignment");
+
+    participantService.updateParticipant.mockResolvedValue({ ...baseParticipant, consent: false });
+    await wrapper.findAll("input[type=\"radio\"]")[1].setValue(true);
+    await wrapper.find("form").trigger("submit");
+    await flushPromises();
+
+    expect(wrapper.emitted("answered")).toHaveLength(1);
+  });
+
+  it("doesn't mention an assignment when the consent form was launched itself", async () => {
+    const wrapper = await mountAndLoad();
+
+    expect(wrapper.find(".consent-before-assignment").exists()).toBe(false);
+  });
+
+  it("doesn't report an answer the server didn't accept", async () => {
+    const wrapper = await mountAndLoad({}, { continuesToAssignment: true });
+
+    participantService.updateParticipant.mockResolvedValue({ message: "Participant has already started experiment, consent cannot be changed to given" });
+    await wrapper.findAll("input[type=\"radio\"]")[0].setValue(true);
+    await wrapper.find("form").trigger("submit");
+    await flushPromises();
+
+    expect(wrapper.emitted("answered")).toBeUndefined();
   });
 
   it("blocks agreeing and warns when the participant has already accessed an assignment", async () => {
