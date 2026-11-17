@@ -210,7 +210,8 @@ describe("StudentConsent", () => {
 
     expect(Swal.fire).toHaveBeenCalledWith({
       text: "You have not yet completed the consent form. Please approve or revoke consent. You will be redirected to your assignment upon completion.",
-      icon: "info"
+      icon: "info",
+      position: "top"
     });
 
     participantService.updateParticipant.mockResolvedValue({ ...baseParticipant, consent: false });
@@ -219,6 +220,17 @@ describe("StudentConsent", () => {
     await flushPromises();
 
     expect(wrapper.emitted("answered")).toHaveLength(1);
+  });
+
+  it("confirms a saved answer at the bottom of the page, by the submit button", async () => {
+    const wrapper = await mountAndLoad({}, { continuesToAssignment: true });
+
+    participantService.updateParticipant.mockResolvedValue({ ...baseParticipant, consent: true });
+    await wrapper.findAll("input[type=\"radio\"]")[0].setValue(true);
+    await wrapper.find("form").trigger("submit");
+    await flushPromises();
+
+    expect(Swal.fire).toHaveBeenCalledWith({ text: "Successfully submitted consent", icon: "success", position: "bottom" });
   });
 
   it("doesn't mention an assignment when the consent form was launched itself", async () => {
