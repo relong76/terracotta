@@ -24,4 +24,11 @@ public interface ParticipantAsyncService {
      */
     void refreshParticipantsForContext(LtiContextEntity ltiContextEntity);
 
+    /**
+     * Records the consent assignment as submitted in the LMS for this participant, in the
+     * background - see ParticipantService.postConsentSubmission. The student doesn't wait for the
+     * LMS, and a failure is logged, as it was when the student's own request posted it.
+     */
+    void postConsentSubmission(long participantId, SecuredInfo securedInfo);
+
 }

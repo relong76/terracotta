@@ -9,6 +9,7 @@ import static org.mockito.ArgumentMatchers.anyMap;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -25,7 +26,6 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.util.UriComponentsBuilder;
 
 import edu.iu.terracotta.base.BaseTest;
-import edu.iu.terracotta.connectors.generic.exceptions.ConnectionException;
 import edu.iu.terracotta.connectors.generic.exceptions.TerracottaConnectorException;
 import edu.iu.terracotta.dao.exceptions.ExperimentNotMatchingException;
 import edu.iu.terracotta.dao.model.dto.ParticipantDto;
@@ -54,7 +54,7 @@ public class ParticipantControllerTest extends BaseTest {
         // Constructed manually rather than via @InjectMocks: ApiJwtService is also implemented by the
         // inherited canvasApiJwtService mock (see the ambiguity warning in BaseServiceTest), so
         // constructor-injection-by-type could silently wire the wrong ApiJwtService mock.
-        participantController = new ParticipantController(participantService, apiJwtService, experimentService);
+        participantController = new ParticipantController(participantService, apiJwtService, experimentService, participantAsyncService);
 
         when(apiJwtService.extractValues(httpServletRequest, false)).thenReturn(securedInfo);
         when(experimentService.getExperimentIdByUuid(EXPERIMENT_UUID)).thenAnswer(invocation -> experiment.getExperimentId());
@@ -149,7 +149,9 @@ public class ParticipantControllerTest extends BaseTest {
 
         assertEquals(HttpStatus.OK, response.getStatusCode());
         assertEquals(participantDto, response.getBody());
-        verify(participantService).postConsentSubmission(participant, securedInfo);
+        // the consent assignment's LMS grade goes in the background, so the student doesn't wait on the LMS
+        verify(participantAsyncService).postConsentSubmission(participant.getParticipantId(), securedInfo);
+        verify(participantService, never()).postConsentSubmission(any(), any());
     }
 
     @Test
@@ -167,25 +169,6 @@ public class ParticipantControllerTest extends BaseTest {
 
         assertEquals(HttpStatus.UNAUTHORIZED, response.getStatusCode());
         assertTrue(body.toString().contains("Error 149"));
-    }
-
-    @Test
-    void updateParticipantLearnerConnectionExceptionDoesNotBlockConsentTest() throws Exception {
-        // a failed grade sync to the LMS (e.g. Canvas rejecting it because the consent
-        // assignment's attempt limit was already reached) must not prevent the student's
-        // actual consent decision from being recorded - the two are independent outcomes
-        when(apiJwtService.isInstructorOrHigher(securedInfo)).thenReturn(false);
-        when(apiJwtService.isLearner(securedInfo)).thenReturn(true);
-        when(participantService.getParticipant(1L, 1L, USER_ID, true)).thenReturn(participant);
-        doThrow(new ConnectionException("lms down")).when(participantService).postConsentSubmission(participant, securedInfo);
-        when(participantService.changeConsent(participantDto, securedInfo, 1L)).thenReturn(participant);
-        when(participantService.toDto(participant, securedInfo)).thenReturn(participantDto);
-
-        ResponseEntity<ParticipantDto> response = participantController.updateParticipant(EXPERIMENT_UUID, PARTICIPANT_UUID, participantDto, httpServletRequest);
-
-        assertEquals(HttpStatus.OK, response.getStatusCode());
-        assertEquals(participantDto, response.getBody());
-        verify(participantService).changeConsent(participantDto, securedInfo, 1L);
     }
 
     @Test

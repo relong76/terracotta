@@ -58,6 +58,7 @@ import edu.iu.terracotta.connectors.generic.exceptions.ConnectionException;
 import edu.iu.terracotta.connectors.generic.exceptions.TerracottaConnectorException;
 import edu.iu.terracotta.dao.entity.Experiment;
 import edu.iu.terracotta.dao.entity.Group;
+import edu.iu.terracotta.connectors.generic.dao.model.lms.LmsAssignment;
 import edu.iu.terracotta.dao.entity.Participant;
 import edu.iu.terracotta.dao.entity.export.data.ExperimentDataExport;
 import edu.iu.terracotta.dao.exceptions.AssignmentNotMatchingException;
@@ -172,13 +173,13 @@ public class ParticipantServiceImplTest extends BaseTest {
         verify(participant, never()).setGroup(any(Group.class));
     }
 
-    // the published-assignment lookup makes one LMS call per assignment; a student launch or view
+    // the published-assignment lookup asks the LMS; a student launch or view
     // shouldn't pay for it when its answer can't change anything
     @Test
     public void testhandleExperimentParticipantAutoParticipationAsksTheLmsNothing() throws Exception {
         participantService.handleExperimentParticipant(experiment, securedInfo);
 
-        verify(apiClient, never()).listAssignment(any(LtiUserEntity.class), any(), any(String.class));
+        verify(apiClient, never()).listAssignments(any(LtiUserEntity.class), any(Experiment.class));
     }
 
     @Test
@@ -193,7 +194,7 @@ public class ParticipantServiceImplTest extends BaseTest {
 
         participantService.handleExperimentParticipant(experiment, securedInfo);
 
-        verify(apiClient, never()).listAssignment(any(LtiUserEntity.class), any(), any(String.class));
+        verify(apiClient, never()).listAssignments(any(LtiUserEntity.class), any(Experiment.class));
     }
 
     @Test
@@ -207,7 +208,7 @@ public class ParticipantServiceImplTest extends BaseTest {
 
         participantService.handleExperimentParticipant(experiment, securedInfo);
 
-        verify(apiClient).listAssignment(any(LtiUserEntity.class), any(), any(String.class));
+        verify(apiClient).listAssignments(any(LtiUserEntity.class), any(Experiment.class));
     }
 
     @Test
@@ -1407,7 +1408,7 @@ public class ParticipantServiceImplTest extends BaseTest {
 
     @Test
     public void testCalculatedPublishedAssignmentIdsExcludesAnAssignmentNoLongerInTheLms() throws Exception {
-        when(apiClient.listAssignment(any(), anyString(), anyString())).thenReturn(Optional.empty());
+        when(apiClient.listAssignments(any(LtiUserEntity.class), any(Experiment.class))).thenReturn(List.of());
 
         List<Long> retVal = participantService.calculatedPublishedAssignmentIds(1L, securedInfo, ltiUserEntity);
 
@@ -1418,7 +1419,7 @@ public class ParticipantServiceImplTest extends BaseTest {
     // the LMS couldn't be asked
     @Test
     public void testCalculatedPublishedAssignmentIdsCountsAnUncheckableAssignmentAsPublished() throws Exception {
-        when(apiClient.listAssignment(any(), anyString(), anyString())).thenThrow(new RuntimeException("api failure"));
+        when(apiClient.listAssignments(any(LtiUserEntity.class), any(Experiment.class))).thenThrow(new RuntimeException("api failure"));
 
         List<Long> retVal = participantService.calculatedPublishedAssignmentIds(1L, securedInfo, ltiUserEntity);
 
@@ -1426,17 +1427,71 @@ public class ParticipantServiceImplTest extends BaseTest {
     }
 
     @Test
-    public void testCalculatedPublishedAssignmentIdsStopsAskingTheLmsAfterAFailure() throws Exception {
+    public void testCalculatedPublishedAssignmentIdsCountsEveryAssignmentAsPublishedWhenTheLmsCantSay() throws Exception {
         Assignment second = mock(Assignment.class);
         when(second.getAssignmentId()).thenReturn(2L);
         when(second.getLmsAssignmentId()).thenReturn("2");
         when(assignmentRepository.findByExposure_Experiment_ExperimentId(1L)).thenReturn(List.of(assignment, second));
-        when(apiClient.listAssignment(any(), anyString(), anyString())).thenThrow(new ApiException("user not authorized to perform that action"));
+        when(apiClient.listAssignments(any(LtiUserEntity.class), any(Experiment.class))).thenThrow(new ApiException("user not authorized to perform that action"));
 
         List<Long> retVal = participantService.calculatedPublishedAssignmentIds(1L, securedInfo, ltiUserEntity);
 
         assertEquals(List.of(1L, 2L), retVal);
-        verify(apiClient, times(1)).listAssignment(any(), anyString(), anyString());
+        verify(apiClient, times(1)).listAssignments(any(LtiUserEntity.class), any(Experiment.class));
+    }
+
+    // one listing of the course's assignments, not a request per experiment assignment
+    @Test
+    public void testCalculatedPublishedAssignmentIdsAsksTheLmsOnceForEveryAssignment() throws Exception {
+        Assignment second = mock(Assignment.class);
+        when(second.getAssignmentId()).thenReturn(2L);
+        when(second.getLmsAssignmentId()).thenReturn("2");
+        Assignment removed = mock(Assignment.class);
+        when(removed.getAssignmentId()).thenReturn(3L);
+        when(removed.getLmsAssignmentId()).thenReturn("3");
+        LmsAssignment secondInLms = mock(LmsAssignment.class);
+        when(secondInLms.getId()).thenReturn("2");
+        when(secondInLms.isPublished()).thenReturn(false);
+        when(assignmentRepository.findByExposure_Experiment_ExperimentId(1L)).thenReturn(List.of(assignment, second, removed));
+        when(apiClient.listAssignments(any(LtiUserEntity.class), any(Experiment.class))).thenReturn(List.of(lmsAssignment, secondInLms));
+
+        List<Long> retVal = participantService.calculatedPublishedAssignmentIds(1L, securedInfo, ltiUserEntity);
+
+        // 1 is published; 2 isn't; 3 is no longer in the LMS
+        assertEquals(List.of(1L), retVal);
+        verify(apiClient, times(1)).listAssignments(any(LtiUserEntity.class), any(Experiment.class));
+        verify(apiClient, never()).listAssignment(any(), anyString(), anyString());
+    }
+
+    // saving a consent answer asks several times in one request: the LMS is only asked once
+    @Test
+    public void testCalculatedPublishedAssignmentIdsAsksTheLmsOncePerRequest() throws Exception {
+        org.springframework.web.context.request.RequestContextHolder.setRequestAttributes(
+            new org.springframework.web.context.request.ServletRequestAttributes(new org.springframework.mock.web.MockHttpServletRequest()));
+
+        try {
+            List<Long> first = participantService.calculatedPublishedAssignmentIds(1L, securedInfo, ltiUserEntity);
+            first.add(99L); // a caller changing its list doesn't change the next caller's
+            List<Long> second = participantService.calculatedPublishedAssignmentIds(1L, securedInfo, ltiUserEntity);
+
+            assertEquals(List.of(1L), second);
+            verify(apiClient, times(1)).listAssignments(any(LtiUserEntity.class), any(Experiment.class));
+
+            // a different experiment is looked up separately
+            participantService.calculatedPublishedAssignmentIds(2L, securedInfo, ltiUserEntity);
+            verify(apiClient, times(2)).listAssignments(any(LtiUserEntity.class), any(Experiment.class));
+        } finally {
+            org.springframework.web.context.request.RequestContextHolder.resetRequestAttributes();
+        }
+    }
+
+    // without a request (e.g. a background task) each call asks
+    @Test
+    public void testCalculatedPublishedAssignmentIdsAsksEachTimeOutsideARequest() throws Exception {
+        participantService.calculatedPublishedAssignmentIds(1L, securedInfo, ltiUserEntity);
+        participantService.calculatedPublishedAssignmentIds(1L, securedInfo, ltiUserEntity);
+
+        verify(apiClient, times(2)).listAssignments(any(LtiUserEntity.class), any(Experiment.class));
     }
 
     // the experiment's creator may have left the course; the instructor using it now hasn't
@@ -1447,8 +1502,8 @@ public class ParticipantServiceImplTest extends BaseTest {
 
         participantService.calculatedPublishedAssignmentIds(1L, securedInfo, creator);
 
-        verify(apiClient).listAssignment(eq(ltiUserEntity), anyString(), anyString());
-        verify(apiClient, never()).listAssignment(eq(creator), anyString(), anyString());
+        verify(apiClient).listAssignments(eq(ltiUserEntity), any(Experiment.class));
+        verify(apiClient, never()).listAssignments(eq(creator), any(Experiment.class));
     }
 
     // students have no LMS API token of their own
@@ -1459,7 +1514,7 @@ public class ParticipantServiceImplTest extends BaseTest {
 
         participantService.calculatedPublishedAssignmentIds(1L, securedInfo, creator);
 
-        verify(apiClient).listAssignment(eq(creator), anyString(), anyString());
+        verify(apiClient).listAssignments(eq(creator), any(Experiment.class));
     }
 
     @Test
@@ -1517,6 +1572,29 @@ public class ParticipantServiceImplTest extends BaseTest {
         assertDoesNotThrow(() -> participantService.postConsentSubmission(participant, securedInfo));
 
         verify(advantageAgsService).postScore(any(), any(), any(), anyString(), any());
+    }
+
+    // the consent assignment's line item is looked up once, then remembered
+    @Test
+    public void testPostConsentSubmissionRemembersTheConsentLineItem() throws Exception {
+        participantService.postConsentSubmission(participant, securedInfo);
+        participantService.postConsentSubmission(participant, securedInfo);
+
+        verify(advantageAgsService, times(1)).getLineItems(any(), any());
+        verify(advantageAgsService, times(2)).postScore(any(), any(), any(), eq("1"), any());
+    }
+
+    // e.g. the consent assignment was replaced in the LMS: look its line item up again
+    @Test
+    public void testPostConsentSubmissionLooksTheLineItemUpAgainWhenTheRememberedOneFails() throws Exception {
+        participantService.postConsentSubmission(participant, securedInfo);
+        doThrow(new ConnectionException("line item gone")).doNothing()
+            .when(advantageAgsService).postScore(any(), any(), any(), eq("1"), any());
+
+        participantService.postConsentSubmission(participant, securedInfo);
+
+        verify(advantageAgsService, times(2)).getLineItems(any(), any());
+        verify(advantageAgsService, times(3)).postScore(any(), any(), any(), eq("1"), any());
     }
 
     @Test

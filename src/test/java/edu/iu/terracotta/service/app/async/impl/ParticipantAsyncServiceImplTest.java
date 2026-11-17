@@ -28,6 +28,7 @@ import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 import org.springframework.test.util.ReflectionTestUtils;
 
+import edu.iu.terracotta.connectors.generic.exceptions.ConnectionException;
 import edu.iu.terracotta.base.BaseTest;
 import edu.iu.terracotta.connectors.generic.dao.entity.lms.LmsUserBatchEmailProjection;
 import edu.iu.terracotta.connectors.generic.dao.entity.lms.LmsUserBatchProcessing;
@@ -291,6 +292,34 @@ public class ParticipantAsyncServiceImplTest extends BaseTest {
         assertDoesNotThrow(() -> participantAsyncService.refreshParticipantsForContext(ltiContextEntity));
 
         verify(participantService).refreshParticipantsIfStale(2L);
+    }
+
+    @Test
+    void postConsentSubmissionPostsTheParticipantsConsentGrade() throws Exception {
+        when(participantRepository.findById(1L)).thenReturn(Optional.of(participant));
+
+        participantAsyncService.postConsentSubmission(1L, securedInfo);
+
+        verify(participantService).postConsentSubmission(participant, securedInfo);
+    }
+
+    // the student's answer is already recorded; a failed LMS grade is only logged
+    @Test
+    void postConsentSubmissionLogsAnLmsFailure() throws Exception {
+        when(participantRepository.findById(1L)).thenReturn(Optional.of(participant));
+        doThrow(new ConnectionException("lms down"))
+            .when(participantService).postConsentSubmission(participant, securedInfo);
+
+        assertDoesNotThrow(() -> participantAsyncService.postConsentSubmission(1L, securedInfo));
+    }
+
+    @Test
+    void postConsentSubmissionSkipsAMissingParticipant() throws Exception {
+        when(participantRepository.findById(1L)).thenReturn(Optional.empty());
+
+        participantAsyncService.postConsentSubmission(1L, securedInfo);
+
+        verify(participantService, never()).postConsentSubmission(any(), any());
     }
 
 }
