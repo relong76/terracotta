@@ -222,7 +222,7 @@ describe("StudentConsent", () => {
     expect(wrapper.emitted("answered")).toHaveLength(1);
   });
 
-  it("confirms a saved answer at the bottom of the page, by the submit button", async () => {
+  it("confirms a saved answer just above the consent question", async () => {
     const wrapper = await mountAndLoad({}, { continuesToAssignment: true });
 
     participantService.updateParticipant.mockResolvedValue({ ...baseParticipant, consent: true });
@@ -230,11 +230,24 @@ describe("StudentConsent", () => {
     await wrapper.find("form").trigger("submit");
     await flushPromises();
 
-    expect(Swal.fire).toHaveBeenCalledWith({
+    const confirmation = Swal.fire.mock.calls.find(([options]) => options.icon === "success")[0];
+    expect(confirmation).toEqual(expect.objectContaining({
       text: "Successfully submitted consent. You will now be taken to your assignment.",
-      icon: "success",
-      position: "bottom"
-    });
+      position: "top"
+    }));
+
+    // the question card 900px down the page, the popup 120px tall: 16px of space between them
+    const card = wrapper.find(".v-card").element;
+    vi.spyOn(card, "getBoundingClientRect").mockReturnValue({ top: 900 });
+    const popup = document.createElement("div");
+    Object.defineProperty(popup, "offsetHeight", { value: 120 });
+    confirmation.didOpen(popup);
+    expect(popup.style.marginTop).toBe("764px");
+
+    // never above the top of the page
+    card.getBoundingClientRect.mockReturnValue({ top: 50 });
+    confirmation.didOpen(popup);
+    expect(popup.style.marginTop).toBe("16px");
   });
 
   it("doesn't mention an assignment when the consent form was launched itself", async () => {

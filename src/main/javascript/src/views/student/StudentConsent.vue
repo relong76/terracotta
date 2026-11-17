@@ -45,7 +45,10 @@
     />
 
     <form @submit.prevent="updateConsent(answer || false)">
-      <v-card class="mt-5">
+      <v-card
+        ref="questionCard"
+        class="mt-5"
+      >
         <v-card-title>
           In consideration of the above, will you participate in this research
           study?
@@ -284,6 +287,22 @@ const updateConsent = answerValue => {
   void submitParticipant(updatedParticipant);
 };
 
+const questionCard = ref(null);
+const POPUP_GAP = 16;
+
+// moves a top-positioned popup down to just above the consent question. The popup is positioned
+// in the frame's viewport, which in the LMS is the whole (grown) page; it never goes above the top
+const placeAboveQuestion = popup => {
+  const card = questionCard.value?.$el ?? questionCard.value;
+
+  if (!card?.getBoundingClientRect) {
+    return;
+  }
+
+  const top = card.getBoundingClientRect().top - popup.offsetHeight - POPUP_GAP;
+  popup.style.marginTop = `${Math.max(top, POPUP_GAP)}px`;
+};
+
 const submitParticipant = async participantData => {
   try {
     const response =
@@ -300,15 +319,16 @@ const submitParticipant = async participantData => {
       ...response
     };
 
-    // at the bottom, by the submit button the student just used: in the LMS the frame grows to the
-    // whole page, so a centered popup could be out of sight after a long consent PDF - and before an
+    // just above the question the student answered: in the LMS the frame grows to the whole page,
+    // so a centered popup could be out of sight after a long consent PDF - and before an
     // assignment, closing this popup is what opens it
     await Swal.fire({
       text: props.continuesToAssignment
         ? "Successfully submitted consent. You will now be taken to your assignment."
         : "Successfully submitted consent",
       icon: "success",
-      position: "bottom"
+      position: "top",
+      didOpen: placeAboveQuestion
     });
 
     if (response?.message) {
