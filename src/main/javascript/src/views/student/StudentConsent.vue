@@ -13,16 +13,6 @@
     </v-row>
 
     <v-alert
-      v-if="continuesToAssignment"
-      class="consent-before-assignment mb-6"
-      type="info"
-      variant="tonal"
-    >
-      Please respond to this consent form before starting your assignment. Your
-      assignment will open as soon as you submit your response.
-    </v-alert>
-
-    <v-alert
       v-if="respondedAlert.show"
       type="info"
       variant="outlined"
@@ -234,8 +224,17 @@ watch(
 );
 
 watch(pageFullyLoaded, isLoaded => {
-  if (isLoaded) {
-    emit("loaded");
+  if (!isLoaded) {
+    return;
+  }
+
+  emit("loaded");
+
+  if (props.continuesToAssignment) {
+    void Swal.fire({
+      text: "You have not yet completed the consent form. Please approve or revoke consent. You will be redirected to your assignment upon completion.",
+      icon: "info"
+    });
   }
 });
 

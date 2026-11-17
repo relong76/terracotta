@@ -205,10 +205,13 @@ describe("StudentConsent", () => {
     );
   });
 
-  it("says the assignment opens next, and lets App open it once the answer is saved", async () => {
+  it("tells the student the assignment opens next, and lets App open it once the answer is saved", async () => {
     const wrapper = await mountAndLoad({}, { continuesToAssignment: true });
 
-    expect(wrapper.find(".consent-before-assignment").text()).toContain("before starting your assignment");
+    expect(Swal.fire).toHaveBeenCalledWith({
+      text: "You have not yet completed the consent form. Please approve or revoke consent. You will be redirected to your assignment upon completion.",
+      icon: "info"
+    });
 
     participantService.updateParticipant.mockResolvedValue({ ...baseParticipant, consent: false });
     await wrapper.findAll("input[type=\"radio\"]")[1].setValue(true);
@@ -219,9 +222,9 @@ describe("StudentConsent", () => {
   });
 
   it("doesn't mention an assignment when the consent form was launched itself", async () => {
-    const wrapper = await mountAndLoad();
+    await mountAndLoad();
 
-    expect(wrapper.find(".consent-before-assignment").exists()).toBe(false);
+    expect(Swal.fire).not.toHaveBeenCalled();
   });
 
   it("doesn't report an answer the server didn't accept", async () => {
