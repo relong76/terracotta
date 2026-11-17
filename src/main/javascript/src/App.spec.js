@@ -441,6 +441,76 @@ describe("App", () => {
       expect(wrapper.find("student-consent-stub").exists()).toBe(false);
     });
 
+    describe("an assignment launched before the student has answered the consent form", () => {
+      const launchAssignment = apiStore => {
+        apiStore.ltiToken = "lti-token";
+        apiStore.apiToken = "api-token";
+        apiStore.userInfo = "Learner";
+        apiStore.consent = false;
+        apiStore.assignmentId = "5";
+        apiStore.experimentId = "1";
+        apiStore.userId = "2";
+      };
+
+      it("shows the consent form first, then the assignment once the student answers", async () => {
+        apiService.reportStep.mockResolvedValue({ data: { consentPending: true } });
+
+        const { wrapper } = await mountAppRendered({}, launchAssignment);
+
+        expect(apiService.reportStep).toHaveBeenCalledWith("1", "consent_status", null, false);
+        const consentForm = wrapper.findComponent({ name: "StudentConsent" });
+        expect(consentForm.exists()).toBe(true);
+        expect(consentForm.attributes("continues-to-assignment")).toBe("true");
+        expect(wrapper.find("student-quiz-stub").exists()).toBe(false);
+
+        consentForm.vm.$emit("answered");
+        await flushPromises();
+
+        expect(wrapper.find("student-consent-stub").exists()).toBe(false);
+        expect(wrapper.find("student-quiz-stub").exists()).toBe(true);
+      });
+
+      it("opens the assignment straight away when consent isn't pending", async () => {
+        apiService.reportStep.mockResolvedValue({ data: { consentPending: false } });
+
+        const { wrapper } = await mountAppRendered({}, launchAssignment);
+
+        expect(wrapper.find("student-consent-stub").exists()).toBe(false);
+        expect(wrapper.find("student-quiz-stub").exists()).toBe(true);
+      });
+
+      it("opens the assignment when the consent check fails, rather than blocking the student", async () => {
+        apiService.reportStep.mockResolvedValue(null);
+
+        const { wrapper } = await mountAppRendered({}, launchAssignment);
+
+        expect(wrapper.find("student-quiz-stub").exists()).toBe(true);
+      });
+
+      it("doesn't check again for the consent form's own launch", async () => {
+        const { wrapper } = await mountAppRendered({}, apiStore => {
+          launchAssignment(apiStore);
+          apiStore.consent = true;
+          apiStore.assignmentId = "";
+        });
+
+        expect(apiService.reportStep).not.toHaveBeenCalledWith("1", "consent_status", null, false);
+        expect(wrapper.find("student-consent-stub").exists()).toBe(true);
+      });
+
+      it("ignores an answer from the consent form's own launch", async () => {
+        const { wrapper } = await mountAppRendered({}, apiStore => {
+          launchAssignment(apiStore);
+          apiStore.consent = true;
+        });
+
+        wrapper.findComponent({ name: "StudentConsent" }).vm.$emit("answered");
+        await flushPromises();
+
+        expect(wrapper.find("student-consent-stub").exists()).toBe(true);
+      });
+    });
+
     // opened from the course navigation: no assignment to open, and no consent form to show
     it("points a Learner who didn't come from an assignment to their assignments", async () => {
       const { wrapper } = await mountAppRendered({}, apiStore => {

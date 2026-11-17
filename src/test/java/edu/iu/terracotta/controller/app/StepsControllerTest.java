@@ -474,6 +474,29 @@ public class StepsControllerTest extends BaseTest {
     }
 
     @Test
+    void consentStatusTellsTheAppWhetherConsentIsPendingTest() throws Exception {
+        when(apiJwtService.isLearner(securedInfo)).thenReturn(true);
+        when(participantService.isConsentPending(1L, securedInfo)).thenReturn(true);
+
+        ResponseEntity<Object> response = stepsController.postStep(EXPERIMENT_UUID, false, stepDto(StepsController.CONSENT_STATUS), httpServletRequest);
+
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        assertEquals(Map.of("consentPending", true), response.getBody());
+        // only reads: the consent form's own launch step creates the participant
+        verify(participantService, never()).ensureParticipantExists(anyLong(), any());
+    }
+
+    @Test
+    void consentStatusIsOnlyForStudentsTest() throws Exception {
+        when(apiJwtService.isLearner(securedInfo)).thenReturn(false);
+
+        ResponseEntity<Object> response = stepsController.postStep(EXPERIMENT_UUID, false, stepDto(StepsController.CONSENT_STATUS), httpServletRequest);
+
+        assertEquals(HttpStatus.UNAUTHORIZED, response.getStatusCode());
+        verify(participantService, never()).isConsentPending(anyLong(), any());
+    }
+
+    @Test
     void launchConsentAssignmentCreatesParticipantWhenEmptyTest() throws Exception {
         when(apiJwtService.isLearner(securedInfo)).thenReturn(true);
         when(apiJwtService.isInstructorOrHigher(securedInfo)).thenReturn(false);

@@ -52,6 +52,21 @@ public interface ParticipantService {
     void setAllToFalse(Long experimentId) throws ParticipantNotUpdatedException, ExperimentNotMatchingException, TerracottaConnectorException;
     Participant changeConsent(ParticipantDto participantDto, SecuredInfo securedInfo, Long experimentId) throws ParticipantAlreadyStartedException, ExperimentNotMatchingException, ParticipantNotMatchingException;
     void postConsentSubmission(Participant participant, SecuredInfo securedInfo) throws ConnectionException, DataServiceException, TerracottaConnectorException;
+
+    /**
+     * Whether the student behind securedInfo still has to answer the experiment's consent form:
+     * the experiment asks for consent, and they haven't agreed or declined yet (see
+     * hasAnsweredConsent). An assignment launch shows them the form first, then the assignment.
+     */
+    boolean isConsentPending(long experimentId, SecuredInfo securedInfo);
+
+    /**
+     * Whether the participant has agreed or declined: the date for their answer is set and their
+     * source matches it (CONSENT for agreed, REVOKED for declined). A participant left out for
+     * submitting before answering has a date revoked but keeps the CONSENT source, so hasn't
+     * answered - the same rule StudentConsent.vue's hasConsentedAlready uses.
+     */
+    boolean hasAnsweredConsent(Participant participant);
     Participant handleExperimentParticipant(Experiment experiment, SecuredInfo securedInfo) throws GroupNotMatchingException, ParticipantNotMatchingException, ParticipantNotUpdatedException, AssignmentNotMatchingException, ExperimentNotMatchingException, TerracottaConnectorException;
     List<Long> calculatedPublishedAssignmentIds(long experimentId, SecuredInfo securedInfo, LtiUserEntity createdBy);
 

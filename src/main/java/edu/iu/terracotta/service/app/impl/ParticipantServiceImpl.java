@@ -857,9 +857,10 @@ public class ParticipantServiceImpl implements ParticipantService {
         Participant participant = participantRepository.findByUuid(participantDto.getParticipantId())
             .orElseThrow(() -> new ParticipantNotMatchingException(TextConstants.PARTICIPANT_NOT_MATCHING));
 
+        // a consent answer comes from the consent assignment's launch, or - only as a first answer -
+        // from the consent form shown before an assignment launched while consent was still pending
         if (!Strings.CS.equals(participant.getLtiUserEntity().getUserKey(), securedInfo.getUserId())
-                || securedInfo.getConsent() == null
-                || BooleanUtils.isFalse(securedInfo.getConsent())) {
+                || (!BooleanUtils.isTrue(securedInfo.getConsent()) && !isConsentPending(participant.getExperiment(), participant))) {
             return participant;
         }
 
@@ -1111,6 +1112,33 @@ public class ParticipantServiceImpl implements ParticipantService {
     @Transactional
     public void setAllToFalse(Long experimentId) throws ParticipantNotUpdatedException, ExperimentNotMatchingException, TerracottaConnectorException {
         setConsentToAll(false, experimentId);
+    }
+
+    @Override
+    public boolean isConsentPending(long experimentId, SecuredInfo securedInfo) {
+        Experiment experiment = experimentRepository.findByExperimentId(experimentId);
+
+        return isConsentPending(experiment, participantRepository.findByExperiment_ExperimentIdAndLtiUserEntity_UserKey(experimentId, securedInfo.getUserId()));
+    }
+
+    // participant is null for a student with no participant record yet, who hasn't answered either
+    private boolean isConsentPending(Experiment experiment, Participant participant) {
+        if (experiment == null || experiment.getParticipationType() != ParticipationTypes.CONSENT || experiment.getConsentDocument() == null) {
+            return false;
+        }
+
+        return participant == null || !hasAnsweredConsent(participant);
+    }
+
+    @Override
+    public boolean hasAnsweredConsent(Participant participant) {
+        if (participant.getConsent() == null) {
+            return false;
+        }
+
+        return BooleanUtils.isTrue(participant.getConsent())
+            ? participant.getDateGiven() != null && participant.getSource() == ParticipationTypes.CONSENT
+            : participant.getDateRevoked() != null && participant.getSource() == ParticipationTypes.REVOKED;
     }
 
     @Override

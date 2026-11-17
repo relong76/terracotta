@@ -2,6 +2,7 @@ package edu.iu.terracotta.service.app.impl;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -513,6 +514,83 @@ public class ParticipantServiceImplTest extends BaseTest {
 
         assertNotNull(retVal);
         verify(participantRepository, never()).saveAll(any());
+    }
+
+    // the consent form shown before an assignment, while consent is pending, records the first answer
+    @Test
+    public void testChangeConsentFromAnAssignmentLaunchRecordsAFirstAnswer() throws ParticipantAlreadyStartedException, ExperimentNotMatchingException, ParticipantNotMatchingException {
+        when(experiment.getParticipationType()).thenReturn(ParticipationTypes.CONSENT);
+        when(participant.getConsent()).thenReturn(null);
+
+        participantService.changeConsent(participantDto, securedInfo, 1L);
+
+        verify(participantRepository).saveAll(any());
+    }
+
+    // ...but can't change an answer already given: that takes the consent assignment's own launch
+    @Test
+    public void testChangeConsentFromAnAssignmentLaunchKeepsAnExistingAnswer() throws ParticipantAlreadyStartedException, ExperimentNotMatchingException, ParticipantNotMatchingException {
+        when(experiment.getParticipationType()).thenReturn(ParticipationTypes.CONSENT);
+        when(participant.getConsent()).thenReturn(true);
+        when(participant.getSource()).thenReturn(ParticipationTypes.CONSENT);
+
+        participantService.changeConsent(participantDto, securedInfo, 1L);
+
+        verify(participantRepository, never()).saveAll(any());
+    }
+
+    @Test
+    public void testIsConsentPending() {
+        when(experimentRepository.findByExperimentId(1L)).thenReturn(experiment);
+        when(experiment.getParticipationType()).thenReturn(ParticipationTypes.CONSENT);
+
+        // no participant record yet
+        when(participantRepository.findByExperiment_ExperimentIdAndLtiUserEntity_UserKey(1L, securedInfo.getUserId())).thenReturn(null);
+        assertTrue(participantService.isConsentPending(1L, securedInfo));
+
+        // a participant who hasn't answered
+        when(participantRepository.findByExperiment_ExperimentIdAndLtiUserEntity_UserKey(1L, securedInfo.getUserId())).thenReturn(participant);
+        when(participant.getConsent()).thenReturn(null);
+        assertTrue(participantService.isConsentPending(1L, securedInfo));
+
+        // agreed
+        when(participant.getConsent()).thenReturn(true);
+        when(participant.getSource()).thenReturn(ParticipationTypes.CONSENT);
+        assertFalse(participantService.isConsentPending(1L, securedInfo));
+
+        // no consent form, or not a consent experiment
+        when(experiment.getConsentDocument()).thenReturn(null);
+        assertFalse(participantService.isConsentPending(1L, securedInfo));
+        when(experiment.getConsentDocument()).thenReturn(consentDocument);
+        when(experiment.getParticipationType()).thenReturn(ParticipationTypes.AUTO);
+        assertFalse(participantService.isConsentPending(1L, securedInfo));
+
+        when(experimentRepository.findByExperimentId(1L)).thenReturn(null);
+        assertFalse(participantService.isConsentPending(1L, securedInfo));
+    }
+
+    @Test
+    public void testHasAnsweredConsent() {
+        Participant answered = mock(Participant.class);
+
+        when(answered.getConsent()).thenReturn(null);
+        assertFalse(participantService.hasAnsweredConsent(answered));
+
+        when(answered.getConsent()).thenReturn(true);
+        when(answered.getDateGiven()).thenReturn(Timestamp.from(Instant.now()));
+        when(answered.getSource()).thenReturn(ParticipationTypes.CONSENT);
+        assertTrue(participantService.hasAnsweredConsent(answered));
+        when(answered.getDateGiven()).thenReturn(null);
+        assertFalse(participantService.hasAnsweredConsent(answered));
+
+        when(answered.getConsent()).thenReturn(false);
+        when(answered.getDateRevoked()).thenReturn(Timestamp.from(Instant.now()));
+        when(answered.getSource()).thenReturn(ParticipationTypes.REVOKED);
+        assertTrue(participantService.hasAnsweredConsent(answered));
+
+        // left out for submitting before answering: a date revoked, but still the CONSENT source
+        when(answered.getSource()).thenReturn(ParticipationTypes.CONSENT);
+        assertFalse(participantService.hasAnsweredConsent(answered));
     }
 
     @Test
