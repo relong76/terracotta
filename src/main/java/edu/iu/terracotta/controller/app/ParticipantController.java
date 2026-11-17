@@ -3,7 +3,6 @@ package edu.iu.terracotta.controller.app;
 import edu.iu.terracotta.security.app.roles.InstructorOrHigher;
 import edu.iu.terracotta.security.app.roles.LearnerOrHigher;
 import edu.iu.terracotta.connectors.generic.dao.model.SecuredInfo;
-import edu.iu.terracotta.connectors.generic.exceptions.ConnectionException;
 import edu.iu.terracotta.connectors.generic.exceptions.TerracottaConnectorException;
 import edu.iu.terracotta.connectors.generic.service.api.ApiJwtService;
 import edu.iu.terracotta.dao.entity.Participant;
@@ -18,6 +17,7 @@ import edu.iu.terracotta.exceptions.InvalidUserException;
 import edu.iu.terracotta.exceptions.ParticipantAlreadyStartedException;
 import edu.iu.terracotta.service.app.ExperimentService;
 import edu.iu.terracotta.service.app.ParticipantService;
+import edu.iu.terracotta.service.app.async.ParticipantAsyncService;
 import edu.iu.terracotta.utils.TextConstants;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -58,6 +58,7 @@ public class ParticipantController {
     private final ParticipantService participantService;
     private final ApiJwtService apijwtService;
     private final ExperimentService experimentService;
+    private final ParticipantAsyncService participantAsyncService;
 
     @GetMapping
     @LearnerOrHigher
@@ -153,20 +154,12 @@ public class ParticipantController {
         }
 
         if (apijwtService.isLearner(securedInfo)) {
-            // Regardless of whether consent is changed or not, record a grade of  1.0 point for the consent assignment
-            Participant participant = participantService.getParticipant(participantId, experimentId, securedInfo.getUserId(), true);
-
-            try {
-                // deepcode ignore Ssrf: grades go to the AGS line item and token endpoints of the platform, which come from the stored PlatformDeployment and the verified LTI launch claims, never from this request
-                participantService.postConsentSubmission(participant, securedInfo);
-            } catch (ConnectionException e) {
-                // don't let a failed grade sync (e.g. the LMS rejecting it because the consent
-                // assignment's attempt limit was already reached) block the student from
-                // recording their actual consent decision below - the two are independent
-                // outcomes, and the student shouldn't be stuck unable to consent over a
-                // gradebook sync issue
-                log.warn("Failed to post grade to the LMS for consent submission for participant ID: [{}]: {}", participantId, e.getMessage());
-            }
+            // Regardless of whether consent is changed or not, record a grade of 1.0 point for the
+            // consent assignment - in the background, so the student doesn't wait on the LMS. It's
+            // independent of the consent decision recorded below, and a failure (e.g. the LMS
+            // rejecting it because the consent assignment's attempt limit was already reached)
+            // never stops the student from recording that decision
+            participantAsyncService.postConsentSubmission(participantId, securedInfo);
 
             try {
                 Participant updatedParticipant = participantService.changeConsent(participantDto, securedInfo, experimentId);

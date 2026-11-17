@@ -259,4 +259,26 @@ public class ParticipantAsyncServiceImpl implements ParticipantAsyncService {
         }
     }
 
+    @Async
+    @Override
+    @Transactional
+    public void postConsentSubmission(long participantId, SecuredInfo securedInfo) {
+        // loaded here, in this thread's own session, rather than handed over from the request
+        Participant participant = participantRepository.findById(participantId).orElse(null);
+
+        if (participant == null) {
+            log.warn("Participant ID: [{}] not found - not posting their consent submission to the LMS", participantId);
+            return;
+        }
+
+        try {
+            // deepcode ignore Ssrf: grades go to the AGS line item and token endpoints of the platform, which come from the stored PlatformDeployment and the verified LTI launch claims, never from this request
+            participantService.postConsentSubmission(participant, securedInfo);
+        } catch (Exception e) {
+            // e.g. the LMS rejecting it because the consent assignment's attempt limit was already
+            // reached - the student's consent answer is recorded either way
+            log.warn("Failed to post grade to the LMS for consent submission for participant ID: [{}]: {}", participantId, e.getMessage());
+        }
+    }
+
 }

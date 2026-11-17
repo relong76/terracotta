@@ -74,6 +74,8 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.context.request.RequestAttributes;
+import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.util.UriComponentsBuilder;
 
 import java.sql.Timestamp;
@@ -90,12 +92,21 @@ import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 @Slf4j
 @Service
 @RequiredArgsConstructor
 @SuppressWarnings({"PMD.UselessParentheses", "PMD.GuardLogStatement", "PMD.PreserveStackTrace", "squid:S112", "squid:S1066"})
 public class ParticipantServiceImpl implements ParticipantService {
+
+    private static final String PUBLISHED_ASSIGNMENT_IDS_ATTRIBUTE = "terracotta.publishedAssignmentIds";
+
+    // each consent assignment's LMS line item, by context and resource link: listing every line
+    // item in the course to find it again on each consent answer is slow in a large course
+    private final Map<String, String> consentLineItemIds = new ConcurrentHashMap<>();
 
     private final AssignmentRepository assignmentRepository;
     private final ConsentDocumentRepository consentDocumentRepository;
@@ -1001,45 +1012,63 @@ public class ParticipantServiceImpl implements ParticipantService {
     @Override
     public List<Long> calculatedPublishedAssignmentIds(long experimentId, SecuredInfo securedInfo, LtiUserEntity createdBy) {
         LtiUserEntity apiUser = lmsApiUserFor(securedInfo, createdBy);
-        List<Assignment> assignments = assignmentRepository.findByExposure_Experiment_ExperimentId(experimentId);
-        List<Long> publishedAssignmentIds = new ArrayList<>();
-        int unchecked = 0;
 
-        for (Assignment assignment : assignments) {
-            if (unchecked > 0) {
-                // a failure here is almost always this token's access to the course, which every
-                // remaining call would fail on the same way - stop asking the LMS
-                publishedAssignmentIds.add(assignment.getAssignmentId());
-                unchecked++;
-                continue;
-            }
+        // one request can ask several times (e.g. saving a consent answer checks whether the student
+        // has started, updates the participant, then describes it): ask the LMS once per request
+        RequestAttributes request = RequestContextHolder.getRequestAttributes();
+        String requestKey = String.format("%s|%s|%s", PUBLISHED_ASSIGNMENT_IDS_ATTRIBUTE, experimentId, apiUser != null ? apiUser.getUserId() : null);
 
-            try {
-                Optional<LmsAssignment> lmsAssignment = apiClient.listAssignment(apiUser, securedInfo.getLmsCourseId(), assignment.getLmsAssignmentId());
-
-                // not in the LMS any more: not published
-                if (lmsAssignment.isPresent() && lmsAssignment.get().isPublished()) {
-                    publishedAssignmentIds.add(assignment.getAssignmentId());
-                }
-            } catch (Exception e) {
-                // the LMS couldn't say: count it as published, so the checks built on this list
-                // (e.g. never regrouping a participant who has submitted) stay on the safe side
-                publishedAssignmentIds.add(assignment.getAssignmentId());
-                unchecked++;
-                log.warn(
-                    "Couldn't check in the LMS whether assignments in experiment ID: [{}] are published, as user ID: [{}]: {}",
-                    experimentId,
-                    apiUser != null ? apiUser.getUserId() : null,
-                    e.getMessage()
-                );
-            }
+        if (request != null && request.getAttribute(requestKey, RequestAttributes.SCOPE_REQUEST) instanceof List<?> cached) {
+            return cached.stream().map(Long.class::cast).collect(Collectors.toCollection(ArrayList::new));
         }
 
-        if (unchecked > 0) {
-            log.warn("Treated [{}] of [{}] assignment(s) in experiment ID: [{}] as published without checking", unchecked, assignments.size(), experimentId);
+        List<Long> publishedAssignmentIds = lookUpPublishedAssignmentIds(experimentId, apiUser);
+
+        if (request != null) {
+            request.setAttribute(requestKey, List.copyOf(publishedAssignmentIds), RequestAttributes.SCOPE_REQUEST);
         }
 
         return publishedAssignmentIds;
+    }
+
+    // one listing of the course's LMS assignments, instead of a request per experiment assignment
+    private List<Long> lookUpPublishedAssignmentIds(long experimentId, LtiUserEntity apiUser) {
+        List<Assignment> assignments = assignmentRepository.findByExposure_Experiment_ExperimentId(experimentId);
+
+        if (assignments.isEmpty()) {
+            return new ArrayList<>();
+        }
+
+        Map<String, LmsAssignment> lmsAssignmentsById;
+
+        try {
+            Experiment experiment = assignments.get(0).getExposure().getExperiment();
+            lmsAssignmentsById = CollectionUtils.emptyIfNull(apiClient.listAssignments(apiUser, experiment)).stream()
+                .filter(lmsAssignment -> lmsAssignment.getId() != null)
+                .collect(Collectors.toMap(LmsAssignment::getId, Function.identity(), (first, duplicate) -> first));
+        } catch (Exception e) {
+            // the LMS couldn't say: count them all as published, so the checks built on this list
+            // (e.g. never regrouping a participant who has submitted) stay on the safe side
+            log.warn(
+                "Couldn't check in the LMS whether assignments in experiment ID: [{}] are published, as user ID: [{}]: {}. Treated all [{}] as published.",
+                experimentId,
+                apiUser != null ? apiUser.getUserId() : null,
+                e.getMessage(),
+                assignments.size()
+            );
+
+            return assignments.stream().map(Assignment::getAssignmentId).collect(Collectors.toCollection(ArrayList::new));
+        }
+
+        // not in the LMS any more: not published
+        return assignments.stream()
+            .filter(assignment -> {
+                LmsAssignment lmsAssignment = lmsAssignmentsById.get(assignment.getLmsAssignmentId());
+
+                return lmsAssignment != null && lmsAssignment.isPublished();
+            })
+            .map(Assignment::getAssignmentId)
+            .collect(Collectors.toCollection(ArrayList::new));
     }
 
     // the experiment's creator may no longer have access to this course; an instructor working in
@@ -1148,6 +1177,21 @@ public class ParticipantServiceImpl implements ParticipantService {
         Experiment experiment = participant.getExperiment();
         LtiToken ltiTokenScore = advantageAgsService.getToken(LtiAgsScope.SCORES, platformDeployment);
         LtiToken ltiTokenResults = advantageAgsService.getToken(LtiAgsScope.RESULTS, platformDeployment);
+        Score score = consentScore(participant);
+        String lineItemKey = experiment.getLtiContextEntity().getContextId() + "|" + experiment.getConsentDocument().getResourceLinkId();
+        String knownLineItemId = consentLineItemIds.get(lineItemKey);
+
+        if (knownLineItemId != null) {
+            try {
+                advantageAgsService.postScore(ltiTokenScore, ltiTokenResults, experiment.getLtiContextEntity(), knownLineItemId, score);
+                return;
+            } catch (ConnectionException e) {
+                // the line item may have been replaced in the LMS: look it up again below
+                consentLineItemIds.remove(lineItemKey);
+                log.info("Posting the consent score to the remembered line item failed for experiment ID: [{}]; looking the line item up again", experiment.getExperimentId());
+            }
+        }
+
         // find the right id to pass based on the assignment
         LtiToken ltiToken = advantageAgsService.getToken(LtiAgsScope.LINEITEMS, experiment.getPlatformDeployment());
         // find the right id to pass based on the assignment
@@ -1168,6 +1212,12 @@ public class ParticipantServiceImpl implements ParticipantService {
             throw new DataServiceException("Error 136: The assignment is not linked to any LMS assignment");
         }
 
+        advantageAgsService.postScore(ltiTokenScore, ltiTokenResults, experiment.getLtiContextEntity(), lineItem.get().getId(), score);
+        // keyed by the resource link the line item was found by (fixConsentAssignmentResourceLinkId may have just corrected it)
+        consentLineItemIds.put(experiment.getLtiContextEntity().getContextId() + "|" + experiment.getConsentDocument().getResourceLinkId(), lineItem.get().getId());
+    }
+
+    private Score consentScore(Participant participant) {
         Score score = new Score();
         score.setUserId(participant.getLtiUserEntity().getUserKey());
         // Score the consent submission as 100% and let the platform scale the grade to the max number of points.
@@ -1175,12 +1225,9 @@ public class ParticipantServiceImpl implements ParticipantService {
         score.setScoreMaximum(1F);
         score.setActivityProgress("Completed");
         score.setGradingProgress("FullyGraded");
+        score.setTimestamp(new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'").format(new Date()));
 
-        Date date = new Date();
-        SimpleDateFormat dt = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'");
-        String strDate = dt.format(date);
-        score.setTimestamp(strDate);
-        advantageAgsService.postScore(ltiTokenScore, ltiTokenResults, experiment.getLtiContextEntity(), lineItem.get().getId(), score);
+        return score;
     }
 
     /**
