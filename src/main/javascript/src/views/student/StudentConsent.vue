@@ -304,7 +304,9 @@ const submitParticipant = async participantData => {
     // whole page, so a centered popup could be out of sight after a long consent PDF - and before an
     // assignment, closing this popup is what opens it
     await Swal.fire({
-      text: "Successfully submitted consent",
+      text: props.continuesToAssignment
+        ? "Successfully submitted consent. You will now be taken to your assignment."
+        : "Successfully submitted consent",
       icon: "success",
       position: "bottom"
     });

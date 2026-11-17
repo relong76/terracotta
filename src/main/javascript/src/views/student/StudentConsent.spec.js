@@ -230,7 +230,11 @@ describe("StudentConsent", () => {
     await wrapper.find("form").trigger("submit");
     await flushPromises();
 
-    expect(Swal.fire).toHaveBeenCalledWith({ text: "Successfully submitted consent", icon: "success", position: "bottom" });
+    expect(Swal.fire).toHaveBeenCalledWith({
+      text: "Successfully submitted consent. You will now be taken to your assignment.",
+      icon: "success",
+      position: "bottom"
+    });
   });
 
   it("doesn't mention an assignment when the consent form was launched itself", async () => {
