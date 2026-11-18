@@ -20,6 +20,7 @@ import org.springframework.transaction.annotation.Transactional;
 import edu.iu.terracotta.connectors.generic.dao.entity.lti.LmsApprovedAccount;
 import edu.iu.terracotta.connectors.generic.dao.entity.lti.LmsApprovedAccountHost;
 import edu.iu.terracotta.connectors.generic.dao.entity.lti.PlatformDeployment;
+import edu.iu.terracotta.connectors.generic.dao.model.enums.LmsApprovedAccountStatus;
 import edu.iu.terracotta.connectors.generic.dao.model.enums.LmsConnector;
 import edu.iu.terracotta.connectors.generic.dao.model.lti.dto.LmsApprovedAccountDto;
 import edu.iu.terracotta.connectors.generic.dao.repository.lti.LmsApprovedAccountHostRepository;
@@ -60,10 +61,10 @@ public class LmsApprovedAccountServiceImpl implements LmsApprovedAccountService 
             LmsApprovedAccount account = LmsApprovedAccount.builder()
                 .name(normalized)
                 .lmsConnector(lmsConnector)
-                .approved(false)
+                .status(LmsApprovedAccountStatus.PENDING)
                 .build();
             account.getHosts().add(LmsApprovedAccountHost.builder().host(normalized).lmsApprovedAccount(account).build());
-            log.info("Added an unapproved {} account for [{}]: its launches wait for approval", lmsConnector, normalized);
+            log.info("Added a pending {} account for [{}]: its launches wait for approval", lmsConnector, normalized);
 
             return lmsApprovedAccountRepository.save(account);
         });
@@ -84,7 +85,7 @@ public class LmsApprovedAccountServiceImpl implements LmsApprovedAccountService 
         }
 
         if (!account.isApproved()) {
-            log.warn("Refused a launch through platform deployment ID: [{}]: its {} account [{}] isn't approved", platformDeployment.getKeyId(), account.getLmsConnector(), account.getName());
+            log.warn("Refused a launch through platform deployment ID: [{}]: its {} account [{}] is {}", platformDeployment.getKeyId(), account.getLmsConnector(), account.getName(), account.getStatus());
         }
 
         return account.isApproved();
@@ -109,7 +110,7 @@ public class LmsApprovedAccountServiceImpl implements LmsApprovedAccountService 
             .lmsConnector(dto.getLmsConnector())
             .build();
         setHosts(account, dto.getHosts());
-        setApproved(account, dto.isApproved(), adminName);
+        setStatus(account, dto.getStatus() != null ? dto.getStatus() : LmsApprovedAccountStatus.PENDING, adminName);
 
         return toDto(lmsApprovedAccountRepository.save(account));
     }
@@ -123,8 +124,8 @@ public class LmsApprovedAccountServiceImpl implements LmsApprovedAccountService 
             return Optional.empty();
         }
 
-        if (dto == null || StringUtils.isBlank(dto.getName())) {
-            throw new IllegalArgumentException("An account needs a name.");
+        if (dto == null || StringUtils.isBlank(dto.getName()) || dto.getStatus() == null) {
+            throw new IllegalArgumentException("An account needs a name and a status.");
         }
 
         LmsApprovedAccount account = found.get();
@@ -134,7 +135,7 @@ public class LmsApprovedAccountServiceImpl implements LmsApprovedAccountService 
             setHosts(account, dto.getHosts());
         }
 
-        setApproved(account, dto.isApproved(), adminName);
+        setStatus(account, dto.getStatus(), adminName);
 
         return Optional.of(toDto(lmsApprovedAccountRepository.save(account)));
     }
@@ -182,18 +183,16 @@ public class LmsApprovedAccountServiceImpl implements LmsApprovedAccountService 
             .forEach(value -> account.getHosts().add(LmsApprovedAccountHost.builder().host(value).lmsApprovedAccount(account).build()));
     }
 
-    private static void setApproved(LmsApprovedAccount account, boolean approved, String adminName) {
-        if (approved && !account.isApproved()) {
-            account.setApprovedBy(adminName);
-            account.setApprovedAt(new Timestamp(System.currentTimeMillis()));
-            log.info("{} approved the {} account [{}]", adminName, account.getLmsConnector(), account.getName());
-        } else if (!approved && account.isApproved()) {
-            account.setApprovedBy(null);
-            account.setApprovedAt(null);
-            log.info("{} revoked approval of the {} account [{}]", adminName, account.getLmsConnector(), account.getName());
+    // records who changed it, only when it changes
+    private static void setStatus(LmsApprovedAccount account, LmsApprovedAccountStatus status, String adminName) {
+        if (account.getId() != null && account.getStatus() == status) {
+            return;
         }
 
-        account.setApproved(approved);
+        log.info("{} set the {} account [{}] to {} (was {})", adminName, account.getLmsConnector(), account.getName(), status, account.getId() != null ? account.getStatus() : "new");
+        account.setStatus(status);
+        account.setStatusUpdatedBy(adminName);
+        account.setStatusUpdatedAt(new Timestamp(System.currentTimeMillis()));
     }
 
     private static LmsApprovedAccountDto toDto(LmsApprovedAccount account) {
@@ -203,10 +202,10 @@ public class LmsApprovedAccountServiceImpl implements LmsApprovedAccountService 
             .uuid(account.getUuid())
             .name(account.getName())
             .lmsConnector(account.getLmsConnector())
-            .approved(account.isApproved())
+            .status(account.getStatus())
             .platformGuid(account.getPlatformGuid())
-            .approvedBy(account.getApprovedBy())
-            .approvedAt(account.getApprovedAt())
+            .statusUpdatedBy(account.getStatusUpdatedBy())
+            .statusUpdatedAt(account.getStatusUpdatedAt())
             .hosts(hosts)
             .build();
     }

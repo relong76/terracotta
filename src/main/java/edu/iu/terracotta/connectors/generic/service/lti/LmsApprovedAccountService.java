@@ -22,13 +22,13 @@ public interface LmsApprovedAccountService {
     Optional<LmsApprovedAccount> findByHost(LmsConnector lmsConnector, String host);
 
     /**
-     * The account an LMS address belongs to, or a new unapproved one named after it.
+     * The account an LMS address belongs to, or a new PENDING one named after it.
      */
     LmsApprovedAccount findOrCreate(LmsConnector lmsConnector, String host);
 
     /**
      * Whether a launch through this platform deployment may go ahead: always for one set up by
-     * hand, otherwise only while its account is approved. Records the LMS's ID for the account
+     * hand, otherwise only while its account is APPROVED. Records the LMS's ID for the account
      * (the launch's tool_platform guid) the first time it's seen.
      */
     boolean allowsLaunch(PlatformDeployment platformDeployment, Map<String, Object> toolPlatform);

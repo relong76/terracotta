@@ -4,9 +4,11 @@ import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.List;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 
 import edu.iu.terracotta.connectors.generic.dao.entity.BaseUuidEntity;
+import edu.iu.terracotta.connectors.generic.dao.model.enums.LmsApprovedAccountStatus;
 import edu.iu.terracotta.connectors.generic.dao.model.enums.LmsConnector;
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
@@ -25,9 +27,10 @@ import lombok.Setter;
 /**
  * A school's LMS account (for Canvas, its root account) that may use Terracotta through a
  * self-service registration, such as Canvas's "1.3 Dynamic Registration". A registration from an
- * address in its hosts goes through; one from anywhere else adds an unapproved account, and that
- * registration's launches are refused until Terracotta staff approve it. Platform deployments
- * set up by hand have no account and aren't affected.
+ * address in an APPROVED account's hosts launches right away; one from an address no account has
+ * adds a PENDING account, whose launches are refused until Terracotta staff approve it. A REJECTED
+ * or REVOKED account can't register again. Platform deployments set up by hand have no account
+ * and aren't affected.
  */
 @Entity
 @Getter
@@ -47,15 +50,17 @@ public class LmsApprovedAccount extends BaseUuidEntity {
     private LmsConnector lmsConnector;
 
     @Builder.Default
+    @Enumerated(EnumType.STRING)
     @Column(nullable = false)
-    private boolean approved = false;
+    private LmsApprovedAccountStatus status = LmsApprovedAccountStatus.PENDING;
 
     // the LMS's own ID for the account, which doesn't change with its address: for Canvas, the
     // tool_platform guid of the first launch after registering
     private String platformGuid;
 
-    private String approvedBy;
-    private Timestamp approvedAt;
+    // who last changed the status, and when
+    private String statusUpdatedBy;
+    private Timestamp statusUpdatedAt;
 
     // every address the account's LMS is reached at: e.g. iu.instructure.com and canvas.iu.edu
     @Builder.Default
@@ -66,5 +71,11 @@ public class LmsApprovedAccount extends BaseUuidEntity {
         fetch = FetchType.EAGER
     )
     private List<LmsApprovedAccountHost> hosts = new ArrayList<>();
+
+    // only an approved account's platform deployments launch
+    @JsonIgnore
+    public boolean isApproved() {
+        return status == LmsApprovedAccountStatus.APPROVED;
+    }
 
 }

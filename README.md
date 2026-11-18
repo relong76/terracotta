@@ -48,9 +48,10 @@ A Canvas admin can add Terracotta in two ways, both built from Terracotta's own 
   admin then adds the platform deployment in Terracotta.
 - **1.3 Dynamic Registration**: give Canvas `https://YOUR_TERRACOTTA_HOST/lti/canvas/registration`.
   Terracotta registers itself and saves the platform deployment. Its launches work right away when
-  the Canvas's address belongs to an approved account in `lms_approved_account`. From any other
-  address, the registration is kept but waits: Terracotta adds an unapproved account for it, and
-  refuses its launches until the account is approved.
+  the Canvas's address belongs to an `APPROVED` account in `lms_approved_account`. From an address no
+  account has, the registration is kept but waits: Terracotta adds a `PENDING` account for it, and
+  refuses its launches until the account is `APPROVED`. A `REJECTED` or `REVOKED` account can't
+  register.
 
 Either way, Terracotta's access to the Canvas API (a separate Canvas API developer key) is still set
 up by hand.
@@ -65,11 +66,22 @@ domain and its `instructure.com` one both work. Manage accounts through the admi
 - `POST /config/lms-approved-accounts` adds one:
 
     ```
-    { "name": "Indiana University", "lmsConnector": "CANVAS", "approved": true, "hosts": ["iu.instructure.com", "canvas.iu.edu"] }
+    { "name": "Indiana University", "lmsConnector": "CANVAS", "status": "APPROVED", "hosts": ["iu.instructure.com", "canvas.iu.edu"] }
     ```
 
-- `PUT /config/lms-approved-accounts/{uuid}` changes one, given its `name`. Set `approved` to `true` to approve a
-  waiting account, or back to `false` to stop its launches. Leave out `hosts` to keep the ones it has.
+- `PUT /config/lms-approved-accounts/{uuid}` changes one, given its `name` and `status`. Leave out
+  `hosts` to keep the ones it has.
+
+An account's `status` is one of:
+
+| Status | Launches | Can register |
+|---|---|---|
+| `PENDING` | No | Yes, and stays pending |
+| `APPROVED` | Yes | Yes |
+| `REJECTED` | No | No |
+| `REVOKED` | No | No |
+
+`status_updated_by` and `status_updated_at` record who last changed it, and when.
 
 The first launch after a registration records the LMS's own ID for the account (`platform_guid`,
 Canvas's `tool_platform` guid), which stays the same when its address changes. Platform deployments

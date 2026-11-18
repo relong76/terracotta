@@ -22,8 +22,9 @@ import lombok.RequiredArgsConstructor;
 
 /**
  * The admin API for LMS accounts (see LmsApprovedAccount), behind the same admin login as the rest
- * of /config. Approve one by setting approved to true; set it back to false to stop its launches.
- * There's no delete: an account's platform deployments would then launch unchecked.
+ * of /config. Approve a PENDING one by setting its status to APPROVED, or turn it down with
+ * REJECTED; REVOKED stops an approved one's launches. There's no delete: an account's platform
+ * deployments would then launch unchecked.
  */
 @RestController
 @RequiredArgsConstructor

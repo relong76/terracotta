@@ -3,6 +3,7 @@ package edu.iu.terracotta.connectors.canvas.service.lti.impl;
 import java.net.URI;
 import java.util.List;
 import java.util.Locale;
+import java.util.Optional;
 
 import org.apache.commons.collections4.CollectionUtils;
 import org.apache.commons.lang3.StringUtils;
@@ -25,6 +26,7 @@ import edu.iu.terracotta.connectors.canvas.service.lti.CanvasToolConfigurationSe
 import edu.iu.terracotta.connectors.generic.dao.entity.lti.LmsApprovedAccount;
 import edu.iu.terracotta.connectors.generic.dao.entity.lti.PlatformDeployment;
 import edu.iu.terracotta.connectors.generic.dao.entity.lti.ToolDeployment;
+import edu.iu.terracotta.connectors.generic.dao.model.enums.LmsApprovedAccountStatus;
 import edu.iu.terracotta.connectors.generic.dao.model.enums.LmsConnector;
 import edu.iu.terracotta.connectors.generic.dao.model.lti.dto.PlatformRegistrationDto;
 import edu.iu.terracotta.connectors.generic.dao.repository.lti.PlatformDeploymentRepository;
@@ -96,10 +98,18 @@ public class CanvasDynamicRegistrationServiceImpl implements CanvasDynamicRegist
             throw new CanvasRegistrationException("Canvas sent an invalid registration address.");
         }
 
+        // a rejected or revoked account is turned away before anything is sent to its Canvas
+        Optional<LmsApprovedAccountStatus> status = lmsApprovedAccountService.findByHost(LmsConnector.CANVAS, canvasHost).map(LmsApprovedAccount::getStatus);
+
+        if (status.isPresent() && (status.get() == LmsApprovedAccountStatus.REJECTED || status.get() == LmsApprovedAccountStatus.REVOKED)) {
+            log.warn("Refused a Canvas Dynamic Registration from [{}]: its account is {}", canvasHost, status.get());
+            throw new CanvasRegistrationException(String.format("%s can't register Terracotta. Contact info@terracotta.education for help.", canvasHost));
+        }
+
         PlatformRegistrationDto platform = fetchPlatformConfiguration(openidConfiguration, registrationToken, canvasHost);
         JsonNode registration = sendRegistration(platform.getRegistration_endpoint(), registrationToken, canvasHost);
 
-        // an address no account has yet gets an unapproved one: the registration is kept, and its
+        // an address no account has yet gets a PENDING one: the registration is kept, and its
         // launches wait until Terracotta staff approve the account
         LmsApprovedAccount account = lmsApprovedAccountService.findOrCreate(LmsConnector.CANVAS, canvasHost);
 
@@ -190,9 +200,9 @@ public class CanvasDynamicRegistrationServiceImpl implements CanvasDynamicRegist
         }
 
         log.info(
-            "Canvas [{}] registered Terracotta ({}): platform deployment ID: [{}], issuer: [{}], client ID: [{}], deployment ID: [{}]",
+            "Canvas [{}] registered Terracotta (account {}): platform deployment ID: [{}], issuer: [{}], client ID: [{}], deployment ID: [{}]",
             canvasHost,
-            account.isApproved() ? "approved" : "waiting for approval",
+            account.getStatus(),
             platformDeployment.getKeyId(),
             platform.getIssuer(),
             clientId,

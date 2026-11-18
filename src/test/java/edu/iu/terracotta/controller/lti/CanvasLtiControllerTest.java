@@ -27,6 +27,7 @@ import edu.iu.terracotta.connectors.canvas.service.lti.CanvasRegistrationExcepti
 import edu.iu.terracotta.connectors.canvas.service.lti.CanvasToolConfigurationService;
 import edu.iu.terracotta.connectors.generic.dao.entity.lti.LmsApprovedAccount;
 import edu.iu.terracotta.connectors.generic.dao.entity.lti.PlatformDeployment;
+import edu.iu.terracotta.connectors.generic.dao.model.enums.LmsApprovedAccountStatus;
 import edu.iu.terracotta.connectors.generic.dao.model.enums.LmsConnector;
 
 public class CanvasLtiControllerTest {
@@ -54,7 +55,7 @@ public class CanvasLtiControllerTest {
 
     private static PlatformDeployment registeredFor(boolean approved) {
         PlatformDeployment platformDeployment = new PlatformDeployment();
-        platformDeployment.setLmsApprovedAccount(LmsApprovedAccount.builder().name("IU").lmsConnector(LmsConnector.CANVAS).approved(approved).build());
+        platformDeployment.setLmsApprovedAccount(LmsApprovedAccount.builder().name("IU").lmsConnector(LmsConnector.CANVAS).status(approved ? LmsApprovedAccountStatus.APPROVED : LmsApprovedAccountStatus.PENDING).build());
 
         return platformDeployment;
     }

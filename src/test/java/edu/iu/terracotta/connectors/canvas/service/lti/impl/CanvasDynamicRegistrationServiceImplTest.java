@@ -38,6 +38,7 @@ import edu.iu.terracotta.connectors.canvas.service.lti.CanvasRegistrationExcepti
 import edu.iu.terracotta.connectors.generic.dao.entity.lti.LmsApprovedAccount;
 import edu.iu.terracotta.connectors.generic.dao.entity.lti.PlatformDeployment;
 import edu.iu.terracotta.connectors.generic.dao.entity.lti.ToolDeployment;
+import edu.iu.terracotta.connectors.generic.dao.model.enums.LmsApprovedAccountStatus;
 import edu.iu.terracotta.connectors.generic.dao.model.enums.LmsConnector;
 import edu.iu.terracotta.connectors.generic.dao.repository.lti.PlatformDeploymentRepository;
 import edu.iu.terracotta.connectors.generic.dao.repository.lti.ToolDeploymentRepository;
@@ -82,7 +83,7 @@ public class CanvasDynamicRegistrationServiceImplTest {
         platformDeploymentRepository = mock(PlatformDeploymentRepository.class);
         toolDeploymentRepository = mock(ToolDeploymentRepository.class);
         lmsApprovedAccountService = mock(LmsApprovedAccountService.class);
-        approvedAccount = LmsApprovedAccount.builder().name("Indiana University").lmsConnector(LmsConnector.CANVAS).approved(true).build();
+        approvedAccount = LmsApprovedAccount.builder().name("Indiana University").lmsConnector(LmsConnector.CANVAS).status(LmsApprovedAccountStatus.APPROVED).build();
 
         CanvasToolConfigurationServiceImpl canvasToolConfigurationService = new CanvasToolConfigurationServiceImpl();
         ReflectionTestUtils.setField(canvasToolConfigurationService, "applicationUrl", "https://app.terracotta.education");
@@ -151,7 +152,7 @@ public class CanvasDynamicRegistrationServiceImplTest {
     @Test
     public void testACanvasWithNoApprovedAccountRegistersButWaitsForApproval() throws Exception {
         String other = "https://other.instructure.com/api/lti/security/openid-configuration";
-        LmsApprovedAccount pending = LmsApprovedAccount.builder().name("other.instructure.com").lmsConnector(LmsConnector.CANVAS).approved(false).build();
+        LmsApprovedAccount pending = LmsApprovedAccount.builder().name("other.instructure.com").lmsConnector(LmsConnector.CANVAS).status(LmsApprovedAccountStatus.PENDING).build();
         when(lmsApprovedAccountService.findOrCreate(LmsConnector.CANVAS, "other.instructure.com")).thenReturn(pending);
         canvas.expect(requestTo(other))
             .andRespond(withSuccess(String.format(PLATFORM_CONFIGURATION, "https://other.instructure.com/api/lti/registrations", "canvas"), MediaType.APPLICATION_JSON));
@@ -162,8 +163,35 @@ public class CanvasDynamicRegistrationServiceImplTest {
 
         canvas.verify();
         assertSame(pending, saved.getLmsApprovedAccount());
-        assertFalse(saved.getLmsApprovedAccount().isApproved());
+        assertEquals(LmsApprovedAccountStatus.PENDING, saved.getLmsApprovedAccount().getStatus());
         assertEquals("https://other.instructure.com", saved.getBaseUrl());
+    }
+
+    @Test
+    public void testARejectedOrRevokedAccountCantRegisterAndCanvasIsntContacted() {
+        for (LmsApprovedAccountStatus status : List.of(LmsApprovedAccountStatus.REJECTED, LmsApprovedAccountStatus.REVOKED)) {
+            when(lmsApprovedAccountService.findByHost(LmsConnector.CANVAS, "iu.instructure.com"))
+                .thenReturn(Optional.of(LmsApprovedAccount.builder().name("IU").lmsConnector(LmsConnector.CANVAS).status(status).build()));
+
+            CanvasRegistrationException exception = assertThrows(CanvasRegistrationException.class, () -> service.register(OPENID_CONFIGURATION, TOKEN));
+
+            assertTrue(exception.getMessage().contains("iu.instructure.com can't register Terracotta"), exception.getMessage());
+        }
+
+        // no request reached the mock Canvas
+        canvas.verify();
+        verify(platformDeploymentRepository, never()).save(any());
+    }
+
+    @Test
+    public void testAPendingAccountCanRegisterAgain() throws Exception {
+        LmsApprovedAccount pending = LmsApprovedAccount.builder().name("IU").lmsConnector(LmsConnector.CANVAS).status(LmsApprovedAccountStatus.PENDING).build();
+        when(lmsApprovedAccountService.findByHost(LmsConnector.CANVAS, "iu.instructure.com")).thenReturn(Optional.of(pending));
+        when(lmsApprovedAccountService.findOrCreate(LmsConnector.CANVAS, "iu.instructure.com")).thenReturn(pending);
+        canvasServes(REGISTRATION_ENDPOINT, "canvas");
+        canvas.expect(requestTo(REGISTRATION_ENDPOINT)).andRespond(withSuccess(REGISTRATION_RESPONSE, MediaType.APPLICATION_JSON));
+
+        assertSame(pending, service.register(OPENID_CONFIGURATION, TOKEN).getLmsApprovedAccount());
     }
 
     @Test
@@ -259,7 +287,7 @@ public class CanvasDynamicRegistrationServiceImplTest {
 
     @Test
     public void testApprovedHostsAreAnApprovedCanvasAccountsHosts() {
-        LmsApprovedAccount pending = LmsApprovedAccount.builder().name("Pending").lmsConnector(LmsConnector.CANVAS).approved(false).build();
+        LmsApprovedAccount pending = LmsApprovedAccount.builder().name("Pending").lmsConnector(LmsConnector.CANVAS).status(LmsApprovedAccountStatus.PENDING).build();
         when(lmsApprovedAccountService.findByHost(LmsConnector.CANVAS, "canvas.iu.edu")).thenReturn(Optional.of(approvedAccount));
         when(lmsApprovedAccountService.findByHost(LmsConnector.CANVAS, "pending.instructure.com")).thenReturn(Optional.of(pending));
         when(lmsApprovedAccountService.findByHost(LmsConnector.CANVAS, "unknown.instructure.com")).thenReturn(Optional.empty());
