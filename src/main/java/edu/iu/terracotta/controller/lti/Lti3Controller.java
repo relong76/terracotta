@@ -1,13 +1,15 @@
 package edu.iu.terracotta.controller.lti;
 
+import edu.iu.terracotta.connectors.canvas.service.lti.advantage.CanvasAdvantageNoticeService;
+import edu.iu.terracotta.connectors.generic.dao.entity.lti.LmsApprovedAccount;
 import edu.iu.terracotta.connectors.generic.dao.entity.lti.LtiDeepLink;
 import edu.iu.terracotta.connectors.generic.dao.entity.lti.LtiLinkEntity;
 import edu.iu.terracotta.connectors.generic.dao.entity.lti.LtiUserEntity;
 import edu.iu.terracotta.connectors.generic.dao.entity.lti.PlatformDeployment;
+import edu.iu.terracotta.connectors.generic.dao.model.enums.LmsApprovedAccountStatus;
+import edu.iu.terracotta.connectors.generic.dao.model.enums.LmsConnector;
 import edu.iu.terracotta.connectors.generic.dao.model.enums.jwt.JwtClaim;
 import edu.iu.terracotta.connectors.generic.dao.repository.lti.LtiLinkRepository;
-import edu.iu.terracotta.connectors.canvas.service.lti.advantage.CanvasAdvantageNoticeService;
-import edu.iu.terracotta.connectors.generic.dao.model.enums.LmsConnector;
 import edu.iu.terracotta.connectors.generic.exceptions.ApiException;
 import edu.iu.terracotta.connectors.generic.exceptions.ConnectionException;
 import edu.iu.terracotta.connectors.generic.exceptions.LmsOAuthException;
@@ -61,6 +63,8 @@ import java.util.List;
 @RequiredArgsConstructor
 @SuppressWarnings({"PMD.GuardLogStatement"})
 public class Lti3Controller {
+
+    public static final String LMS_ACCOUNT_UNAVAILABLE = "lmsAccountUnavailable";
 
     private final LtiLinkRepository ltiLinkRepository;
     private final ApiJwtService apiJwtService;
@@ -121,10 +125,11 @@ public class Lti3Controller {
             }
 
             // a deployment from a self-service registration launches only once its account is approved
-            if (!lmsApprovedAccountService.allowsLaunch(lti3Request.getToolDeployment().getPlatformDeployment(), lti3Request.getLtiToolPlatform())) {
-                model.addAttribute(TextConstants.ERROR, "Terracotta is waiting for approval to be used at your school. Please contact info@terracotta.education.");
+            if (!lmsApprovedAccountService.allowsLaunch(lti3Request.getToolDeployment().getPlatformDeployment())) {
+                LmsApprovedAccount account = lti3Request.getToolDeployment().getPlatformDeployment().getLmsApprovedAccount();
+                model.addAttribute("pending", account != null && account.getStatus() == LmsApprovedAccountStatus.PENDING);
 
-                return TextConstants.LTI3ERROR;
+                return LMS_ACCOUNT_UNAVAILABLE;
             }
 
             // best-effort, fire-and-forget: registers this tool as an LTI Platform Notification

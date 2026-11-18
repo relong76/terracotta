@@ -54,8 +54,9 @@ public class LmsApprovedAccount extends BaseUuidEntity {
     @Column(nullable = false)
     private LmsApprovedAccountStatus status = LmsApprovedAccountStatus.PENDING;
 
-    // the LMS's own ID for the account, which doesn't change with its address: for Canvas, the
-    // tool_platform guid of the first launch after registering
+    // the LMS's own ID for the account, which doesn't change with its address: for a Canvas cloud
+    // school, the account_lti_guid its registration names it by (the guid its launches carry)
+    @Column(unique = true)
     private String platformGuid;
 
     // who last changed the status, and when

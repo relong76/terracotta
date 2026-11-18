@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1"/>
+    <title th:text="${pending} ? 'Terracotta is waiting for approval' : 'Terracotta isn\'t available'">Terracotta isn't available</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 48px 24px;
+            background: #fdf5f2;
+            color: rgba(35, 48, 80, 0.87);
+            font-family: Roboto, "Helvetica Neue", Arial, sans-serif;
+            font-size: 16px;
+            line-height: 24px;
+            text-align: center;
+        }
+        main {
+            max-width: 560px;
+            margin: 0 auto;
+        }
+        h1 {
+            margin: 0 0 8px;
+            font-size: 24px;
+            line-height: 32px;
+            font-weight: 400;
+        }
+        p {
+            margin: 0 0 16px;
+        }
+        a {
+            color: #1d77c3;
+        }
+    </style>
+</head>
+<body>
+<!--
+  Shown instead of Terracotta when a launch comes through a platform deployment whose LMS account
+  (lms_approved_account) isn't APPROVED: one that registered itself and is waiting for Terracotta
+  staff, or one that was rejected or revoked.
+-->
+<main>
+    <th:block th:if="${pending}">
+        <h1>Terracotta is waiting for approval</h1>
+        <p>Your school has added Terracotta, but it can't be used until the Terracotta team approves your school.</p>
+        <p>
+            Please ask your school's Canvas administrator, or contact
+            <a href="mailto:info@terracotta.education">info@terracotta.education</a>.
+        </p>
+    </th:block>
+
+    <th:block th:unless="${pending}">
+        <h1>Terracotta isn't available</h1>
+        <p>Terracotta can't be used at your school right now.</p>
+        <p>
+            Please contact <a href="mailto:info@terracotta.education">info@terracotta.education</a>
+            for help.
+        </p>
+    </th:block>
+</main>
+</body>
+</html>

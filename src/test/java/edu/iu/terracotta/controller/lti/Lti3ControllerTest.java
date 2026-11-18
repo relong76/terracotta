@@ -14,7 +14,6 @@ import static org.mockito.Mockito.when;
 
 import java.security.GeneralSecurityException;
 import java.util.Collections;
-import java.util.Map;
 import java.util.List;
 import java.util.UUID;
 
@@ -35,6 +34,8 @@ import edu.iu.terracotta.connectors.generic.exceptions.LmsOAuthException;
 import edu.iu.terracotta.connectors.generic.exceptions.TerracottaConnectorException;
 import edu.iu.terracotta.connectors.generic.service.lms.LmsOAuthServiceManager;
 import edu.iu.terracotta.connectors.generic.service.lti.advantage.AdvantageDeepLinkService;
+import edu.iu.terracotta.connectors.generic.dao.entity.lti.LmsApprovedAccount;
+import edu.iu.terracotta.connectors.generic.dao.model.enums.LmsApprovedAccountStatus;
 import edu.iu.terracotta.connectors.generic.service.lti.LmsApprovedAccountService;
 import edu.iu.terracotta.dao.entity.ObsoleteAssignment;
 import edu.iu.terracotta.dao.exceptions.FeatureNotFoundException;
@@ -93,7 +94,7 @@ public class Lti3ControllerTest extends BaseTest {
         when(lti3Request.getLtiRoles()).thenReturn(Collections.emptyList());
 
         when(ltiDataService.getDemoMode()).thenReturn(false);
-        when(lmsApprovedAccountService.allowsLaunch(any(), any())).thenReturn(true);
+        when(lmsApprovedAccountService.allowsLaunch(any())).thenReturn(true);
         when(apiJwtService.buildJwt(true, lti3Request)).thenReturn("oneTimeToken123");
     }
 
@@ -106,17 +107,27 @@ public class Lti3ControllerTest extends BaseTest {
 
     @Test
     void aDeploymentWaitingForApprovalCantLaunch() throws Exception {
-        Map<String, Object> toolPlatform = Map.of("guid", "root-account-guid:canvas-lms");
-        when(lti3Request.getLtiToolPlatform()).thenReturn(toolPlatform);
-        when(lmsApprovedAccountService.allowsLaunch(platformDeployment, toolPlatform)).thenReturn(false);
+        when(platformDeployment.getLmsApprovedAccount()).thenReturn(LmsApprovedAccount.builder().name("IU").status(LmsApprovedAccountStatus.PENDING).build());
+        when(lmsApprovedAccountService.allowsLaunch(platformDeployment)).thenReturn(false);
 
         try (MockedStatic<Lti3Request> ignored = mockLti3Request()) {
             String result = callHome();
 
-            assertEquals(TextConstants.LTI3ERROR, result);
-            verify(model).addAttribute(TextConstants.ERROR, "Terracotta is waiting for approval to be used at your school. Please contact info@terracotta.education.");
+            assertEquals(Lti3Controller.LMS_ACCOUNT_UNAVAILABLE, result);
+            verify(model).addAttribute("pending", true);
             verify(canvasAdvantageNoticeService, never()).ensureNoticeHandlerRegistered(any());
             verify(apiJwtService, never()).buildJwt(true, lti3Request);
+        }
+    }
+
+    @Test
+    void aRejectedOrRevokedDeploymentCantLaunch() throws Exception {
+        when(platformDeployment.getLmsApprovedAccount()).thenReturn(LmsApprovedAccount.builder().name("IU").status(LmsApprovedAccountStatus.REVOKED).build());
+        when(lmsApprovedAccountService.allowsLaunch(platformDeployment)).thenReturn(false);
+
+        try (MockedStatic<Lti3Request> ignored = mockLti3Request()) {
+            assertEquals(Lti3Controller.LMS_ACCOUNT_UNAVAILABLE, callHome());
+            verify(model).addAttribute("pending", false);
         }
     }
 
