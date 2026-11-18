@@ -32,6 +32,7 @@ public interface SubmissionRepository extends JpaRepository<Submission, Long> {
     long countByAssessment_AssessmentId(long assessmentId);
     List<Submission> findByParticipant_Id(long participantId);
     boolean existsByParticipant_IdAndDateSubmittedNotNull(long participantId);
+    boolean existsByParticipant_Id(long participantId);
     List<Submission> findByParticipant_Experiment_ExperimentId(long experimentId);
     Page<Submission> findByParticipant_Experiment_ExperimentId(long experimentId, Pageable pageable);
     @Query("SELECT COUNT(s) FROM Submission s WHERE s.assessment.treatment.assignment.assignmentId = :assignmentId")

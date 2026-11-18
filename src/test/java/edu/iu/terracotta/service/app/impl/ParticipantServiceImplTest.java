@@ -541,6 +541,31 @@ public class ParticipantServiceImplTest extends BaseTest {
     }
 
     @Test
+    public void testConsentIsntPendingForAStudentWhoHasLaunchedAnAssignment() {
+        when(experimentRepository.findByExperimentId(1L)).thenReturn(experiment);
+        when(experiment.getParticipationType()).thenReturn(ParticipationTypes.CONSENT);
+        when(participantRepository.findByExperiment_ExperimentIdAndLtiUserEntity_UserKey(1L, securedInfo.getUserId())).thenReturn(participant);
+        when(participant.getConsent()).thenReturn(null);
+
+        // skipped the form, or launched before it was asked for: their launch left them out of the study
+        when(submissionRepository.existsByParticipant_Id(participant.getParticipantId())).thenReturn(true);
+        assertFalse(participantService.isConsentPending(1L, securedInfo));
+
+        when(submissionRepository.existsByParticipant_Id(participant.getParticipantId())).thenReturn(false);
+        assertTrue(participantService.isConsentPending(1L, securedInfo));
+    }
+
+    @Test
+    public void testConsentPendingDoesntLookForSubmissionsWhenItsAnswered() {
+        when(experimentRepository.findByExperimentId(1L)).thenReturn(experiment);
+        when(experiment.getParticipationType()).thenReturn(ParticipationTypes.MANUAL);
+        when(participantRepository.findByExperiment_ExperimentIdAndLtiUserEntity_UserKey(1L, securedInfo.getUserId())).thenReturn(participant);
+
+        assertFalse(participantService.isConsentPending(1L, securedInfo));
+        verify(submissionRepository, never()).existsByParticipant_Id(anyLong());
+    }
+
+    @Test
     public void testIsConsentPending() {
         when(experimentRepository.findByExperimentId(1L)).thenReturn(experiment);
         when(experiment.getParticipationType()).thenReturn(ParticipationTypes.CONSENT);
