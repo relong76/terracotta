@@ -1146,8 +1146,17 @@ public class ParticipantServiceImpl implements ParticipantService {
     @Override
     public boolean isConsentPending(long experimentId, SecuredInfo securedInfo) {
         Experiment experiment = experimentRepository.findByExperimentId(experimentId);
+        Participant participant = participantRepository.findByExperiment_ExperimentIdAndLtiUserEntity_UserKey(experimentId, securedInfo.getUserId());
 
-        return isConsentPending(experiment, participantRepository.findByExperiment_ExperimentIdAndLtiUserEntity_UserKey(experimentId, securedInfo.getUserId()));
+        if (!isConsentPending(experiment, participant)) {
+            return false;
+        }
+
+        // a student who has already launched an assignment in this experiment went on without the
+        // form, by skipping it or before it was asked for, and that launch left them out of the
+        // study: the form isn't put before their assignments again (they can still open it
+        // themselves, from the consent assignment)
+        return participant == null || !submissionRepository.existsByParticipant_Id(participant.getParticipantId());
     }
 
     // participant is null for a student with no participant record yet, who hasn't answered either
