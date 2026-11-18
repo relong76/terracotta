@@ -21,6 +21,7 @@ import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
+import edu.iu.terracotta.connectors.generic.dao.model.enums.LmsApprovedAccountStatus;
 import edu.iu.terracotta.connectors.generic.dao.model.enums.LmsConnector;
 import edu.iu.terracotta.connectors.generic.dao.model.lti.dto.LmsApprovedAccountDto;
 import edu.iu.terracotta.connectors.generic.service.lti.LmsApprovedAccountService;
@@ -29,7 +30,7 @@ public class LmsApprovedAccountControllerTest {
 
     private static final Principal ADMIN = () -> "admin";
     private static final String BODY = """
-        { "name": "Indiana University", "lmsConnector": "CANVAS", "approved": true, "hosts": ["iu.instructure.com", "canvas.iu.edu"] }
+        { "name": "Indiana University", "lmsConnector": "CANVAS", "status": "APPROVED", "hosts": ["iu.instructure.com", "canvas.iu.edu"] }
         """;
 
     private LmsApprovedAccountService lmsApprovedAccountService;
@@ -46,8 +47,8 @@ public class LmsApprovedAccountControllerTest {
             .uuid(UUID.randomUUID())
             .name("Indiana University")
             .lmsConnector(LmsConnector.CANVAS)
-            .approved(true)
-            .approvedBy("admin")
+            .status(LmsApprovedAccountStatus.APPROVED)
+            .statusUpdatedBy("admin")
             .hosts(List.of("iu.instructure.com", "canvas.iu.edu"))
             .build();
     }
@@ -60,7 +61,7 @@ public class LmsApprovedAccountControllerTest {
             .andExpect(status().isOk())
             .andExpect(jsonPath("$[0].name").value("Indiana University"))
             .andExpect(jsonPath("$[0].lmsConnector").value("CANVAS"))
-            .andExpect(jsonPath("$[0].approved").value(true))
+            .andExpect(jsonPath("$[0].status").value("APPROVED"))
             .andExpect(jsonPath("$[0].hosts[1]").value("canvas.iu.edu"));
     }
 
@@ -70,7 +71,7 @@ public class LmsApprovedAccountControllerTest {
 
         mockMvc.perform(post("/config/lms-approved-accounts").principal(ADMIN).contentType(MediaType.APPLICATION_JSON).content(BODY))
             .andExpect(status().isCreated())
-            .andExpect(jsonPath("$.approvedBy").value("admin"));
+            .andExpect(jsonPath("$.statusUpdatedBy").value("admin"));
     }
 
     @Test
