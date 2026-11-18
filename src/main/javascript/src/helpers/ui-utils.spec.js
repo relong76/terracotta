@@ -15,7 +15,8 @@ import {
   statusAlert,
   createStatusAlert,
   showSkipLink,
-  isEmbeddedInAnIframe
+  isEmbeddedInAnIframe,
+  scrollPageToTop
 } from "./ui-utils";
 import { alert as alertStore } from "@/store/alert.module";
 import { configuration as configurationStore } from "@/store/configuration.module";
@@ -373,5 +374,33 @@ describe("isEmbeddedInAnIframe", () => {
     });
 
     expect(isEmbeddedInAnIframe()).toBe(true);
+  });
+});
+
+describe("scrollPageToTop", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("scrolls this page to the top, and asks the LMS to scroll its page when embedded", () => {
+    const scrollTo = vi.spyOn(window, "scrollTo").mockImplementation(() => {});
+    const postMessage = vi.fn();
+    vi.spyOn(window, "top", "get").mockReturnValue({});
+    vi.spyOn(window, "parent", "get").mockReturnValue({ postMessage });
+
+    scrollPageToTop();
+
+    expect(scrollTo).toHaveBeenCalledWith({ top: 0 });
+    expect(postMessage).toHaveBeenCalledWith({ subject: "lti.scrollToTop" }, "*");
+  });
+
+  it("only scrolls this page when it isn't embedded", () => {
+    const scrollTo = vi.spyOn(window, "scrollTo").mockImplementation(() => {});
+    const postMessage = vi.spyOn(window, "postMessage");
+
+    scrollPageToTop();
+
+    expect(scrollTo).toHaveBeenCalledWith({ top: 0 });
+    expect(postMessage).not.toHaveBeenCalled();
   });
 });
