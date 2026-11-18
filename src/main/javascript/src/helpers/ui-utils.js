@@ -169,3 +169,16 @@ export function isEmbeddedInAnIframe() {
     return true;
   }
 }
+
+// Scrolls to the top of Terracotta: this page's own window, and inside an LMS the LMS's own page
+// too. Terracotta's frame there grows to fit its content, so the page that scrolls is the LMS's,
+// which only the LMS can scroll: "lti.scrollToTop" is Canvas's postMessage for that (see router's
+// scrollBehavior). The payload carries nothing, so any parent origin will do when it can't be named.
+export function scrollPageToTop() {
+  window.scrollTo({ top: 0 });
+
+  if (isEmbeddedInAnIframe()) {
+    const origin = window.location.ancestorOrigins?.[0];
+    window.parent.postMessage({ subject: "lti.scrollToTop" }, origin && origin !== "null" ? origin : "*");
+  }
+}

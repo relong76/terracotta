@@ -45,10 +45,7 @@
     />
 
     <form @submit.prevent="updateConsent(answer || false)">
-      <v-card
-        ref="questionCard"
-        class="mt-5"
-      >
+      <v-card class="mt-5">
         <v-card-title>
           In consideration of the above, will you participate in this research
           study?
@@ -101,6 +98,8 @@ import {
 import dayjs from "@/plugins/dayjs";
 import Swal from "sweetalert2";
 import VuePdfEmbed from "vue-pdf-embed";
+
+import { scrollPageToTop } from "@/helpers/ui-utils.js";
 
 import { consent as consentModule } from "@/store/consent.module";
 import { participants as participantsModule } from "@/store/participants.module";
@@ -235,14 +234,12 @@ watch(pageFullyLoaded, isLoaded => {
   emit("loaded");
 
   if (props.continuesToAssignment) {
-    // at the top: in the LMS, Terracotta's frame grows to the whole page, so a centered popup
-    // would sit halfway down a long consent PDF, out of sight. The student can skip the form: the
-    // assignment then opens as it would have without it. A deny button, not cancel, so pressing
-    // Escape or clicking outside closes the popup without skipping
-    void Swal.fire({
+    // The student can skip the form: the assignment then opens as it would have without it. A
+    // deny button, not cancel, so pressing Escape or clicking outside closes the popup without
+    // skipping
+    void showPopup({
       text: "You have not yet completed the consent form. Please approve or revoke consent. You will be redirected to your assignment upon completion.",
       icon: "info",
-      position: "top",
       showDenyButton: true,
       denyButtonText: "Just take me to my assignment",
       denyButtonColor: "#515961"
@@ -262,7 +259,7 @@ const updateConsent = answerValue => {
   // a student who has started an assignment without consenting can't join the study now, but
   // anyone can decline, and a student who agreed can always withdraw
   if (participant.value.started && !participant.value.consent && answerValue === true) {
-    Swal.fire({
+    void showPopup({
       text: "You have already accessed an assignment that is part of this study. At this time, no matter your response, you cannot be included in this study.",
       icon: "error"
     });
@@ -278,7 +275,7 @@ const updateConsent = answerValue => {
     hasConsentedAlready.value &&
     participant.value.consent === answerValue
   ) {
-    Swal.fire({
+    void showPopup({
       text: "Successfully submitted Consent",
       icon: "success"
     });
@@ -297,20 +294,17 @@ const updateConsent = answerValue => {
   void submitParticipant(updatedParticipant);
 };
 
-const questionCard = ref(null);
-const POPUP_GAP = 16;
+// every popup here opens at the top of the page, scrolled there first. In the LMS, Terracotta's
+// frame grows to the whole page, so a centered popup could open halfway down a long consent PDF,
+// and one placed beside the question went out of view in Firefox, which scrolls the LMS page to
+// the popup's button when it's focused, before it can be moved
+const showPopup = options => {
+  scrollPageToTop();
 
-// moves a top-positioned popup down to just above the consent question. The popup is positioned
-// in the frame's viewport, which in the LMS is the whole (grown) page; it never goes above the top
-const placeAboveQuestion = popup => {
-  const card = questionCard.value?.$el ?? questionCard.value;
-
-  if (!card?.getBoundingClientRect) {
-    return;
-  }
-
-  const top = card.getBoundingClientRect().top - popup.offsetHeight - POPUP_GAP;
-  popup.style.marginTop = `${Math.max(top, POPUP_GAP)}px`;
+  return Swal.fire({
+    ...options,
+    position: "top"
+  });
 };
 
 const submitParticipant = async participantData => {
@@ -329,20 +323,16 @@ const submitParticipant = async participantData => {
       ...response
     };
 
-    // just above the question the student answered: in the LMS the frame grows to the whole page,
-    // so a centered popup could be out of sight after a long consent PDF - and before an
-    // assignment, closing this popup is what opens it
-    await Swal.fire({
+    // before an assignment, closing this popup is what opens it
+    await showPopup({
       text: props.continuesToAssignment
         ? "Successfully submitted consent. You will now be taken to your assignment."
         : "Successfully submitted consent",
-      icon: "success",
-      position: "top",
-      didOpen: placeAboveQuestion
+      icon: "success"
     });
 
     if (response?.message) {
-      await Swal.fire({
+      await showPopup({
         text: response.message,
         icon: "error"
       });

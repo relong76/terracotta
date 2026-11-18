@@ -249,8 +249,9 @@ describe("StudentConsent", () => {
     }
   });
 
-  it("confirms a saved answer just above the consent question", async () => {
+  it("scrolls to the top and shows the confirmation there, so it's in view after a long consent PDF", async () => {
     const wrapper = await mountAndLoad({}, { continuesToAssignment: true });
+    const scrollTo = vi.spyOn(window, "scrollTo").mockImplementation(() => {});
 
     participantService.updateParticipant.mockResolvedValue({ ...baseParticipant, consent: true });
     await wrapper.findAll("input[type=\"radio\"]")[0].setValue(true);
@@ -258,23 +259,26 @@ describe("StudentConsent", () => {
     await flushPromises();
 
     const confirmation = Swal.fire.mock.calls.find(([options]) => options.icon === "success")[0];
-    expect(confirmation).toEqual(expect.objectContaining({
+    expect(confirmation).toEqual({
       text: "Successfully submitted consent. You will now be taken to your assignment.",
+      icon: "success",
       position: "top"
-    }));
+    });
+    expect(scrollTo).toHaveBeenCalledWith({ top: 0 });
 
-    // the question card 900px down the page, the popup 120px tall: 16px of space between them
-    const card = wrapper.find(".v-card").element;
-    vi.spyOn(card, "getBoundingClientRect").mockReturnValue({ top: 900 });
-    const popup = document.createElement("div");
-    Object.defineProperty(popup, "offsetHeight", { value: 120 });
-    confirmation.didOpen(popup);
-    expect(popup.style.marginTop).toBe("764px");
+    scrollTo.mockRestore();
+  });
 
-    // never above the top of the page
-    card.getBoundingClientRect.mockReturnValue({ top: 50 });
-    confirmation.didOpen(popup);
-    expect(popup.style.marginTop).toBe("16px");
+  it("shows every popup at the top", async () => {
+    const wrapper = await mountAndLoad({ started: true, consent: false }, { continuesToAssignment: true });
+
+    // agreeing after starting an assignment is refused, in an error popup
+    await wrapper.findAll("input[type=\"radio\"]")[0].setValue(true);
+    await wrapper.find("form").trigger("submit");
+    await flushPromises();
+
+    Swal.fire.mock.calls.forEach(([options]) => expect(options.position).toBe("top"));
+    expect(Swal.fire).toHaveBeenCalledWith(expect.objectContaining({ icon: "error", position: "top" }));
   });
 
   it("doesn't mention an assignment when the consent form was launched itself", async () => {
