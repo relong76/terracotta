@@ -141,11 +141,6 @@ terracotta:
   # private network addresses. For local development only.
   # outbound-url:
   #   allow-private-addresses: true
-  canvas:
-    registration:
-      # Canvas instances, by host name (e.g. iu.instructure.com), that may register Terracotta
-      # through LTI Dynamic Registration at /lti/canvas/registration. Comma separated; empty: none
-      approved-hosts:
 
 ## File storage properties
 # All files uploaded through the REST API will be stored in this directory

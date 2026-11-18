@@ -4,7 +4,7 @@ import edu.iu.terracotta.connectors.generic.dao.entity.lti.PlatformDeployment;
 
 /**
  * LTI Dynamic Registration from Canvas ("1.3 Dynamic Registration"), for approved Canvas
- * instances only (terracotta.canvas.registration.approved-hosts).
+ * instances only: ones Terracotta already has a platform deployment (iss_configuration) for.
  */
 public interface CanvasDynamicRegistrationService {
 
@@ -21,7 +21,8 @@ public interface CanvasDynamicRegistrationService {
     PlatformDeployment register(String openidConfiguration, String registrationToken) throws CanvasRegistrationException;
 
     /**
-     * Whether a Canvas host (e.g. iu.instructure.com) may register Terracotta.
+     * Whether a Canvas host (e.g. iu.instructure.com) may register Terracotta: a Canvas platform
+     * deployment already has it as its base URL.
      */
     boolean isApprovedHost(String host);
 

@@ -87,17 +87,30 @@ public class CanvasDynamicRegistrationServiceImplTest {
             outboundUrlService,
             platformDeploymentRepository,
             toolDeploymentRepository,
-            "https://app.terracotta.education/",
-            " IU.instructure.com, canvas.example.edu "
+            "https://app.terracotta.education/"
         );
 
         RestTemplate restTemplate = new RestTemplate();
         canvas = MockRestServiceServer.bindTo(restTemplate).build();
         ReflectionTestUtils.setField(service, "restTemplate", restTemplate);
 
+        // the Canvas instances Terracotta already has (iss_configuration)
+        when(platformDeploymentRepository.findAllByLmsConnector(LmsConnector.CANVAS)).thenReturn(List.of(
+            canvasDeployment("https://IU.instructure.com/"),
+            canvasDeployment("https://canvas.example.edu"),
+            canvasDeployment(null)
+        ));
         when(platformDeploymentRepository.findByIssAndClientId(anyString(), anyString())).thenReturn(Collections.emptyList());
         when(platformDeploymentRepository.save(any(PlatformDeployment.class))).thenAnswer(invocation -> invocation.getArgument(0));
         when(toolDeploymentRepository.findByPlatformDeployment_IssAndPlatformDeployment_ClientIdAndLtiDeploymentId(anyString(), anyString(), anyString())).thenReturn(Collections.emptyList());
+    }
+
+    private static PlatformDeployment canvasDeployment(String baseUrl) {
+        PlatformDeployment platformDeployment = new PlatformDeployment();
+        platformDeployment.setLmsConnector(LmsConnector.CANVAS);
+        platformDeployment.setBaseUrl(baseUrl);
+
+        return platformDeployment;
     }
 
     private void canvasServes(String registrationEndpoint, String productFamily) {
@@ -236,19 +249,29 @@ public class CanvasDynamicRegistrationServiceImplTest {
     }
 
     @Test
-    public void testApprovedHostsIgnoreCaseAndSpaces() {
+    public void testApprovedHostsAreTheCanvasBaseUrlsTerracottaHas() {
         assertTrue(service.isApprovedHost("iu.instructure.com"));
         assertTrue(service.isApprovedHost("CANVAS.example.edu"));
         assertFalse(service.isApprovedHost("example.edu"));
+        assertFalse(service.isApprovedHost("instructure.com"));
         assertFalse(service.isApprovedHost(null));
     }
 
     @Test
-    public void testNoApprovedHostsMeansNobodyCanRegister() {
-        CanvasDynamicRegistrationServiceImpl closed = new CanvasDynamicRegistrationServiceImpl(null, outboundUrlService, platformDeploymentRepository, toolDeploymentRepository, "https://app.terracotta.education", "");
+    public void testOnlyCanvasDeploymentsApprove() {
+        // a Brightspace deployment at the same address doesn't make it an approved Canvas
+        when(platformDeploymentRepository.findAllByLmsConnector(LmsConnector.CANVAS)).thenReturn(List.of());
 
-        assertFalse(closed.isApprovedHost("iu.instructure.com"));
-        assertThrows(CanvasRegistrationException.class, () -> closed.register(OPENID_CONFIGURATION, TOKEN));
+        assertFalse(service.isApprovedHost("iu.instructure.com"));
+        verify(platformDeploymentRepository).findAllByLmsConnector(LmsConnector.CANVAS);
+    }
+
+    @Test
+    public void testNoCanvasDeploymentsMeansNobodyCanRegister() {
+        when(platformDeploymentRepository.findAllByLmsConnector(LmsConnector.CANVAS)).thenReturn(List.of());
+
+        assertThrows(CanvasRegistrationException.class, () -> service.register(OPENID_CONFIGURATION, TOKEN));
+        verify(platformDeploymentRepository, never()).save(any());
     }
 
 }

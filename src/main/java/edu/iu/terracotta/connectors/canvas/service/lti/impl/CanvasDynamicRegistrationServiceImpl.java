@@ -1,11 +1,8 @@
 package edu.iu.terracotta.connectors.canvas.service.lti.impl;
 
 import java.net.URI;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
-import java.util.Set;
-import java.util.stream.Collectors;
 
 import org.apache.commons.collections4.CollectionUtils;
 import org.apache.commons.lang3.StringUtils;
@@ -48,7 +45,6 @@ public class CanvasDynamicRegistrationServiceImpl implements CanvasDynamicRegist
     private final PlatformDeploymentRepository platformDeploymentRepository;
     private final ToolDeploymentRepository toolDeploymentRepository;
     private final String applicationUrl;
-    private final Set<String> approvedHosts;
 
     // not final, so tests can put a mock server behind it
     private RestTemplate restTemplate;
@@ -58,18 +54,12 @@ public class CanvasDynamicRegistrationServiceImpl implements CanvasDynamicRegist
             OutboundUrlService outboundUrlService,
             PlatformDeploymentRepository platformDeploymentRepository,
             ToolDeploymentRepository toolDeploymentRepository,
-            @Value("${application.url}") String applicationUrl,
-            @Value("${terracotta.canvas.registration.approved-hosts:}") String approvedHosts) {
+            @Value("${application.url}") String applicationUrl) {
         this.canvasToolConfigurationService = canvasToolConfigurationService;
         this.outboundUrlService = outboundUrlService;
         this.platformDeploymentRepository = platformDeploymentRepository;
         this.toolDeploymentRepository = toolDeploymentRepository;
         this.applicationUrl = Strings.CS.removeEnd(applicationUrl, "/");
-        this.approvedHosts = Arrays.stream(StringUtils.defaultString(approvedHosts).split(","))
-            .map(String::strip)
-            .filter(StringUtils::isNotBlank)
-            .map(host -> host.toLowerCase(Locale.ROOT))
-            .collect(Collectors.toUnmodifiableSet());
 
         SimpleClientHttpRequestFactory requestFactory = new SimpleClientHttpRequestFactory();
         requestFactory.setConnectTimeout(TIMEOUT_MS);
@@ -77,9 +67,18 @@ public class CanvasDynamicRegistrationServiceImpl implements CanvasDynamicRegist
         this.restTemplate = new RestTemplate(requestFactory);
     }
 
+    // approved: Terracotta already has this Canvas in iss_configuration, by the address its API calls
+    // go to (base_url). Not by issuer: every Canvas cloud instance shares https://canvas.instructure.com
     @Override
     public boolean isApprovedHost(String host) {
-        return StringUtils.isNotBlank(host) && approvedHosts.contains(host.toLowerCase(Locale.ROOT));
+        if (StringUtils.isBlank(host)) {
+            return false;
+        }
+
+        return platformDeploymentRepository.findAllByLmsConnector(LmsConnector.CANVAS).stream()
+            .map(PlatformDeployment::getBaseUrl)
+            .map(CanvasDynamicRegistrationServiceImpl::httpsHost)
+            .anyMatch(baseUrlHost -> Strings.CI.equals(baseUrlHost, host));
     }
 
     @Override
@@ -98,7 +97,7 @@ public class CanvasDynamicRegistrationServiceImpl implements CanvasDynamicRegist
         }
 
         if (!isApprovedHost(canvasHost)) {
-            log.warn("Refused a Canvas Dynamic Registration from [{}]: not in terracotta.canvas.registration.approved-hosts", canvasHost);
+            log.warn("Refused a Canvas Dynamic Registration from [{}]: no Canvas platform deployment has that base URL", canvasHost);
             throw new CanvasRegistrationException(String.format("%s isn't approved to register Terracotta. Contact info@terracotta.education to request access.", canvasHost));
         }
 
