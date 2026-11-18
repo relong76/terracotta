@@ -35,6 +35,10 @@ management:
 # if true, it will display the LTI messages and never jump to the app part. Set to false for prod.
 lti13:
   demoMode: true
+  dynamicRegistration:
+    url: ${application.url}/lti/canvas/registration
+  json:
+    url: ${application.url}/lti/canvas/config.json
 
 spring:
   ## thymeleaf base settings
