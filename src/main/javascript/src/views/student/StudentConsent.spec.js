@@ -211,8 +211,13 @@ describe("StudentConsent", () => {
     expect(Swal.fire).toHaveBeenCalledWith({
       text: "You have not yet completed the consent form. Please approve or revoke consent. You will be redirected to your assignment upon completion.",
       icon: "info",
-      position: "top"
+      position: "top",
+      showDenyButton: true,
+      denyButtonText: "Just take me to my assignment",
+      denyButtonColor: "#515961"
     });
+    // closing the popup (OK, Escape, or outside it) keeps the student on the form
+    expect(wrapper.emitted("skipped")).toBeUndefined();
 
     participantService.updateParticipant.mockResolvedValue({ ...baseParticipant, consent: false });
     await wrapper.findAll("input[type=\"radio\"]")[1].setValue(true);
@@ -220,6 +225,28 @@ describe("StudentConsent", () => {
     await flushPromises();
 
     expect(wrapper.emitted("answered")).toHaveLength(1);
+  });
+
+  it("lets the student skip the form and go to their assignment without answering", async () => {
+    Swal.fire.mockResolvedValueOnce({ isDenied: true });
+
+    const wrapper = await mountAndLoad({}, { continuesToAssignment: true });
+    await flushPromises();
+
+    expect(wrapper.emitted("skipped")).toHaveLength(1);
+    expect(wrapper.emitted("answered")).toBeUndefined();
+    expect(participantService.updateParticipant).not.toHaveBeenCalled();
+  });
+
+  it("keeps the student on the form when they close the popup any other way", async () => {
+    for (const result of [{ isConfirmed: true }, { isDismissed: true, dismiss: "esc" }, { isDismissed: true, dismiss: "backdrop" }]) {
+      Swal.fire.mockResolvedValueOnce(result);
+
+      const wrapper = await mountAndLoad({}, { continuesToAssignment: true });
+      await flushPromises();
+
+      expect(wrapper.emitted("skipped")).toBeUndefined();
+    }
   });
 
   it("confirms a saved answer just above the consent question", async () => {

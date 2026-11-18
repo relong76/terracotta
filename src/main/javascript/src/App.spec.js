@@ -470,6 +470,30 @@ describe("App", () => {
         expect(wrapper.find("student-quiz-stub").exists()).toBe(true);
       });
 
+      it("opens the assignment when the student skips the consent form", async () => {
+        apiService.reportStep.mockResolvedValue({ data: { consentPending: true } });
+
+        const { wrapper } = await mountAppRendered({}, launchAssignment);
+
+        wrapper.findComponent({ name: "StudentConsent" }).vm.$emit("skipped");
+        await flushPromises();
+
+        expect(wrapper.find("student-consent-stub").exists()).toBe(false);
+        expect(wrapper.find("student-quiz-stub").exists()).toBe(true);
+      });
+
+      it("ignores a skip from the consent form's own launch", async () => {
+        const { wrapper } = await mountAppRendered({}, apiStore => {
+          launchAssignment(apiStore);
+          apiStore.consent = true;
+        });
+
+        wrapper.findComponent({ name: "StudentConsent" }).vm.$emit("skipped");
+        await flushPromises();
+
+        expect(wrapper.find("student-consent-stub").exists()).toBe(true);
+      });
+
       it("opens the assignment straight away when consent isn't pending", async () => {
         apiService.reportStep.mockResolvedValue({ data: { consentPending: false } });
 
