@@ -47,15 +47,9 @@ A Canvas admin can add Terracotta in two ways, both built from Terracotta's own 
   `https://YOUR_TERRACOTTA_HOST/lti/canvas/config.json`, or paste what that address shows. As today, an
   admin then adds the platform deployment in Terracotta.
 - **1.3 Dynamic Registration**: give Canvas `https://YOUR_TERRACOTTA_HOST/lti/canvas/registration`.
-  Terracotta registers itself and saves the platform deployment, so launches work right away. Only
-  Canvas instances listed by host name in `terracotta.canvas.registration.approved-hosts` can register:
-
-    ```
-    terracotta:
-      canvas:
-        registration:
-          approved-hosts: iu.instructure.com, canvas.example.edu
-    ```
+  Terracotta registers itself and saves the platform deployment, so launches work right away. Only a
+  Canvas Terracotta already has in `iss_configuration` can register: a Canvas platform deployment
+  whose `base_url` has the same host as the Canvas registering (e.g. `https://iu.instructure.com`).
 
 Either way, Terracotta's access to the Canvas API (a separate Canvas API developer key) is still set
 up by hand.
