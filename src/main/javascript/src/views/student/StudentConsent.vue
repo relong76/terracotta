@@ -128,7 +128,8 @@ const props = defineProps({
 
 const emit = defineEmits([
   "loaded",
-  "answered"
+  "answered",
+  "skipped"
 ]);
 
 const consentStore = consentModule();
@@ -235,11 +236,20 @@ watch(pageFullyLoaded, isLoaded => {
 
   if (props.continuesToAssignment) {
     // at the top: in the LMS, Terracotta's frame grows to the whole page, so a centered popup
-    // would sit halfway down a long consent PDF, out of sight
+    // would sit halfway down a long consent PDF, out of sight. The student can skip the form: the
+    // assignment then opens as it would have without it. A deny button, not cancel, so pressing
+    // Escape or clicking outside closes the popup without skipping
     void Swal.fire({
       text: "You have not yet completed the consent form. Please approve or revoke consent. You will be redirected to your assignment upon completion.",
       icon: "info",
-      position: "top"
+      position: "top",
+      showDenyButton: true,
+      denyButtonText: "Just take me to my assignment",
+      denyButtonColor: "#515961"
+    }).then(result => {
+      if (result?.isDenied) {
+        emit("skipped");
+      }
     });
   }
 });

@@ -78,7 +78,8 @@
             :user-id="userId"
             :continues-to-assignment="consentPending"
             @loaded="childLoaded = true"
-            @answered="handleConsentAnswered"
+            @answered="continueToAssignment"
+            @skipped="continueToAssignment"
           />
 
           <!-- opened from the course navigation rather than an assignment -->
@@ -515,12 +516,14 @@ watch(
   { immediate: true }
 );
 
-const handleConsentAnswered = () => {
+// on to the assignment they launched, once they've answered the consent form or chosen to skip it.
+// Skipping opens it as a launch without the form would have: the assignment launch marks them as
+// started, so they're in the default condition and not a participant
+const continueToAssignment = () => {
   if (!consentPending.value) {
     return;
   }
 
-  // on to the assignment they launched
   consentPending.value = false;
   childLoaded.value = false;
 };
