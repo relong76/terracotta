@@ -47,12 +47,33 @@ A Canvas admin can add Terracotta in two ways, both built from Terracotta's own 
   `https://YOUR_TERRACOTTA_HOST/lti/canvas/config.json`, or paste what that address shows. As today, an
   admin then adds the platform deployment in Terracotta.
 - **1.3 Dynamic Registration**: give Canvas `https://YOUR_TERRACOTTA_HOST/lti/canvas/registration`.
-  Terracotta registers itself and saves the platform deployment, so launches work right away. Only a
-  Canvas Terracotta already has in `iss_configuration` can register: a Canvas platform deployment
-  whose `base_url` has the same host as the Canvas registering (e.g. `https://iu.instructure.com`).
+  Terracotta registers itself and saves the platform deployment. Its launches work right away when
+  the Canvas's address belongs to an approved account in `lms_approved_account`. From any other
+  address, the registration is kept but waits: Terracotta adds an unapproved account for it, and
+  refuses its launches until the account is approved.
 
 Either way, Terracotta's access to the Canvas API (a separate Canvas API developer key) is still set
 up by hand.
+
+### Approved LMS accounts
+
+An account lists every address its LMS is reached at (`lms_approved_account_host`), so a school's own
+domain and its `instructure.com` one both work. Manage accounts through the admin API, with the
+`terracotta.admin` login:
+
+- `GET /config/lms-approved-accounts` lists them, waiting ones included.
+- `POST /config/lms-approved-accounts` adds one:
+
+    ```
+    { "name": "Indiana University", "lmsConnector": "CANVAS", "approved": true, "hosts": ["iu.instructure.com", "canvas.iu.edu"] }
+    ```
+
+- `PUT /config/lms-approved-accounts/{uuid}` changes one, given its `name`. Set `approved` to `true` to approve a
+  waiting account, or back to `false` to stop its launches. Leave out `hosts` to keep the ones it has.
+
+The first launch after a registration records the LMS's own ID for the account (`platform_guid`,
+Canvas's `tool_platform` guid), which stays the same when its address changes. Platform deployments
+set up by hand have no account, and launch as before.
 
 Creating the database
 ---------

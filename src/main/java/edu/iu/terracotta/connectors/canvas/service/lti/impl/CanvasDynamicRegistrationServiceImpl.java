@@ -22,12 +22,14 @@ import org.springframework.web.client.RestTemplate;
 import edu.iu.terracotta.connectors.canvas.service.lti.CanvasDynamicRegistrationService;
 import edu.iu.terracotta.connectors.canvas.service.lti.CanvasRegistrationException;
 import edu.iu.terracotta.connectors.canvas.service.lti.CanvasToolConfigurationService;
+import edu.iu.terracotta.connectors.generic.dao.entity.lti.LmsApprovedAccount;
 import edu.iu.terracotta.connectors.generic.dao.entity.lti.PlatformDeployment;
 import edu.iu.terracotta.connectors.generic.dao.entity.lti.ToolDeployment;
 import edu.iu.terracotta.connectors.generic.dao.model.enums.LmsConnector;
 import edu.iu.terracotta.connectors.generic.dao.model.lti.dto.PlatformRegistrationDto;
 import edu.iu.terracotta.connectors.generic.dao.repository.lti.PlatformDeploymentRepository;
 import edu.iu.terracotta.connectors.generic.dao.repository.lti.ToolDeploymentRepository;
+import edu.iu.terracotta.connectors.generic.service.lti.LmsApprovedAccountService;
 import edu.iu.terracotta.service.app.OutboundUrlService;
 import lombok.extern.slf4j.Slf4j;
 import tools.jackson.databind.JsonNode;
@@ -44,6 +46,7 @@ public class CanvasDynamicRegistrationServiceImpl implements CanvasDynamicRegist
     private final OutboundUrlService outboundUrlService;
     private final PlatformDeploymentRepository platformDeploymentRepository;
     private final ToolDeploymentRepository toolDeploymentRepository;
+    private final LmsApprovedAccountService lmsApprovedAccountService;
     private final String applicationUrl;
 
     // not final, so tests can put a mock server behind it
@@ -54,11 +57,13 @@ public class CanvasDynamicRegistrationServiceImpl implements CanvasDynamicRegist
             OutboundUrlService outboundUrlService,
             PlatformDeploymentRepository platformDeploymentRepository,
             ToolDeploymentRepository toolDeploymentRepository,
+            LmsApprovedAccountService lmsApprovedAccountService,
             @Value("${application.url}") String applicationUrl) {
         this.canvasToolConfigurationService = canvasToolConfigurationService;
         this.outboundUrlService = outboundUrlService;
         this.platformDeploymentRepository = platformDeploymentRepository;
         this.toolDeploymentRepository = toolDeploymentRepository;
+        this.lmsApprovedAccountService = lmsApprovedAccountService;
         this.applicationUrl = Strings.CS.removeEnd(applicationUrl, "/");
 
         SimpleClientHttpRequestFactory requestFactory = new SimpleClientHttpRequestFactory();
@@ -67,18 +72,13 @@ public class CanvasDynamicRegistrationServiceImpl implements CanvasDynamicRegist
         this.restTemplate = new RestTemplate(requestFactory);
     }
 
-    // approved: Terracotta already has this Canvas in iss_configuration, by the address its API calls
-    // go to (base_url). Not by issuer: every Canvas cloud instance shares https://canvas.instructure.com
+    // by any of the account's addresses in lms_approved_account_host. Not by issuer: every Canvas
+    // cloud instance shares https://canvas.instructure.com
     @Override
     public boolean isApprovedHost(String host) {
-        if (StringUtils.isBlank(host)) {
-            return false;
-        }
-
-        return platformDeploymentRepository.findAllByLmsConnector(LmsConnector.CANVAS).stream()
-            .map(PlatformDeployment::getBaseUrl)
-            .map(CanvasDynamicRegistrationServiceImpl::httpsHost)
-            .anyMatch(baseUrlHost -> Strings.CI.equals(baseUrlHost, host));
+        return lmsApprovedAccountService.findByHost(LmsConnector.CANVAS, host)
+            .map(LmsApprovedAccount::isApproved)
+            .orElse(false);
     }
 
     @Override
@@ -96,15 +96,14 @@ public class CanvasDynamicRegistrationServiceImpl implements CanvasDynamicRegist
             throw new CanvasRegistrationException("Canvas sent an invalid registration address.");
         }
 
-        if (!isApprovedHost(canvasHost)) {
-            log.warn("Refused a Canvas Dynamic Registration from [{}]: no Canvas platform deployment has that base URL", canvasHost);
-            throw new CanvasRegistrationException(String.format("%s isn't approved to register Terracotta. Contact info@terracotta.education to request access.", canvasHost));
-        }
-
         PlatformRegistrationDto platform = fetchPlatformConfiguration(openidConfiguration, registrationToken, canvasHost);
         JsonNode registration = sendRegistration(platform.getRegistration_endpoint(), registrationToken, canvasHost);
 
-        return save(platform, registration, canvasHost);
+        // an address no account has yet gets an unapproved one: the registration is kept, and its
+        // launches wait until Terracotta staff approve the account
+        LmsApprovedAccount account = lmsApprovedAccountService.findOrCreate(LmsConnector.CANVAS, canvasHost);
+
+        return save(platform, registration, canvasHost, account);
     }
 
     private PlatformRegistrationDto fetchPlatformConfiguration(String openidConfiguration, String registrationToken, String canvasHost) throws CanvasRegistrationException {
@@ -160,7 +159,7 @@ public class CanvasDynamicRegistrationServiceImpl implements CanvasDynamicRegist
         return registration;
     }
 
-    private PlatformDeployment save(PlatformRegistrationDto platform, JsonNode registration, String canvasHost) {
+    private PlatformDeployment save(PlatformRegistrationDto platform, JsonNode registration, String canvasHost, LmsApprovedAccount account) {
         String clientId = registration.path("client_id").asString();
         String ltiDeploymentId = registration.path(TOOL_CONFIGURATION).path("deployment_id").asString(null);
 
@@ -179,6 +178,7 @@ public class CanvasDynamicRegistrationServiceImpl implements CanvasDynamicRegist
         platformDeployment.setLmsConnector(LmsConnector.CANVAS);
         // installs in more subaccounts or courses add deployment IDs of their own on first launch
         platformDeployment.setEnableAutomaticDeployments(true);
+        platformDeployment.setLmsApprovedAccount(account);
         platformDeployment = platformDeploymentRepository.save(platformDeployment);
 
         if (StringUtils.isNotBlank(ltiDeploymentId)
@@ -190,8 +190,9 @@ public class CanvasDynamicRegistrationServiceImpl implements CanvasDynamicRegist
         }
 
         log.info(
-            "Canvas [{}] registered Terracotta: platform deployment ID: [{}], issuer: [{}], client ID: [{}], deployment ID: [{}]",
+            "Canvas [{}] registered Terracotta ({}): platform deployment ID: [{}], issuer: [{}], client ID: [{}], deployment ID: [{}]",
             canvasHost,
+            account.isApproved() ? "approved" : "waiting for approval",
             platformDeployment.getKeyId(),
             platform.getIssuer(),
             clientId,
