@@ -13,11 +13,12 @@ import org.springframework.web.bind.annotation.ResponseBody;
 import edu.iu.terracotta.connectors.canvas.service.lti.CanvasDynamicRegistrationService;
 import edu.iu.terracotta.connectors.canvas.service.lti.CanvasRegistrationException;
 import edu.iu.terracotta.connectors.canvas.service.lti.CanvasToolConfigurationService;
+import edu.iu.terracotta.connectors.generic.dao.entity.lti.PlatformDeployment;
 import lombok.RequiredArgsConstructor;
 
 /**
  * The two ways a Canvas admin can add Terracotta without typing its configuration in: a JSON URL
- * for a new developer key, and LTI Dynamic Registration (approved Canvas instances only).
+ * for a new developer key, and LTI Dynamic Registration (launches wait for an approved account).
  * Neither needs a Terracotta login: Canvas calls them before Terracotta knows the Canvas.
  */
 @Controller
@@ -50,8 +51,10 @@ public class CanvasLtiController {
             @RequestParam(name = "registration_token", required = false) String registrationToken,
             Model model) {
         try {
-            canvasDynamicRegistrationService.register(openidConfiguration, registrationToken);
+            PlatformDeployment platformDeployment = canvasDynamicRegistrationService.register(openidConfiguration, registrationToken);
             model.addAttribute("registered", true);
+            // an address no approved account has: registered, but launches wait for approval
+            model.addAttribute("approved", platformDeployment.getLmsApprovedAccount() != null && platformDeployment.getLmsApprovedAccount().isApproved());
         } catch (CanvasRegistrationException e) {
             model.addAttribute("registered", false);
             model.addAttribute("errorMessage", e.getMessage());

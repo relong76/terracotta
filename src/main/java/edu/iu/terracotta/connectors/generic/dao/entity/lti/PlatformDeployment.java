@@ -9,7 +9,9 @@ import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToMany;
+import jakarta.persistence.ManyToOne;
 import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
 
@@ -91,6 +93,13 @@ public class PlatformDeployment extends UuidAwareEntity {
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private LmsConnector lmsConnector;
+
+    // set for a deployment created by a self-service registration (e.g. Canvas Dynamic
+    // Registration): its launches are refused while the account isn't approved. Null for one set
+    // up by hand
+    @ManyToOne
+    @JoinColumn(name = "lms_approved_account_id")
+    private LmsApprovedAccount lmsApprovedAccount;
 
     @OneToMany(
         mappedBy = "platformDeployment",

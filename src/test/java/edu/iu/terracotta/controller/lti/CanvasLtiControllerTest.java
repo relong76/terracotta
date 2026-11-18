@@ -25,6 +25,9 @@ import org.thymeleaf.templateresolver.ClassLoaderTemplateResolver;
 import edu.iu.terracotta.connectors.canvas.service.lti.CanvasDynamicRegistrationService;
 import edu.iu.terracotta.connectors.canvas.service.lti.CanvasRegistrationException;
 import edu.iu.terracotta.connectors.canvas.service.lti.CanvasToolConfigurationService;
+import edu.iu.terracotta.connectors.generic.dao.entity.lti.LmsApprovedAccount;
+import edu.iu.terracotta.connectors.generic.dao.entity.lti.PlatformDeployment;
+import edu.iu.terracotta.connectors.generic.dao.model.enums.LmsConnector;
 
 public class CanvasLtiControllerTest {
 
@@ -49,12 +52,31 @@ public class CanvasLtiControllerTest {
             .andExpect(jsonPath("$.title").value("Terracotta"));
     }
 
+    private static PlatformDeployment registeredFor(boolean approved) {
+        PlatformDeployment platformDeployment = new PlatformDeployment();
+        platformDeployment.setLmsApprovedAccount(LmsApprovedAccount.builder().name("IU").lmsConnector(LmsConnector.CANVAS).approved(approved).build());
+
+        return platformDeployment;
+    }
+
     @Test
     public void testShowsASuccessfulRegistration() throws Exception {
+        when(canvasDynamicRegistrationService.register("https://iu.instructure.com/x", "t")).thenReturn(registeredFor(true));
+
         mockMvc.perform(get("/lti/canvas/registration").param("openid_configuration", "https://iu.instructure.com/x").param("registration_token", "t"))
             .andExpect(status().isOk())
             .andExpect(view().name(CanvasLtiController.REGISTRATION_TEMPLATE))
-            .andExpect(model().attribute("registered", true));
+            .andExpect(model().attribute("registered", true))
+            .andExpect(model().attribute("approved", true));
+    }
+
+    @Test
+    public void testShowsARegistrationWaitingForApproval() throws Exception {
+        when(canvasDynamicRegistrationService.register("https://new.instructure.com/x", "t")).thenReturn(registeredFor(false));
+
+        mockMvc.perform(get("/lti/canvas/registration").param("openid_configuration", "https://new.instructure.com/x").param("registration_token", "t"))
+            .andExpect(model().attribute("registered", true))
+            .andExpect(model().attribute("approved", false));
     }
 
     @Test
@@ -70,6 +92,10 @@ public class CanvasLtiControllerTest {
 
     // the real page, rendered, so a template error can't wait until an admin registers
     private String render(boolean registered, String errorMessage) {
+        return render(registered, true, errorMessage);
+    }
+
+    private String render(boolean registered, boolean approved, String errorMessage) {
         ClassLoaderTemplateResolver resolver = new ClassLoaderTemplateResolver();
         resolver.setPrefix("templates/");
         resolver.setSuffix(".html");
@@ -78,6 +104,7 @@ public class CanvasLtiControllerTest {
 
         Context context = new Context();
         context.setVariable("registered", registered);
+        context.setVariable("approved", approved);
         context.setVariable("errorMessage", errorMessage);
 
         return engine.process(CanvasLtiController.REGISTRATION_TEMPLATE, context);
@@ -91,6 +118,16 @@ public class CanvasLtiControllerTest {
         assertTrue(page.contains("access to the Canvas API"), page);
         assertTrue(page.contains("org.imsglobal.lti.close"), page);
         assertFalse(page.contains("couldn't be registered"), page);
+    }
+
+    @Test
+    public void testTheWaitingPageSaysItNeedsApproval() {
+        String page = render(true, false, null);
+
+        assertTrue(page.contains("<title>Terracotta is waiting for approval</title>"), page);
+        assertTrue(page.contains("can&#39;t be used until the Terracotta team approves your school") || page.contains("can't be used until the Terracotta team approves your school"), page);
+        assertTrue(page.contains("org.imsglobal.lti.close"), page);
+        assertFalse(page.contains("Terracotta is registered</h1>"), page);
     }
 
     @Test

@@ -15,6 +15,7 @@ import edu.iu.terracotta.connectors.generic.exceptions.TerracottaConnectorExcept
 import edu.iu.terracotta.connectors.generic.service.api.ApiJwtService;
 import edu.iu.terracotta.connectors.generic.service.lms.LmsOAuthService;
 import edu.iu.terracotta.connectors.generic.service.lms.LmsOAuthServiceManager;
+import edu.iu.terracotta.connectors.generic.service.lti.LmsApprovedAccountService;
 import edu.iu.terracotta.connectors.generic.service.lti.LtiDataService;
 import edu.iu.terracotta.connectors.generic.service.lti.LtiJwtService;
 import edu.iu.terracotta.connectors.generic.service.lti.advantage.AdvantageDeepLinkService;
@@ -71,6 +72,7 @@ public class Lti3Controller {
     private final CanvasAdvantageNoticeService canvasAdvantageNoticeService;
     private final ParticipantAsyncService participantAsyncService;
     private final ExperimentCopyCandidateService experimentCopyCandidateService;
+    private final LmsApprovedAccountService lmsApprovedAccountService;
 
     @RequestMapping({"", "/"})
     public String home(HttpServletRequest req, Principal principal, Model model) throws DataServiceException, ApiException, ConnectionException, LmsOAuthException, TerracottaConnectorException {
@@ -114,6 +116,13 @@ public class Lti3Controller {
             if (claims.getPayload().containsKey("ltiDeploymentId") && claims.getPayload().get("ltiDeploymentId") != null
                     && !claims.getPayload().get("ltiDeploymentId").equals(lti3Request.getLtiDeploymentId())) {
                 model.addAttribute(TextConstants.ERROR, " Bad Deployment Id");
+
+                return TextConstants.LTI3ERROR;
+            }
+
+            // a deployment from a self-service registration launches only once its account is approved
+            if (!lmsApprovedAccountService.allowsLaunch(lti3Request.getToolDeployment().getPlatformDeployment(), lti3Request.getLtiToolPlatform())) {
+                model.addAttribute(TextConstants.ERROR, "Terracotta is waiting for approval to be used at your school. Please contact info@terracotta.education.");
 
                 return TextConstants.LTI3ERROR;
             }

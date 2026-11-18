@@ -14,6 +14,7 @@ import static org.mockito.Mockito.when;
 
 import java.security.GeneralSecurityException;
 import java.util.Collections;
+import java.util.Map;
 import java.util.List;
 import java.util.UUID;
 
@@ -34,6 +35,7 @@ import edu.iu.terracotta.connectors.generic.exceptions.LmsOAuthException;
 import edu.iu.terracotta.connectors.generic.exceptions.TerracottaConnectorException;
 import edu.iu.terracotta.connectors.generic.service.lms.LmsOAuthServiceManager;
 import edu.iu.terracotta.connectors.generic.service.lti.advantage.AdvantageDeepLinkService;
+import edu.iu.terracotta.connectors.generic.service.lti.LmsApprovedAccountService;
 import edu.iu.terracotta.dao.entity.ObsoleteAssignment;
 import edu.iu.terracotta.dao.exceptions.FeatureNotFoundException;
 import edu.iu.terracotta.service.app.async.ParticipantAsyncService;
@@ -58,6 +60,7 @@ public class Lti3ControllerTest extends BaseTest {
     @Mock private CanvasAdvantageNoticeService canvasAdvantageNoticeService;
     @Mock private ParticipantAsyncService participantAsyncService;
     @Mock private ExperimentCopyCandidateService experimentCopyCandidateService;
+    @Mock private LmsApprovedAccountService lmsApprovedAccountService;
 
     private Lti3Controller lti3Controller;
 
@@ -74,7 +77,7 @@ public class Lti3ControllerTest extends BaseTest {
         // Constructed manually rather than via @InjectMocks: ApiJwtService is also implemented by the
         // inherited canvasApiJwtService mock (see the ambiguity warning in BaseServiceTest), so
         // constructor-injection-by-type could silently wire the wrong ApiJwtService mock.
-        lti3Controller = new Lti3Controller(ltiLinkRepository, apiJwtService, advantageDeepLinkService, caliperService, ltiDataService, ltiJwtService, lmsOAuthServiceManager, canvasAdvantageNoticeService, participantAsyncService, experimentCopyCandidateService);
+        lti3Controller = new Lti3Controller(ltiLinkRepository, apiJwtService, advantageDeepLinkService, caliperService, ltiDataService, ltiJwtService, lmsOAuthServiceManager, canvasAdvantageNoticeService, participantAsyncService, experimentCopyCandidateService, lmsApprovedAccountService);
 
         when(httpServletRequest.getParameter("state")).thenReturn("state123");
         when(httpServletRequest.getParameter("link")).thenReturn(null);
@@ -90,6 +93,7 @@ public class Lti3ControllerTest extends BaseTest {
         when(lti3Request.getLtiRoles()).thenReturn(Collections.emptyList());
 
         when(ltiDataService.getDemoMode()).thenReturn(false);
+        when(lmsApprovedAccountService.allowsLaunch(any(), any())).thenReturn(true);
         when(apiJwtService.buildJwt(true, lti3Request)).thenReturn("oneTimeToken123");
     }
 
@@ -98,6 +102,22 @@ public class Lti3ControllerTest extends BaseTest {
         mockedStatic.when(() -> Lti3Request.getInstance(any())).thenReturn(lti3Request);
 
         return mockedStatic;
+    }
+
+    @Test
+    void aDeploymentWaitingForApprovalCantLaunch() throws Exception {
+        Map<String, Object> toolPlatform = Map.of("guid", "root-account-guid:canvas-lms");
+        when(lti3Request.getLtiToolPlatform()).thenReturn(toolPlatform);
+        when(lmsApprovedAccountService.allowsLaunch(platformDeployment, toolPlatform)).thenReturn(false);
+
+        try (MockedStatic<Lti3Request> ignored = mockLti3Request()) {
+            String result = callHome();
+
+            assertEquals(TextConstants.LTI3ERROR, result);
+            verify(model).addAttribute(TextConstants.ERROR, "Terracotta is waiting for approval to be used at your school. Please contact info@terracotta.education.");
+            verify(canvasAdvantageNoticeService, never()).ensureNoticeHandlerRegistered(any());
+            verify(apiJwtService, never()).buildJwt(true, lti3Request);
+        }
     }
 
     private String callHome() throws Exception {

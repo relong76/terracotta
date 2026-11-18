@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8"/>
     <meta name="viewport" content="width=device-width, initial-scale=1"/>
-    <title th:text="${registered} ? 'Terracotta is registered' : 'Terracotta couldn\'t be registered'">Terracotta registration</title>
+    <title th:text="${registered} ? (${approved} ? 'Terracotta is registered' : 'Terracotta is waiting for approval') : 'Terracotta couldn\'t be registered'">Terracotta registration</title>
     <style>
         body {
             margin: 0;
@@ -52,13 +52,23 @@
   message (org.imsglobal.lti.close) before it continues with its own review of the registration.
 -->
 <main>
-    <th:block th:if="${registered}">
+    <th:block th:if="${registered and approved}">
         <h1>Terracotta is registered</h1>
         <p>Continue in Canvas to review and turn on Terracotta.</p>
         <p>
             Terracotta also needs access to the Canvas API. Contact
             <a href="mailto:info@terracotta.education">info@terracotta.education</a>
             to finish setting that up.
+        </p>
+        <button type="button" id="close-registration" autofocus>Continue</button>
+    </th:block>
+
+    <th:block th:if="${registered and !approved}">
+        <h1>Terracotta is waiting for approval</h1>
+        <p>Terracotta is registered with your Canvas, but can't be used until the Terracotta team approves your school.</p>
+        <p>
+            Contact <a href="mailto:info@terracotta.education">info@terracotta.education</a>
+            to request approval and to finish setting up access to the Canvas API.
         </p>
         <button type="button" id="close-registration" autofocus>Continue</button>
     </th:block>
