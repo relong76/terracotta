@@ -48,10 +48,14 @@ A Canvas admin can add Terracotta in two ways, both built from Terracotta's own 
   admin then adds the platform deployment in Terracotta.
 - **1.3 Dynamic Registration**: give Canvas `https://YOUR_TERRACOTTA_HOST/lti/canvas/registration`.
   Terracotta registers itself and saves the platform deployment. Its launches work right away when
-  the Canvas's address belongs to an `APPROVED` account in `lms_approved_account`. From an address no
-  account has, the registration is kept but waits: Terracotta adds a `PENDING` account for it, and
-  refuses its launches until the account is `APPROVED`. A `REJECTED` or `REVOKED` account can't
-  register.
+  the school has an `APPROVED` account in `lms_approved_account`. A school with no account is kept
+  but waits: Terracotta adds a `PENDING` account for it, and refuses its launches until the account
+  is `APPROVED`. A `REJECTED` or `REVOKED` account can't register.
+
+  Every Canvas cloud school registers through `canvas.instructure.com`, so the school is identified
+  by what Canvas cloud's configuration says about it: its account ID (`account_lti_guid`, kept as
+  `platform_guid`), then its address (`account_domain`), and its name for a new account. A
+  self-hosted Canvas is only ever identified by its own address.
 
 Either way, Terracotta's access to the Canvas API (a separate Canvas API developer key) is still set
 up by hand.
@@ -83,9 +87,9 @@ An account's `status` is one of:
 
 `status_updated_by` and `status_updated_at` record who last changed it, and when.
 
-The first launch after a registration records the LMS's own ID for the account (`platform_guid`,
-Canvas's `tool_platform` guid), which stays the same when its address changes. Platform deployments
-set up by hand have no account, and launch as before.
+An account found by address gets its `platform_guid` the first time it registers, so it's found by
+that ID from then on, whatever its address becomes. Platform deployments set up by hand have no
+account, and launch as before.
 
 Creating the database
 ---------

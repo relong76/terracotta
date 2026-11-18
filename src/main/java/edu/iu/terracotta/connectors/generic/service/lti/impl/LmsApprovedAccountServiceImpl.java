@@ -6,7 +6,6 @@ import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
-import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
@@ -35,8 +34,6 @@ import lombok.extern.slf4j.Slf4j;
 @SuppressWarnings("PMD.GuardLogStatement")
 public class LmsApprovedAccountServiceImpl implements LmsApprovedAccountService {
 
-    private static final String PLATFORM_GUID = "guid";
-
     private final LmsApprovedAccountRepository lmsApprovedAccountRepository;
     private final LmsApprovedAccountHostRepository lmsApprovedAccountHostRepository;
 
@@ -53,35 +50,62 @@ public class LmsApprovedAccountServiceImpl implements LmsApprovedAccountService 
     }
 
     @Override
-    @Transactional
-    public LmsApprovedAccount findOrCreate(LmsConnector lmsConnector, String host) {
-        String normalized = normalizeHost(host);
+    public Optional<LmsApprovedAccount> find(LmsConnector lmsConnector, String host, String platformGuid) {
+        if (StringUtils.isNotBlank(platformGuid)) {
+            Optional<LmsApprovedAccount> byGuid = lmsApprovedAccountRepository.findByLmsConnectorAndPlatformGuid(lmsConnector, platformGuid);
 
-        return findByHost(lmsConnector, normalized).orElseGet(() -> {
-            LmsApprovedAccount account = LmsApprovedAccount.builder()
-                .name(normalized)
-                .lmsConnector(lmsConnector)
-                .status(LmsApprovedAccountStatus.PENDING)
-                .build();
-            account.getHosts().add(LmsApprovedAccountHost.builder().host(normalized).lmsApprovedAccount(account).build());
-            log.info("Added a pending {} account for [{}]: its launches wait for approval", lmsConnector, normalized);
+            if (byGuid.isPresent()) {
+                return byGuid;
+            }
+        }
 
-            return lmsApprovedAccountRepository.save(account);
-        });
+        Optional<LmsApprovedAccount> byHost = findByHost(lmsConnector, host);
+
+        if (byHost.isPresent() && StringUtils.isNoneBlank(platformGuid, byHost.get().getPlatformGuid()) && !platformGuid.equals(byHost.get().getPlatformGuid())) {
+            throw new IllegalStateException(String.format("[%s] belongs to the account [%s], which has another LMS account ID", normalizeHost(host), byHost.get().getName()));
+        }
+
+        return byHost;
     }
 
     @Override
     @Transactional
-    public boolean allowsLaunch(PlatformDeployment platformDeployment, Map<String, Object> toolPlatform) {
+    public LmsApprovedAccount findOrCreate(LmsConnector lmsConnector, String host, String platformGuid, String name) {
+        String normalized = normalizeHost(host);
+        String guid = StringUtils.trimToNull(platformGuid);
+        Optional<LmsApprovedAccount> found = find(lmsConnector, normalized, guid);
+
+        if (found.isPresent()) {
+            LmsApprovedAccount account = found.get();
+
+            // e.g. an account added by address, by hand or by the migration, registering for the first time
+            if (guid != null && StringUtils.isBlank(account.getPlatformGuid())) {
+                account.setPlatformGuid(guid);
+
+                return lmsApprovedAccountRepository.save(account);
+            }
+
+            return account;
+        }
+
+        LmsApprovedAccount account = LmsApprovedAccount.builder()
+            .name(StringUtils.defaultIfBlank(StringUtils.trimToNull(name), normalized))
+            .lmsConnector(lmsConnector)
+            .platformGuid(guid)
+            .status(LmsApprovedAccountStatus.PENDING)
+            .build();
+        account.getHosts().add(LmsApprovedAccountHost.builder().host(normalized).lmsApprovedAccount(account).build());
+        log.info("Added a pending {} account [{}] for [{}]: its launches wait for approval", lmsConnector, account.getName(), normalized);
+
+        return lmsApprovedAccountRepository.save(account);
+    }
+
+    @Override
+    public boolean allowsLaunch(PlatformDeployment platformDeployment) {
         LmsApprovedAccount account = platformDeployment == null ? null : platformDeployment.getLmsApprovedAccount();
 
         if (account == null) {
             return true;
-        }
-
-        if (StringUtils.isBlank(account.getPlatformGuid()) && toolPlatform != null && toolPlatform.get(PLATFORM_GUID) instanceof String guid && StringUtils.isNotBlank(guid)) {
-            account.setPlatformGuid(guid);
-            lmsApprovedAccountRepository.save(account);
         }
 
         if (!account.isApproved()) {

@@ -4,6 +4,7 @@ import java.net.URI;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
+import java.util.Set;
 
 import org.apache.commons.collections4.CollectionUtils;
 import org.apache.commons.lang3.StringUtils;
@@ -28,6 +29,7 @@ import edu.iu.terracotta.connectors.generic.dao.entity.lti.PlatformDeployment;
 import edu.iu.terracotta.connectors.generic.dao.entity.lti.ToolDeployment;
 import edu.iu.terracotta.connectors.generic.dao.model.enums.LmsApprovedAccountStatus;
 import edu.iu.terracotta.connectors.generic.dao.model.enums.LmsConnector;
+import edu.iu.terracotta.connectors.generic.dao.model.lti.dto.PlatformConfigurationDto;
 import edu.iu.terracotta.connectors.generic.dao.model.lti.dto.PlatformRegistrationDto;
 import edu.iu.terracotta.connectors.generic.dao.repository.lti.PlatformDeploymentRepository;
 import edu.iu.terracotta.connectors.generic.dao.repository.lti.ToolDeploymentRepository;
@@ -43,6 +45,16 @@ public class CanvasDynamicRegistrationServiceImpl implements CanvasDynamicRegist
 
     private static final String TOOL_CONFIGURATION = "https://purl.imsglobal.org/spec/lti-tool-configuration";
     private static final int TIMEOUT_MS = 15_000;
+
+    // where Canvas cloud schools start a registration, and where Canvas cloud takes it
+    static final Set<String> CANVAS_CLOUD_CONFIGURATION_HOSTS = Set.of("canvas.instructure.com", "canvas.beta.instructure.com", "canvas.test.instructure.com");
+    static final Set<String> CANVAS_CLOUD_REGISTRATION_HOSTS = Set.of(
+        "sso.canvaslms.com", "sso.beta.canvaslms.com", "sso.test.canvaslms.com",
+        "canvas.instructure.com", "canvas.beta.instructure.com", "canvas.test.instructure.com"
+    );
+
+    // the school registering: its Canvas address, and (Canvas cloud only) its account ID and name
+    private record CanvasAccount(String host, String platformGuid, String name) {}
 
     private final CanvasToolConfigurationService canvasToolConfigurationService;
     private final OutboundUrlService outboundUrlService;
@@ -74,15 +86,6 @@ public class CanvasDynamicRegistrationServiceImpl implements CanvasDynamicRegist
         this.restTemplate = new RestTemplate(requestFactory);
     }
 
-    // by any of the account's addresses in lms_approved_account_host. Not by issuer: every Canvas
-    // cloud instance shares https://canvas.instructure.com
-    @Override
-    public boolean isApprovedHost(String host) {
-        return lmsApprovedAccountService.findByHost(LmsConnector.CANVAS, host)
-            .map(LmsApprovedAccount::isApproved)
-            .orElse(false);
-    }
-
     @Override
     @Transactional
     public PlatformDeployment register(String openidConfiguration, String registrationToken) throws CanvasRegistrationException {
@@ -90,57 +93,94 @@ public class CanvasDynamicRegistrationServiceImpl implements CanvasDynamicRegist
             throw new CanvasRegistrationException("This page must be opened from Canvas, as part of registering Terracotta.");
         }
 
-        // the Canvas instance is the host the admin is registering from, e.g. iu.instructure.com
-        // (Canvas cloud instances all share the issuer https://canvas.instructure.com)
-        String canvasHost = httpsHost(openidConfiguration);
+        // canvas.instructure.com for every Canvas cloud school; a self-hosted Canvas's own address
+        String configurationHost = httpsHost(openidConfiguration);
 
-        if (canvasHost == null) {
+        if (configurationHost == null) {
             throw new CanvasRegistrationException("Canvas sent an invalid registration address.");
         }
 
-        // a rejected or revoked account is turned away before anything is sent to its Canvas
-        Optional<LmsApprovedAccountStatus> status = lmsApprovedAccountService.findByHost(LmsConnector.CANVAS, canvasHost).map(LmsApprovedAccount::getStatus);
+        PlatformRegistrationDto platform = fetchPlatformConfiguration(openidConfiguration, registrationToken, configurationHost);
+        CanvasAccount canvasAccount = identify(platform, configurationHost);
+        Optional<LmsApprovedAccount> existing;
 
-        if (status.isPresent() && (status.get() == LmsApprovedAccountStatus.REJECTED || status.get() == LmsApprovedAccountStatus.REVOKED)) {
-            log.warn("Refused a Canvas Dynamic Registration from [{}]: its account is {}", canvasHost, status.get());
-            throw new CanvasRegistrationException(String.format("%s can't register Terracotta. Contact info@terracotta.education for help.", canvasHost));
+        try {
+            existing = lmsApprovedAccountService.find(LmsConnector.CANVAS, canvasAccount.host(), canvasAccount.platformGuid());
+        } catch (IllegalStateException e) {
+            log.error("Refused a Canvas Dynamic Registration from [{}]: {}", canvasAccount.host(), e.getMessage());
+            throw new CanvasRegistrationException(String.format("%s can't register Terracotta. Contact info@terracotta.education for help.", canvasAccount.host()), e);
         }
 
-        PlatformRegistrationDto platform = fetchPlatformConfiguration(openidConfiguration, registrationToken, canvasHost);
-        JsonNode registration = sendRegistration(platform.getRegistration_endpoint(), registrationToken, canvasHost);
+        // a rejected or revoked account is turned away before the registration is sent
+        if (existing.isPresent() && (existing.get().getStatus() == LmsApprovedAccountStatus.REJECTED || existing.get().getStatus() == LmsApprovedAccountStatus.REVOKED)) {
+            log.warn("Refused a Canvas Dynamic Registration from [{}]: its account is {}", canvasAccount.host(), existing.get().getStatus());
+            throw new CanvasRegistrationException(String.format("%s can't register Terracotta. Contact info@terracotta.education for help.", canvasAccount.host()));
+        }
 
-        // an address no account has yet gets a PENDING one: the registration is kept, and its
+        JsonNode registration = sendRegistration(platform.getRegistration_endpoint(), registrationToken, canvasAccount.host());
+
+        // a school no account has yet gets a PENDING one: the registration is kept, and its
         // launches wait until Terracotta staff approve the account
-        LmsApprovedAccount account = lmsApprovedAccountService.findOrCreate(LmsConnector.CANVAS, canvasHost);
+        LmsApprovedAccount account = lmsApprovedAccountService.findOrCreate(LmsConnector.CANVAS, canvasAccount.host(), canvasAccount.platformGuid(), canvasAccount.name());
 
-        return save(platform, registration, canvasHost, account);
+        return save(platform, registration, canvasAccount.host(), account);
     }
 
-    private PlatformRegistrationDto fetchPlatformConfiguration(String openidConfiguration, String registrationToken, String canvasHost) throws CanvasRegistrationException {
+    /**
+     * The school registering. Canvas cloud schools all register through canvas.instructure.com,
+     * whose configuration names the school: trusted, since it comes from Canvas cloud itself. A
+     * self-hosted Canvas could say anything about itself, so it's only ever its own address.
+     */
+    private static CanvasAccount identify(PlatformRegistrationDto platform, String configurationHost) throws CanvasRegistrationException {
+        PlatformConfigurationDto platformConfiguration = platform.getPlatformConfiguration();
+        String accountDomain = platformConfiguration != null ? hostOf(platformConfiguration.getCanvasAccountDomain()) : null;
+        String accountName = platformConfiguration != null ? StringUtils.trimToNull(platformConfiguration.getCanvasAccountName()) : null;
+
+        if (CANVAS_CLOUD_CONFIGURATION_HOSTS.contains(configurationHost)) {
+            if (accountDomain == null) {
+                log.error("Canvas cloud [{}] didn't say which school is registering", configurationHost);
+                throw new CanvasRegistrationException("Canvas didn't say which school is registering Terracotta. Please try again, or contact info@terracotta.education.");
+            }
+
+            return new CanvasAccount(accountDomain, StringUtils.trimToNull(platformConfiguration.getCanvasAccountLtiGuid()), accountName);
+        }
+
+        if (accountDomain != null && !accountDomain.equals(configurationHost)) {
+            log.error("Self-hosted Canvas [{}] said it's [{}]", configurationHost, accountDomain);
+            throw new CanvasRegistrationException("This Canvas's registration details point somewhere else.");
+        }
+
+        return new CanvasAccount(configurationHost, null, accountName);
+    }
+
+    private PlatformRegistrationDto fetchPlatformConfiguration(String openidConfiguration, String registrationToken, String configurationHost) throws CanvasRegistrationException {
         PlatformRegistrationDto platform;
 
         try {
             outboundUrlService.validatePublicUrl(openidConfiguration);
-            // deepcode ignore Ssrf: the host is on the approved list, and validatePublicUrl rejects internal addresses
+            // deepcode ignore Ssrf: openid_configuration comes from the request by design of LTI Dynamic Registration and is checked by validatePublicUrl above
             platform = restTemplate.exchange(openidConfiguration, HttpMethod.GET, new HttpEntity<>(bearer(registrationToken)), PlatformRegistrationDto.class).getBody();
         } catch (IllegalArgumentException | RestClientException e) {
-            log.error("Couldn't read the OpenID configuration of Canvas [{}]", canvasHost, e);
+            log.error("Couldn't read the OpenID configuration of Canvas [{}]", configurationHost, e);
             throw new CanvasRegistrationException("Terracotta couldn't read this Canvas's registration details. Please try again.", e);
         }
 
         if (platform == null || StringUtils.isAnyBlank(platform.getIssuer(), platform.getAuthorization_endpoint(), platform.getJwks_uri(), platform.getToken_endpoint(), platform.getRegistration_endpoint())) {
-            log.error("The OpenID configuration of Canvas [{}] is missing a required value", canvasHost);
+            log.error("The OpenID configuration of Canvas [{}] is missing a required value", configurationHost);
             throw new CanvasRegistrationException("This Canvas's registration details are incomplete.");
         }
 
-        // the registration goes back to the same Canvas, not wherever the configuration points
-        if (!Strings.CI.equals(httpsHost(platform.getRegistration_endpoint()), canvasHost)) {
-            log.error("Canvas [{}] gave a registration endpoint on another host: [{}]", canvasHost, platform.getRegistration_endpoint());
+        // the registration goes back to Canvas: Canvas cloud's own servers, or the self-hosted Canvas itself
+        String registrationHost = httpsHost(platform.getRegistration_endpoint());
+        boolean cloud = CANVAS_CLOUD_CONFIGURATION_HOSTS.contains(configurationHost);
+
+        if (registrationHost == null || (cloud ? !CANVAS_CLOUD_REGISTRATION_HOSTS.contains(registrationHost) : !registrationHost.equals(configurationHost))) {
+            log.error("Canvas [{}] gave a registration endpoint somewhere else: [{}]", configurationHost, platform.getRegistration_endpoint());
             throw new CanvasRegistrationException("This Canvas's registration details point somewhere else.");
         }
 
         if (platform.getPlatformConfiguration() != null && !Strings.CI.equals(platform.getPlatformConfiguration().getProduct_family_code(), "canvas")) {
-            log.error("Platform [{}] isn't Canvas: [{}]", canvasHost, platform.getPlatformConfiguration().getProduct_family_code());
+            log.error("Platform [{}] isn't Canvas: [{}]", configurationHost, platform.getPlatformConfiguration().getProduct_family_code());
             throw new CanvasRegistrationException("Only Canvas can register Terracotta here.");
         }
 
@@ -218,6 +258,17 @@ public class CanvasDynamicRegistrationServiceImpl implements CanvasDynamicRegist
         headers.setAccept(List.of(MediaType.APPLICATION_JSON));
 
         return headers;
+    }
+
+    // a host name, lower case, from a host or URL Canvas gave
+    private static String hostOf(String hostOrUrl) {
+        if (StringUtils.isBlank(hostOrUrl)) {
+            return null;
+        }
+
+        String value = hostOrUrl.strip();
+
+        return httpsHost(Strings.CS.contains(value, "://") ? value : "https://" + value);
     }
 
     // the host of an https URL, or null for anything else

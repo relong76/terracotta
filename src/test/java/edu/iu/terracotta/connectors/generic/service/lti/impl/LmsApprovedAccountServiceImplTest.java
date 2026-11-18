@@ -15,7 +15,6 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -79,32 +78,90 @@ public class LmsApprovedAccountServiceImplTest {
         assertTrue(service.findByHost(LmsConnector.CANVAS, null).isEmpty());
     }
 
+    private static final String GUID = "abc:canvas-lms";
+
     @Test
-    public void testFindOrCreateAddsAnUnapprovedAccountForANewHost() {
+    public void testFindPrefersTheLmsAccountIdOverTheAddress() {
+        LmsApprovedAccount iu = account(1, "Indiana University", LmsApprovedAccountStatus.APPROVED, "iu.instructure.com");
+        iu.setPlatformGuid(GUID);
+        when(lmsApprovedAccountRepository.findByLmsConnectorAndPlatformGuid(LmsConnector.CANVAS, GUID)).thenReturn(Optional.of(iu));
+
+        // the school's address changed: its account ID still finds it
+        assertSame(iu, service.find(LmsConnector.CANVAS, "canvas.iu.edu", GUID).orElseThrow());
+        verify(lmsApprovedAccountHostRepository, never()).findByHostAndLmsApprovedAccount_LmsConnector(any(), any());
+    }
+
+    @Test
+    public void testFindFallsBackToTheAddress() {
+        LmsApprovedAccount iu = account(1, "Indiana University", LmsApprovedAccountStatus.APPROVED, "iu.instructure.com");
+        when(lmsApprovedAccountRepository.findByLmsConnectorAndPlatformGuid(LmsConnector.CANVAS, GUID)).thenReturn(Optional.empty());
+        when(lmsApprovedAccountHostRepository.findByHostAndLmsApprovedAccount_LmsConnector("iu.instructure.com", LmsConnector.CANVAS)).thenReturn(Optional.of(iu.getHosts().get(0)));
+
+        assertSame(iu, service.find(LmsConnector.CANVAS, "iu.instructure.com", GUID).orElseThrow());
+        assertSame(iu, service.find(LmsConnector.CANVAS, "iu.instructure.com", null).orElseThrow());
+    }
+
+    @Test
+    public void testFindRefusesAnAddressThatBelongsToAnotherLmsAccount() {
+        LmsApprovedAccount iu = account(1, "Indiana University", LmsApprovedAccountStatus.APPROVED, "iu.instructure.com");
+        iu.setPlatformGuid("other:canvas-lms");
+        when(lmsApprovedAccountRepository.findByLmsConnectorAndPlatformGuid(LmsConnector.CANVAS, GUID)).thenReturn(Optional.empty());
+        when(lmsApprovedAccountHostRepository.findByHostAndLmsApprovedAccount_LmsConnector("iu.instructure.com", LmsConnector.CANVAS)).thenReturn(Optional.of(iu.getHosts().get(0)));
+
+        assertThrows(IllegalStateException.class, () -> service.find(LmsConnector.CANVAS, "iu.instructure.com", GUID));
+    }
+
+    @Test
+    public void testFindOrCreateAddsAPendingAccountNamedAfterTheSchool() {
+        when(lmsApprovedAccountRepository.findByLmsConnectorAndPlatformGuid(LmsConnector.CANVAS, GUID)).thenReturn(Optional.empty());
         when(lmsApprovedAccountHostRepository.findByHostAndLmsApprovedAccount_LmsConnector("new.instructure.com", LmsConnector.CANVAS)).thenReturn(Optional.empty());
 
-        LmsApprovedAccount created = service.findOrCreate(LmsConnector.CANVAS, "New.instructure.com");
+        LmsApprovedAccount created = service.findOrCreate(LmsConnector.CANVAS, "New.instructure.com", GUID, " New University ");
 
         assertEquals(LmsApprovedAccountStatus.PENDING, created.getStatus());
-        assertEquals("new.instructure.com", created.getName());
+        assertEquals("New University", created.getName());
+        assertEquals(GUID, created.getPlatformGuid());
         assertEquals(LmsConnector.CANVAS, created.getLmsConnector());
         assertEquals("new.instructure.com", created.getHosts().get(0).getHost());
         assertSame(created, created.getHosts().get(0).getLmsApprovedAccount());
     }
 
     @Test
-    public void testFindOrCreateReusesAnExistingAccount() {
-        LmsApprovedAccount iu = account(1, "Indiana University", LmsApprovedAccountStatus.PENDING, "iu.instructure.com");
+    public void testFindOrCreateNamesANewAccountAfterItsAddressWithoutASchoolName() {
+        when(lmsApprovedAccountHostRepository.findByHostAndLmsApprovedAccount_LmsConnector("canvas.example.edu", LmsConnector.CANVAS)).thenReturn(Optional.empty());
+
+        LmsApprovedAccount created = service.findOrCreate(LmsConnector.CANVAS, "canvas.example.edu", null, null);
+
+        assertEquals("canvas.example.edu", created.getName());
+        assertNull(created.getPlatformGuid());
+    }
+
+    @Test
+    public void testFindOrCreateFillsInTheIdOfAnAccountAddedByAddress() {
+        // e.g. one the migration added from iss_configuration.base_url
+        LmsApprovedAccount iu = account(1, "iu.instructure.com", LmsApprovedAccountStatus.APPROVED, "iu.instructure.com");
+        when(lmsApprovedAccountRepository.findByLmsConnectorAndPlatformGuid(LmsConnector.CANVAS, GUID)).thenReturn(Optional.empty());
         when(lmsApprovedAccountHostRepository.findByHostAndLmsApprovedAccount_LmsConnector("iu.instructure.com", LmsConnector.CANVAS)).thenReturn(Optional.of(iu.getHosts().get(0)));
 
-        assertSame(iu, service.findOrCreate(LmsConnector.CANVAS, "iu.instructure.com"));
+        assertSame(iu, service.findOrCreate(LmsConnector.CANVAS, "iu.instructure.com", GUID, "Indiana University"));
+        assertEquals(GUID, iu.getPlatformGuid());
+        verify(lmsApprovedAccountRepository).save(iu);
+    }
+
+    @Test
+    public void testFindOrCreateReusesAnAccountThatHasItsId() {
+        LmsApprovedAccount iu = account(1, "Indiana University", LmsApprovedAccountStatus.PENDING, "iu.instructure.com");
+        iu.setPlatformGuid(GUID);
+        when(lmsApprovedAccountRepository.findByLmsConnectorAndPlatformGuid(LmsConnector.CANVAS, GUID)).thenReturn(Optional.of(iu));
+
+        assertSame(iu, service.findOrCreate(LmsConnector.CANVAS, "iu.instructure.com", GUID, "Indiana University"));
         verify(lmsApprovedAccountRepository, never()).save(any());
     }
 
     @Test
     public void testADeploymentSetUpByHandAlwaysLaunches() {
-        assertTrue(service.allowsLaunch(new PlatformDeployment(), Map.of("guid", "abc")));
-        assertTrue(service.allowsLaunch(null, null));
+        assertTrue(service.allowsLaunch(new PlatformDeployment()));
+        assertTrue(service.allowsLaunch(null));
         verify(lmsApprovedAccountRepository, never()).save(any());
     }
 
@@ -114,21 +171,8 @@ public class LmsApprovedAccountServiceImplTest {
             PlatformDeployment platformDeployment = new PlatformDeployment();
             platformDeployment.setLmsApprovedAccount(account(1, status.name(), status));
 
-            assertEquals(status == LmsApprovedAccountStatus.APPROVED, service.allowsLaunch(platformDeployment, null), status.name());
+            assertEquals(status == LmsApprovedAccountStatus.APPROVED, service.allowsLaunch(platformDeployment), status.name());
         }
-    }
-
-    @Test
-    public void testRecordsThePlatformGuidOnce() {
-        LmsApprovedAccount account = account(1, "Indiana University", LmsApprovedAccountStatus.PENDING);
-        PlatformDeployment platformDeployment = new PlatformDeployment();
-        platformDeployment.setLmsApprovedAccount(account);
-
-        service.allowsLaunch(platformDeployment, Map.of("guid", "root-account-guid:canvas-lms"));
-        service.allowsLaunch(platformDeployment, Map.of("guid", "something-else"));
-
-        assertEquals("root-account-guid:canvas-lms", account.getPlatformGuid());
-        verify(lmsApprovedAccountRepository).save(account);
     }
 
     @Test

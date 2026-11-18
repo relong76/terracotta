@@ -34,7 +34,10 @@
             <column name="status" type="VARCHAR(255)" defaultValue="PENDING">
                 <constraints nullable="false"/>
             </column>
-            <column name="platform_guid" type="VARCHAR(255)"/>
+            <!-- Canvas cloud's account_lti_guid: e.g. "...:canvas-lms" -->
+            <column name="platform_guid" type="VARCHAR(255)">
+                <constraints unique="true" uniqueConstraintName="UQ1794960000000-04"/>
+            </column>
             <column name="status_updated_by" type="VARCHAR(255)"/>
             <column name="status_updated_at" type="datetime"/>
             <column name="entity_version" type="INT"/>

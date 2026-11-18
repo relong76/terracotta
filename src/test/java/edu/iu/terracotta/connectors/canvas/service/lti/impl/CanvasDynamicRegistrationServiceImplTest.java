@@ -1,12 +1,13 @@
 package edu.iu.terracotta.connectors.canvas.service.lti.impl;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -47,18 +48,26 @@ import edu.iu.terracotta.service.app.OutboundUrlService;
 
 public class CanvasDynamicRegistrationServiceImplTest {
 
-    private static final String OPENID_CONFIGURATION = "https://iu.instructure.com/api/lti/security/openid-configuration";
-    private static final String REGISTRATION_ENDPOINT = "https://iu.instructure.com/api/lti/registrations";
+    // a Canvas cloud registration: every school starts it at canvas.instructure.com, and Canvas
+    // cloud takes it at sso.canvaslms.com - the configuration says which school it is
+    private static final String OPENID_CONFIGURATION = "https://canvas.instructure.com/api/lti/security/openid-configuration";
+    private static final String REGISTRATION_ENDPOINT = "https://sso.canvaslms.com/api/lti/registrations";
     private static final String TOKEN = "one-time-registration-token";
+    private static final String GUID = "RFKBkwG6yI7xMV2QC6D7pB5niBbt7waqzc7utenM:canvas-lms";
 
-    private static final String PLATFORM_CONFIGURATION = """
+    private static final String CONFIGURATION = """
         {
           "issuer": "https://canvas.instructure.com",
           "authorization_endpoint": "https://sso.canvaslms.com/api/lti/authorize_redirect",
           "token_endpoint": "https://sso.canvaslms.com/login/oauth2/token",
           "jwks_uri": "https://sso.canvaslms.com/api/lti/security/jwks",
           "registration_endpoint": "%s",
-          "https://purl.imsglobal.org/spec/lti-platform-configuration": { "product_family_code": "%s" }
+          "https://purl.imsglobal.org/spec/lti-platform-configuration": {
+            "product_family_code": "%s",
+            "https://canvas.instructure.com/lti/account_name": "Indiana University",
+            "https://canvas.instructure.com/lti/account_lti_guid": "%s",
+            "https://canvas.instructure.com/lti/account_domain": "%s"
+          }
         }
         """;
 
@@ -83,7 +92,7 @@ public class CanvasDynamicRegistrationServiceImplTest {
         platformDeploymentRepository = mock(PlatformDeploymentRepository.class);
         toolDeploymentRepository = mock(ToolDeploymentRepository.class);
         lmsApprovedAccountService = mock(LmsApprovedAccountService.class);
-        approvedAccount = LmsApprovedAccount.builder().name("Indiana University").lmsConnector(LmsConnector.CANVAS).status(LmsApprovedAccountStatus.APPROVED).build();
+        approvedAccount = account(LmsApprovedAccountStatus.APPROVED);
 
         CanvasToolConfigurationServiceImpl canvasToolConfigurationService = new CanvasToolConfigurationServiceImpl();
         ReflectionTestUtils.setField(canvasToolConfigurationService, "applicationUrl", "https://app.terracotta.education");
@@ -103,22 +112,35 @@ public class CanvasDynamicRegistrationServiceImplTest {
         canvas = MockRestServiceServer.bindTo(restTemplate).build();
         ReflectionTestUtils.setField(service, "restTemplate", restTemplate);
 
-        when(lmsApprovedAccountService.findOrCreate(LmsConnector.CANVAS, "iu.instructure.com")).thenReturn(approvedAccount);
+        when(lmsApprovedAccountService.find(LmsConnector.CANVAS, "iu.instructure.com", GUID)).thenReturn(Optional.of(approvedAccount));
+        when(lmsApprovedAccountService.findOrCreate(LmsConnector.CANVAS, "iu.instructure.com", GUID, "Indiana University")).thenReturn(approvedAccount);
         when(platformDeploymentRepository.findByIssAndClientId(anyString(), anyString())).thenReturn(Collections.emptyList());
         when(platformDeploymentRepository.save(any(PlatformDeployment.class))).thenAnswer(invocation -> invocation.getArgument(0));
         when(toolDeploymentRepository.findByPlatformDeployment_IssAndPlatformDeployment_ClientIdAndLtiDeploymentId(anyString(), anyString(), anyString())).thenReturn(Collections.emptyList());
     }
 
-    private void canvasServes(String registrationEndpoint, String productFamily) {
-        canvas.expect(requestTo(OPENID_CONFIGURATION))
+    private static LmsApprovedAccount account(LmsApprovedAccountStatus status) {
+        return LmsApprovedAccount.builder().name("Indiana University").lmsConnector(LmsConnector.CANVAS).platformGuid(GUID).status(status).build();
+    }
+
+    private void canvasServes(String openidConfiguration, String registrationEndpoint, String productFamily, String guid, String accountDomain) {
+        canvas.expect(requestTo(openidConfiguration))
             .andExpect(method(HttpMethod.GET))
             .andExpect(header("Authorization", "Bearer " + TOKEN))
-            .andRespond(withSuccess(String.format(PLATFORM_CONFIGURATION, registrationEndpoint, productFamily), MediaType.APPLICATION_JSON));
+            .andRespond(withSuccess(String.format(CONFIGURATION, registrationEndpoint, productFamily, guid, accountDomain), MediaType.APPLICATION_JSON));
+    }
+
+    private void canvasCloudServes() {
+        canvasServes(OPENID_CONFIGURATION, REGISTRATION_ENDPOINT, "canvas", GUID, "iu.instructure.com");
+    }
+
+    private void canvasAccepts(String registrationEndpoint) {
+        canvas.expect(requestTo(registrationEndpoint)).andRespond(withSuccess(REGISTRATION_RESPONSE, MediaType.APPLICATION_JSON));
     }
 
     @Test
-    public void testRegistersAnApprovedCanvasAndSavesItsDeployment() throws Exception {
-        canvasServes(REGISTRATION_ENDPOINT, "canvas");
+    public void testRegistersACanvasCloudSchoolAndSavesItsDeployment() throws Exception {
+        canvasCloudServes();
         canvas.expect(requestTo(REGISTRATION_ENDPOINT))
             .andExpect(method(HttpMethod.POST))
             .andExpect(header("Authorization", "Bearer " + TOKEN))
@@ -137,6 +159,7 @@ public class CanvasDynamicRegistrationServiceImplTest {
         assertEquals("https://sso.canvaslms.com/api/lti/authorize_redirect", saved.getOidcEndpoint());
         assertEquals("https://sso.canvaslms.com/api/lti/security/jwks", saved.getJwksEndpoint());
         assertEquals("https://sso.canvaslms.com/login/oauth2/token", saved.getOAuth2TokenUrl());
+        // the school's own Canvas, for its REST API - not canvas.instructure.com
         assertEquals("https://iu.instructure.com", saved.getBaseUrl());
         assertEquals("https://app.terracotta.education", saved.getLocalUrl());
         assertEquals(LmsConnector.CANVAS, saved.getLmsConnector());
@@ -150,62 +173,101 @@ public class CanvasDynamicRegistrationServiceImplTest {
     }
 
     @Test
-    public void testACanvasWithNoApprovedAccountRegistersButWaitsForApproval() throws Exception {
-        String other = "https://other.instructure.com/api/lti/security/openid-configuration";
-        LmsApprovedAccount pending = LmsApprovedAccount.builder().name("other.instructure.com").lmsConnector(LmsConnector.CANVAS).status(LmsApprovedAccountStatus.PENDING).build();
-        when(lmsApprovedAccountService.findOrCreate(LmsConnector.CANVAS, "other.instructure.com")).thenReturn(pending);
-        canvas.expect(requestTo(other))
-            .andRespond(withSuccess(String.format(PLATFORM_CONFIGURATION, "https://other.instructure.com/api/lti/registrations", "canvas"), MediaType.APPLICATION_JSON));
-        canvas.expect(requestTo("https://other.instructure.com/api/lti/registrations"))
-            .andRespond(withSuccess(REGISTRATION_RESPONSE, MediaType.APPLICATION_JSON));
+    public void testANewSchoolRegistersButWaitsForApproval() throws Exception {
+        LmsApprovedAccount pending = account(LmsApprovedAccountStatus.PENDING);
+        when(lmsApprovedAccountService.find(LmsConnector.CANVAS, "iu.instructure.com", GUID)).thenReturn(Optional.empty());
+        when(lmsApprovedAccountService.findOrCreate(LmsConnector.CANVAS, "iu.instructure.com", GUID, "Indiana University")).thenReturn(pending);
+        canvasCloudServes();
+        canvasAccepts(REGISTRATION_ENDPOINT);
 
-        PlatformDeployment saved = service.register(other, TOKEN);
+        PlatformDeployment saved = service.register(OPENID_CONFIGURATION, TOKEN);
 
         canvas.verify();
         assertSame(pending, saved.getLmsApprovedAccount());
-        assertEquals(LmsApprovedAccountStatus.PENDING, saved.getLmsApprovedAccount().getStatus());
-        assertEquals("https://other.instructure.com", saved.getBaseUrl());
     }
 
     @Test
-    public void testARejectedOrRevokedAccountCantRegisterAndCanvasIsntContacted() {
+    public void testARejectedOrRevokedSchoolIsntRegistered() {
         for (LmsApprovedAccountStatus status : List.of(LmsApprovedAccountStatus.REJECTED, LmsApprovedAccountStatus.REVOKED)) {
-            when(lmsApprovedAccountService.findByHost(LmsConnector.CANVAS, "iu.instructure.com"))
-                .thenReturn(Optional.of(LmsApprovedAccount.builder().name("IU").lmsConnector(LmsConnector.CANVAS).status(status).build()));
+            canvas.reset();
+            when(lmsApprovedAccountService.find(LmsConnector.CANVAS, "iu.instructure.com", GUID)).thenReturn(Optional.of(account(status)));
+            // only the configuration is read: nothing is registered
+            canvasCloudServes();
 
             CanvasRegistrationException exception = assertThrows(CanvasRegistrationException.class, () -> service.register(OPENID_CONFIGURATION, TOKEN));
 
             assertTrue(exception.getMessage().contains("iu.instructure.com can't register Terracotta"), exception.getMessage());
+            canvas.verify();
         }
 
-        // no request reached the mock Canvas
+        verify(platformDeploymentRepository, never()).save(any());
+        verify(lmsApprovedAccountService, never()).findOrCreate(any(), any(), any(), any());
+    }
+
+    @Test
+    public void testAnAddressThatBelongsToAnotherAccountIsntRegistered() {
+        when(lmsApprovedAccountService.find(LmsConnector.CANVAS, "iu.instructure.com", GUID)).thenThrow(new IllegalStateException("conflict"));
+        canvasCloudServes();
+
+        assertThrows(CanvasRegistrationException.class, () -> service.register(OPENID_CONFIGURATION, TOKEN));
         canvas.verify();
         verify(platformDeploymentRepository, never()).save(any());
     }
 
     @Test
-    public void testAPendingAccountCanRegisterAgain() throws Exception {
-        LmsApprovedAccount pending = LmsApprovedAccount.builder().name("IU").lmsConnector(LmsConnector.CANVAS).status(LmsApprovedAccountStatus.PENDING).build();
-        when(lmsApprovedAccountService.findByHost(LmsConnector.CANVAS, "iu.instructure.com")).thenReturn(Optional.of(pending));
-        when(lmsApprovedAccountService.findOrCreate(LmsConnector.CANVAS, "iu.instructure.com")).thenReturn(pending);
-        canvasServes(REGISTRATION_ENDPOINT, "canvas");
-        canvas.expect(requestTo(REGISTRATION_ENDPOINT)).andRespond(withSuccess(REGISTRATION_RESPONSE, MediaType.APPLICATION_JSON));
+    public void testACanvasCloudRegistrationMustNameTheSchool() {
+        canvasServes(OPENID_CONFIGURATION, REGISTRATION_ENDPOINT, "canvas", GUID, "");
 
-        assertSame(pending, service.register(OPENID_CONFIGURATION, TOKEN).getLmsApprovedAccount());
+        CanvasRegistrationException exception = assertThrows(CanvasRegistrationException.class, () -> service.register(OPENID_CONFIGURATION, TOKEN));
+
+        assertTrue(exception.getMessage().contains("which school"), exception.getMessage());
     }
 
     @Test
-    public void testNoAccountIsCreatedWhenCanvasRejectsTheRegistration() {
-        canvasServes(REGISTRATION_ENDPOINT, "canvas");
-        canvas.expect(requestTo(REGISTRATION_ENDPOINT)).andRespond(withStatus(HttpStatus.BAD_REQUEST));
+    public void testACanvasCloudRegistrationGoesOnlyToCanvasCloud() {
+        canvasServes(OPENID_CONFIGURATION, "https://attacker.example.com/register", "canvas", GUID, "iu.instructure.com");
 
         assertThrows(CanvasRegistrationException.class, () -> service.register(OPENID_CONFIGURATION, TOKEN));
-        verify(lmsApprovedAccountService, never()).findOrCreate(any(), any());
+        canvas.verify();
+        verify(platformDeploymentRepository, never()).save(any());
+    }
+
+    @Test
+    public void testASelfHostedCanvasIsOnlyEverItsOwnAddress() throws Exception {
+        String openid = "https://canvas.example.edu/api/lti/security/openid-configuration";
+        LmsApprovedAccount selfHosted = account(LmsApprovedAccountStatus.APPROVED);
+        // the account ID it gives is ignored: it could say anything about itself
+        when(lmsApprovedAccountService.find(eq(LmsConnector.CANVAS), eq("canvas.example.edu"), isNull())).thenReturn(Optional.of(selfHosted));
+        when(lmsApprovedAccountService.findOrCreate(eq(LmsConnector.CANVAS), eq("canvas.example.edu"), isNull(), eq("Indiana University"))).thenReturn(selfHosted);
+        canvasServes(openid, "https://canvas.example.edu/api/lti/registrations", "canvas", GUID, "canvas.example.edu");
+        canvasAccepts("https://canvas.example.edu/api/lti/registrations");
+
+        PlatformDeployment saved = service.register(openid, TOKEN);
+
+        assertSame(selfHosted, saved.getLmsApprovedAccount());
+        assertEquals("https://canvas.example.edu", saved.getBaseUrl());
+    }
+
+    @Test
+    public void testASelfHostedCanvasCantClaimToBeAnotherSchool() {
+        String openid = "https://canvas.example.edu/api/lti/security/openid-configuration";
+        canvasServes(openid, "https://canvas.example.edu/api/lti/registrations", "canvas", GUID, "iu.instructure.com");
+
+        assertThrows(CanvasRegistrationException.class, () -> service.register(openid, TOKEN));
+        verify(lmsApprovedAccountService, never()).find(any(), any(), any());
+    }
+
+    @Test
+    public void testASelfHostedCanvasRegistersWithItself() {
+        String openid = "https://canvas.example.edu/api/lti/security/openid-configuration";
+        canvasServes(openid, REGISTRATION_ENDPOINT, "canvas", GUID, "canvas.example.edu");
+
+        assertThrows(CanvasRegistrationException.class, () -> service.register(openid, TOKEN));
     }
 
     @Test
     public void testRefusesAnAddressThatIsntHttps() {
-        assertThrows(CanvasRegistrationException.class, () -> service.register("http://iu.instructure.com/api/lti/security/openid-configuration", TOKEN));
+        assertThrows(CanvasRegistrationException.class, () -> service.register("http://canvas.instructure.com/api/lti/security/openid-configuration", TOKEN));
         assertThrows(CanvasRegistrationException.class, () -> service.register("not a url", TOKEN));
         verify(platformDeploymentRepository, never()).save(any());
     }
@@ -217,18 +279,8 @@ public class CanvasDynamicRegistrationServiceImplTest {
     }
 
     @Test
-    public void testRefusesARegistrationEndpointOnAnotherHost() {
-        canvasServes("https://attacker.example.com/register", "canvas");
-
-        assertThrows(CanvasRegistrationException.class, () -> service.register(OPENID_CONFIGURATION, TOKEN));
-
-        canvas.verify();
-        verify(platformDeploymentRepository, never()).save(any());
-    }
-
-    @Test
     public void testRefusesAPlatformThatIsntCanvas() {
-        canvasServes(REGISTRATION_ENDPOINT, "moodle");
+        canvasServes(OPENID_CONFIGURATION, REGISTRATION_ENDPOINT, "moodle", GUID, "iu.instructure.com");
 
         assertThrows(CanvasRegistrationException.class, () -> service.register(OPENID_CONFIGURATION, TOKEN));
         verify(platformDeploymentRepository, never()).save(any());
@@ -244,18 +296,19 @@ public class CanvasDynamicRegistrationServiceImplTest {
 
     @Test
     public void testReportsACanvasThatRejectsTheRegistration() {
-        canvasServes(REGISTRATION_ENDPOINT, "canvas");
+        canvasCloudServes();
         canvas.expect(requestTo(REGISTRATION_ENDPOINT)).andRespond(withStatus(HttpStatus.UNAUTHORIZED));
 
         CanvasRegistrationException exception = assertThrows(CanvasRegistrationException.class, () -> service.register(OPENID_CONFIGURATION, TOKEN));
 
         assertTrue(exception.getMessage().contains("didn't accept"), exception.getMessage());
         verify(platformDeploymentRepository, never()).save(any());
+        verify(lmsApprovedAccountService, never()).findOrCreate(any(), any(), any(), any());
     }
 
     @Test
     public void testNeedsAClientIdInCanvassResponse() {
-        canvasServes(REGISTRATION_ENDPOINT, "canvas");
+        canvasCloudServes();
         canvas.expect(requestTo(REGISTRATION_ENDPOINT)).andRespond(withSuccess("{}", MediaType.APPLICATION_JSON));
 
         assertThrows(CanvasRegistrationException.class, () -> service.register(OPENID_CONFIGURATION, TOKEN));
@@ -276,25 +329,13 @@ public class CanvasDynamicRegistrationServiceImplTest {
         when(platformDeploymentRepository.findByIssAndClientId("https://canvas.instructure.com", "10000000000042")).thenReturn(List.of(existing));
         when(toolDeploymentRepository.findByPlatformDeployment_IssAndPlatformDeployment_ClientIdAndLtiDeploymentId("https://canvas.instructure.com", "10000000000042", "42:abc123"))
             .thenReturn(List.of(new ToolDeployment()));
-        canvasServes(REGISTRATION_ENDPOINT, "canvas");
-        canvas.expect(requestTo(REGISTRATION_ENDPOINT)).andRespond(withSuccess(REGISTRATION_RESPONSE, MediaType.APPLICATION_JSON));
+        canvasCloudServes();
+        canvasAccepts(REGISTRATION_ENDPOINT);
 
         PlatformDeployment saved = service.register(OPENID_CONFIGURATION, TOKEN);
 
         assertEquals(7L, saved.getKeyId());
         verify(toolDeploymentRepository, never()).save(any());
-    }
-
-    @Test
-    public void testApprovedHostsAreAnApprovedCanvasAccountsHosts() {
-        LmsApprovedAccount pending = LmsApprovedAccount.builder().name("Pending").lmsConnector(LmsConnector.CANVAS).status(LmsApprovedAccountStatus.PENDING).build();
-        when(lmsApprovedAccountService.findByHost(LmsConnector.CANVAS, "canvas.iu.edu")).thenReturn(Optional.of(approvedAccount));
-        when(lmsApprovedAccountService.findByHost(LmsConnector.CANVAS, "pending.instructure.com")).thenReturn(Optional.of(pending));
-        when(lmsApprovedAccountService.findByHost(LmsConnector.CANVAS, "unknown.instructure.com")).thenReturn(Optional.empty());
-
-        assertTrue(service.isApprovedHost("canvas.iu.edu"));
-        assertFalse(service.isApprovedHost("pending.instructure.com"));
-        assertFalse(service.isApprovedHost("unknown.instructure.com"));
     }
 
 }

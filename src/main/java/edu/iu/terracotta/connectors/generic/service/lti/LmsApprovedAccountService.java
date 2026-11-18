@@ -1,7 +1,6 @@
 package edu.iu.terracotta.connectors.generic.service.lti;
 
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -22,16 +21,25 @@ public interface LmsApprovedAccountService {
     Optional<LmsApprovedAccount> findByHost(LmsConnector lmsConnector, String host);
 
     /**
-     * The account an LMS address belongs to, or a new PENDING one named after it.
+     * A school's account: by its LMS account ID when there is one, otherwise by its address.
+     *
+     * @throws IllegalStateException when the address belongs to an account with a different LMS account ID
      */
-    LmsApprovedAccount findOrCreate(LmsConnector lmsConnector, String host);
+    Optional<LmsApprovedAccount> find(LmsConnector lmsConnector, String host, String platformGuid);
+
+    /**
+     * A school's account (see find), with its LMS account ID filled in if it had none, or a new
+     * PENDING one for it, named after the school (or its address).
+     *
+     * @throws IllegalStateException when the address belongs to an account with a different LMS account ID
+     */
+    LmsApprovedAccount findOrCreate(LmsConnector lmsConnector, String host, String platformGuid, String name);
 
     /**
      * Whether a launch through this platform deployment may go ahead: always for one set up by
-     * hand, otherwise only while its account is APPROVED. Records the LMS's ID for the account
-     * (the launch's tool_platform guid) the first time it's seen.
+     * hand, otherwise only while its account is APPROVED.
      */
-    boolean allowsLaunch(PlatformDeployment platformDeployment, Map<String, Object> toolPlatform);
+    boolean allowsLaunch(PlatformDeployment platformDeployment);
 
     List<LmsApprovedAccountDto> getAll();
 
