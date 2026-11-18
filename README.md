@@ -37,6 +37,29 @@ use a properties/YAML file external to the jar to avoid storing sensitive values
 ```--spring.config.location=/home/yourhomefolder/application-local.properties```
 
 
+Adding Terracotta to Canvas
+---------
+
+A Canvas admin can add Terracotta in two ways, both built from Terracotta's own address
+(`application.url`), name (`application.name`) and description (`application.description`):
+
+- **1.3 JSON URL** (or **1.3 by Paste JSON Code**): create an LTI developer key and give Canvas
+  `https://YOUR_TERRACOTTA_HOST/lti/canvas/config.json`, or paste what that address shows. As today, an
+  admin then adds the platform deployment in Terracotta.
+- **1.3 Dynamic Registration**: give Canvas `https://YOUR_TERRACOTTA_HOST/lti/canvas/registration`.
+  Terracotta registers itself and saves the platform deployment, so launches work right away. Only
+  Canvas instances listed by host name in `terracotta.canvas.registration.approved-hosts` can register:
+
+    ```
+    terracotta:
+      canvas:
+        registration:
+          approved-hosts: iu.instructure.com, canvas.example.edu
+    ```
+
+Either way, Terracotta's access to the Canvas API (a separate Canvas API developer key) is still set
+up by hand.
+
 Creating the database
 ---------
 Connect to your mysql server and use your values on xxDATABASENAMExxx, xxxuserNamexxx, xxxPasswordxxx Set the right
