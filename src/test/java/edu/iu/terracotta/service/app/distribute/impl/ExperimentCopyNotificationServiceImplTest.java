@@ -13,12 +13,15 @@ import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 
 import edu.iu.terracotta.connectors.generic.dao.entity.lti.LtiUserEntity;
+import edu.iu.terracotta.connectors.generic.dao.entity.lti.PlatformDeployment;
+import edu.iu.terracotta.connectors.generic.dao.model.enums.LmsConnector;
 import edu.iu.terracotta.service.app.notification.NotificationEmailSender;
 
 public class ExperimentCopyNotificationServiceImplTest {
 
     @Mock private NotificationEmailSender notificationEmailSender;
     @Mock private LtiUserEntity instructor;
+    @Mock private PlatformDeployment platformDeployment;
 
     private ExperimentCopyNotificationServiceImpl experimentCopyNotificationService;
 
@@ -27,6 +30,8 @@ public class ExperimentCopyNotificationServiceImplTest {
         MockitoAnnotations.openMocks(this);
 
         when(instructor.getDisplayName()).thenReturn("Pat Instructor");
+        when(instructor.getPlatformDeployment()).thenReturn(platformDeployment);
+        when(platformDeployment.getLmsConnector()).thenReturn(LmsConnector.CANVAS);
 
         experimentCopyNotificationService = new ExperimentCopyNotificationServiceImpl(notificationEmailSender);
     }
@@ -47,6 +52,15 @@ public class ExperimentCopyNotificationServiceImplTest {
         assertTrue(body.contains("There was an error recreating the Terracotta assignments in your newly copied Canvas course. Please login to the new Canvas course, relaunch Terracotta, and reauthorize Terracotta to function in the LMS."));
         assertTrue(body.contains("<a href=\"mailto:info@terracotta.education\">info@terracotta.education</a>"));
         assertTrue(body.trim().endsWith("Thank you,<br>\nTerracotta Support</p>"));
+    }
+
+    @Test
+    public void testNotifyLmsFailureNamesTheInstructorsLms() {
+        when(platformDeployment.getLmsConnector()).thenReturn(LmsConnector.BRIGHTSPACE);
+
+        experimentCopyNotificationService.notifyLmsFailure(instructor);
+
+        assertTrue(sentBody().contains("in your newly copied Brightspace course. Please login to the new Brightspace course,"));
     }
 
     @Test

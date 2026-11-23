@@ -1,4 +1,4 @@
-package edu.iu.terracotta.runner.apitokencleaner.configuration;
+package edu.iu.terracotta.connectors.brightspace.runner.apitokencleaner.configuration;
 
 import java.time.Duration;
 import java.util.Optional;
@@ -13,8 +13,8 @@ import com.github.kagkarlsson.scheduler.task.helper.Tasks;
 import com.github.kagkarlsson.scheduler.task.schedule.Schedules;
 
 import edu.iu.terracotta.exceptions.scheduledtask.ScheduledTaskNotFound;
-import edu.iu.terracotta.runner.apitokencleaner.ApiTokenCleanerSchedulerService;
-import edu.iu.terracotta.runner.apitokencleaner.model.ApiTokenCleanerScheduleResult;
+import edu.iu.terracotta.connectors.brightspace.runner.apitokencleaner.ApiTokenCleanerSchedulerService;
+import edu.iu.terracotta.connectors.brightspace.runner.apitokencleaner.model.ApiTokenCleanerScheduleResult;
 import edu.iu.terracotta.service.app.ScheduledTaskService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;

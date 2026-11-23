@@ -14,7 +14,7 @@ public class ExperimentCopyNotificationServiceImpl implements ExperimentCopyNoti
     static final String SUBJECT = "Terracotta experiment copy notification";
     static final String BODY = """
         <p>Dear %s,</p>
-        <p>There was an error recreating the Terracotta assignments in your newly copied Canvas course. Please login to the new Canvas course, relaunch Terracotta, and reauthorize Terracotta to function in the LMS.</p>
+        <p>There was an error recreating the Terracotta assignments in your newly copied %s course. Please login to the new %s course, relaunch Terracotta, and reauthorize Terracotta to function in the LMS.</p>
         <p>If you have further questions, please send them to %s.</p>
         <p>Thank you,<br>
         Terracotta Support</p>
@@ -24,10 +24,12 @@ public class ExperimentCopyNotificationServiceImpl implements ExperimentCopyNoti
 
     @Override
     public void notifyLmsFailure(LtiUserEntity instructor) {
+        String lms = NotificationEmailSender.lmsName(instructor);
+
         notificationEmailSender.sendHtml(
             instructor,
             SUBJECT,
-            String.format(BODY, NotificationEmailSender.greetingName(instructor), NotificationEmailSender.supportLinkHtml()),
+            String.format(BODY, NotificationEmailSender.greetingName(instructor), lms, lms, NotificationEmailSender.supportLinkHtml()),
             "experiment copy failure"
         );
     }
