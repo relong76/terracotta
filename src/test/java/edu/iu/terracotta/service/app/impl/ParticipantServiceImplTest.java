@@ -556,6 +556,32 @@ public class ParticipantServiceImplTest extends BaseTest {
     }
 
     @Test
+    public void testConsentIsOnlyPendingWhenItsPublishedInTheLms() throws ApiException, TerracottaConnectorException {
+        when(experimentRepository.findByExperimentId(1L)).thenReturn(experiment);
+        when(experiment.getParticipationType()).thenReturn(ParticipationTypes.CONSENT);
+        when(participantRepository.findByExperiment_ExperimentIdAndLtiUserEntity_UserKey(1L, securedInfo.getUserId())).thenReturn(null);
+
+        when(lmsAssignment.isPublished()).thenReturn(true);
+        assertTrue(participantService.isConsentPending(1L, securedInfo));
+        verify(apiClient).listAssignment(any(LtiUserEntity.class), eq("1"), eq("1"));
+
+        when(lmsAssignment.isPublished()).thenReturn(false);
+        assertFalse(participantService.isConsentPending(1L, securedInfo));
+
+        // deleted in the LMS
+        when(apiClient.listAssignment(any(LtiUserEntity.class), anyString(), anyString())).thenReturn(Optional.empty());
+        assertFalse(participantService.isConsentPending(1L, securedInfo));
+
+        // the LMS couldn't say: the form is shown
+        when(apiClient.listAssignment(any(LtiUserEntity.class), anyString(), anyString())).thenThrow(new ApiException("boom"));
+        assertTrue(participantService.isConsentPending(1L, securedInfo));
+
+        // never created in the LMS
+        when(consentDocument.getLmsAssignmentId()).thenReturn(null);
+        assertFalse(participantService.isConsentPending(1L, securedInfo));
+    }
+
+    @Test
     public void testConsentPendingDoesntLookForSubmissionsWhenItsAnswered() {
         when(experimentRepository.findByExperimentId(1L)).thenReturn(experiment);
         when(experiment.getParticipationType()).thenReturn(ParticipationTypes.MANUAL);
