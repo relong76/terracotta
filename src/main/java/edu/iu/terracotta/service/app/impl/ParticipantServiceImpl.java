@@ -1156,7 +1156,37 @@ public class ParticipantServiceImpl implements ParticipantService {
         // form, by skipping it or before it was asked for, and that launch left them out of the
         // study: the form isn't put before their assignments again (they can still open it
         // themselves, from the consent assignment)
-        return participant == null || !submissionRepository.existsByParticipant_Id(participant.getParticipantId());
+        if (participant != null && submissionRepository.existsByParticipant_Id(participant.getParticipantId())) {
+            return false;
+        }
+
+        // the form is only put before assignments once the instructor has published it in the LMS
+        return isConsentAssignmentPublished(experiment, securedInfo);
+    }
+
+    private boolean isConsentAssignmentPublished(Experiment experiment, SecuredInfo securedInfo) {
+        String lmsAssignmentId = experiment.getConsentDocument().getLmsAssignmentId();
+
+        if (lmsAssignmentId == null) {
+            // never created in the LMS, so students can't see it there
+            return false;
+        }
+
+        try {
+            return apiClient.listAssignment(lmsApiUserFor(securedInfo, experiment.getCreatedBy()), securedInfo.getLmsCourseId(), lmsAssignmentId)
+                .map(LmsAssignment::isPublished)
+                .orElse(false);
+        } catch (Exception e) {
+            // the LMS couldn't say: show the form, so a student isn't left out of the study
+            // because of an LMS hiccup
+            log.warn(
+                "Couldn't check in the LMS whether the consent assignment of experiment ID: [{}] is published: {}. Treated it as published.",
+                experiment.getExperimentId(),
+                e.getMessage()
+            );
+
+            return true;
+        }
     }
 
     // participant is null for a student with no participant record yet, who hasn't answered either
