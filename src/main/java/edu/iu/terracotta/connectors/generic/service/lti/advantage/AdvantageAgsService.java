@@ -24,4 +24,11 @@ public interface AdvantageAgsService {
     LineItems postLineItems(LtiToken ltiToken, LtiContextEntity context, LineItems lineItems) throws ConnectionException;
     void postScore(LtiToken ltiTokenScores, LtiToken ltiTokenResults, LtiContextEntity context, String lineItemId, Score score) throws ConnectionException, TerracottaConnectorException;
 
+    /**
+     * Whether the LMS keeps one comment per grade and replaces it with each score's comment (so a
+     * score should always carry the current comment), rather than adding each comment it receives
+     * as a new one (so a score should only carry a comment that changed).
+     */
+    boolean replacesScoreComment(PlatformDeployment platformDeployment) throws TerracottaConnectorException;
+
 }

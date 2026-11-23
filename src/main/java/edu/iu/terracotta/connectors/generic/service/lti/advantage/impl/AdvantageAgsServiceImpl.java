@@ -174,4 +174,9 @@ public class AdvantageAgsServiceImpl implements AdvantageAgsService {
             .postScore(ltiTokenScores, ltiTokenResults, ltiContextEntity, lineItemId, score);
     }
 
+    @Override
+    public boolean replacesScoreComment(PlatformDeployment platformDeployment) throws TerracottaConnectorException {
+        return instance(platformDeployment).replacesScoreComment(platformDeployment);
+    }
+
 }

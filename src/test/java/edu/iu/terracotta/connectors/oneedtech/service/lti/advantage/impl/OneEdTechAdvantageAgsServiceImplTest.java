@@ -1,5 +1,6 @@
 package edu.iu.terracotta.connectors.oneedtech.service.lti.advantage.impl;
 
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -211,6 +212,11 @@ public class OneEdTechAdvantageAgsServiceImplTest extends BaseTest {
         when(restTemplate.exchange(anyString(), eq(HttpMethod.POST), any(HttpEntity.class), eq(Void.class))).thenThrow(new RuntimeException("connection failure"));
 
         assertThrows(ConnectionException.class, () -> oneEdTechAdvantageAgsService.postScore(ltiToken, ltiToken, ltiContextEntity, LTI_URL, realScore));
+    }
+
+    @Test
+    public void testDoesntReplaceScoreComment() {
+        assertFalse(oneEdTechAdvantageAgsService.replacesScoreComment(platformDeployment));
     }
 
 }

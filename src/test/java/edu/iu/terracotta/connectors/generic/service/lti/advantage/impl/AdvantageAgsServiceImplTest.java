@@ -5,9 +5,11 @@ import edu.iu.terracotta.connectors.generic.dao.model.lti.ags.LineItem;
 import edu.iu.terracotta.connectors.generic.dao.model.lti.ags.LineItems;
 import edu.iu.terracotta.connectors.generic.dao.model.lti.enums.LtiAgsScope;
 import edu.iu.terracotta.connectors.generic.exceptions.ConnectionException;
+import edu.iu.terracotta.connectors.generic.exceptions.TerracottaConnectorException;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
@@ -106,6 +108,13 @@ public class AdvantageAgsServiceImplTest extends BaseTest {
         when(restTemplate.exchange(anyString(), eq(HttpMethod.POST), any(HttpEntity.class), eq(LineItem[].class))).thenReturn(new ResponseEntity<>(HttpStatusCode.valueOf(400)));
 
         assertThrows(ConnectionException.class, () -> advantageAgsService.postLineItems(ltiToken, ltiContextEntity, lineItems));
+    }
+
+    @Test
+    public void testReplacesScoreCommentAsksTheDeploymentsConnector() throws TerracottaConnectorException {
+        when(canvasAdvantageAgsService.replacesScoreComment(platformDeployment)).thenReturn(true);
+
+        assertTrue(advantageAgsService.replacesScoreComment(platformDeployment));
     }
 
 }

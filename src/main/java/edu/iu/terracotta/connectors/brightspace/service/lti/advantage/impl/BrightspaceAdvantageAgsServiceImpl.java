@@ -217,4 +217,10 @@ public class BrightspaceAdvantageAgsServiceImpl implements AdvantageAgsService {
         }
     }
 
+    @Override
+    public boolean replacesScoreComment(PlatformDeployment platformDeployment) {
+        // Brightspace keeps one feedback per grade and replaces it with each score
+        return true;
+    }
+
 }

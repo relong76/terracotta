@@ -182,4 +182,10 @@ public class CanvasAdvantageAgsServiceImpl implements AdvantageAgsService {
         }
     }
 
+    @Override
+    public boolean replacesScoreComment(PlatformDeployment platformDeployment) {
+        // Canvas adds every comment it receives as a new submission comment
+        return false;
+    }
+
 }
