@@ -12,6 +12,8 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
+import edu.iu.terracotta.utils.LtiStrings;
+
 @Getter
 @Setter
 @Builder
@@ -29,7 +31,7 @@ public class CanvasScore {
     @JsonProperty private String timestamp;
 
     @Builder.Default
-    @JsonProperty("https://canvas.instructure.com/lti/submission")
+    @JsonProperty(LtiStrings.CANVAS_SUBMISSION)
     private Map<String, Object> lmsSubmissionExtension = new HashMap<>();
 
 }

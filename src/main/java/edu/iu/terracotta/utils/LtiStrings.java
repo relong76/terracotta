@@ -180,6 +180,8 @@ public final class LtiStrings {
     public static final String JTI = "jti";
 
     //CANVAS LTI EXTENSIONS
+    // Canvas's extension on an AGS score (e.g. new_submission, submitted_at)
+    public static final String CANVAS_SUBMISSION = "https://canvas.instructure.com/lti/submission";
     public static final String CANVAS_PRODUCT_FAMILY_CODE = "canvas";
     public static final String CANVAS_PLATFORM = "canvas.instructure.com";
     public static final String CANVAS_PLACEMENT_COURSE_NAVIGATION = "course_navigation";
