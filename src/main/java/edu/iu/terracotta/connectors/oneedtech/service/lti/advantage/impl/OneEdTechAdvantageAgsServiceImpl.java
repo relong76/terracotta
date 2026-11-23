@@ -211,4 +211,9 @@ public class OneEdTechAdvantageAgsServiceImpl implements AdvantageAgsService {
         }
     }
 
+    @Override
+    public boolean replacesScoreComment(PlatformDeployment platformDeployment) {
+        return false;
+    }
+
 }

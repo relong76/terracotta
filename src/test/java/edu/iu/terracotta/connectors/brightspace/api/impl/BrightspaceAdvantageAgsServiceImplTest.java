@@ -312,4 +312,10 @@ public class BrightspaceAdvantageAgsServiceImplTest extends BaseTest {
         verify(exceptionMessageGenerator).exceptionMessage(eq("Can't post scores"), any(RuntimeException.class));
     }
 
+    // Brightspace keeps one feedback per grade and replaces it with each score
+    @Test
+    public void testReplacesScoreComment() {
+        assertTrue(brightspaceAdvantageAgsService.replacesScoreComment(platformDeployment));
+    }
+
 }

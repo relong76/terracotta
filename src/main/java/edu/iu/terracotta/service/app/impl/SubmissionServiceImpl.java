@@ -3,7 +3,6 @@ package edu.iu.terracotta.service.app.impl;
 import edu.iu.terracotta.connectors.generic.dao.entity.lti.LtiUserEntity;
 import edu.iu.terracotta.connectors.generic.dao.entity.lti.PlatformDeployment;
 import edu.iu.terracotta.connectors.generic.dao.model.SecuredInfo;
-import edu.iu.terracotta.connectors.generic.dao.model.enums.LmsConnector;
 import edu.iu.terracotta.connectors.generic.dao.model.lms.LmsSubmission;
 import edu.iu.terracotta.connectors.generic.dao.model.lti.LtiToken;
 import edu.iu.terracotta.connectors.generic.dao.model.lti.ags.LineItem;
@@ -622,10 +621,10 @@ public class SubmissionServiceImpl implements SubmissionService {
 
         String comment = gradeComment(submission);
         String commentHash = comment != null ? sha256(comment) : null;
-        // Brightspace keeps one feedback per grade and replaces it with each score, so it always gets
-        // the current comment. Canvas adds every comment it receives as a new submission comment, so it
-        // only gets one that changed since it was last sent.
-        boolean lmsReplacesComment = experiment.getPlatformDeployment().getLmsConnector() == LmsConnector.BRIGHTSPACE;
+        // an LMS that replaces a grade's comment with each score always gets the current comment; one
+        // that adds every comment it receives as a new one only gets a comment that changed since it
+        // was last sent
+        boolean lmsReplacesComment = advantageAgsService.replacesScoreComment(experiment.getPlatformDeployment());
         boolean commentChanged = commentHash != null && !commentHash.equals(submission.getLmsCommentHash());
 
         if (comment != null && (lmsReplacesComment || commentChanged)) {

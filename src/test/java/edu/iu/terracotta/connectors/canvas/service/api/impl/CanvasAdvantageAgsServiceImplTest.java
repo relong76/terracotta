@@ -1,5 +1,6 @@
 package edu.iu.terracotta.connectors.canvas.service.api.impl;
 
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -206,6 +207,12 @@ public class CanvasAdvantageAgsServiceImplTest extends BaseTest {
         when(advantageConnectorHelper.nextPage(any(HttpHeaders.class))).thenReturn("https://canvas.example.edu/next", (String) null);
 
         assertThrows(ConnectionException.class, () -> canvasAdvantageAgsService.getLineItems(ltiToken, ltiContextEntity));
+    }
+
+    // Canvas adds every comment it receives as a new submission comment
+    @Test
+    public void testDoesntReplaceScoreComment() {
+        assertFalse(canvasAdvantageAgsService.replacesScoreComment(platformDeployment));
     }
 
 }

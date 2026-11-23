@@ -42,7 +42,6 @@ import java.util.concurrent.atomic.AtomicReference;
 
 import edu.iu.terracotta.base.BaseTest;
 import edu.iu.terracotta.connectors.generic.dao.entity.lti.PlatformDeployment;
-import edu.iu.terracotta.connectors.generic.dao.model.enums.LmsConnector;
 import edu.iu.terracotta.connectors.generic.dao.model.lms.LmsSubmission;
 import edu.iu.terracotta.connectors.generic.dao.model.lti.ags.Score;
 import edu.iu.terracotta.connectors.generic.dao.model.lti.enums.LtiAgsScope;
@@ -941,11 +940,11 @@ public class SubmissionServiceImplTest extends BaseTest {
         verify(submission, never()).setLmsCommentHash(any());
     }
 
-    // Brightspace replaces the grade's feedback with each score, so it always gets the current comment
+    // an LMS like Brightspace replaces the grade's feedback with each score, so it always gets the current comment
     @Test
-    public void testAlwaysSendsTheCommentToBrightspace() throws Exception {
+    public void testAlwaysSendsTheCommentToAnLmsThatReplacesIt() throws Exception {
         when(assignment.getResourceLinkId()).thenReturn(RESOURCE_LINK_ID);
-        when(platformDeployment.getLmsConnector()).thenReturn(LmsConnector.BRIGHTSPACE);
+        when(advantageAgsService.replacesScoreComment(platformDeployment)).thenReturn(true);
         QuestionSubmissionComment comment = commentOn(questionSubmission, "Nice work");
         when(questionSubmissionCommentRepository.findByQuestionSubmission_QuestionSubmissionIdIn(any())).thenReturn(List.of(comment));
         when(submission.getLmsCommentHash()).thenReturn(sha256("Question 1: Nice work"));
