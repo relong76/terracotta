@@ -20,6 +20,7 @@ import edu.iu.terracotta.connectors.generic.service.lti.advantage.AdvantageConne
 import edu.iu.terracotta.connectors.canvas.service.lti.advantage.CanvasAdvantageNoticeService;
 import edu.iu.terracotta.dao.model.enums.FeatureType;
 import edu.iu.terracotta.service.app.FeatureService;
+import edu.iu.terracotta.utils.LtiStrings;
 import edu.iu.terracotta.utils.TextConstants;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -32,7 +33,6 @@ public class CanvasAdvantageNoticeServiceImpl implements CanvasAdvantageNoticeSe
 
     // per Canvas's Notice Handlers API docs; not an AGS/NRPS scope, so it doesn't belong in
     // LtiAgsScope
-    private static final String NOTICE_HANDLERS_SCOPE = "https://purl.imsglobal.org/spec/lti/scope/noticehandlers";
     private static final String NOTICE_TYPE_COURSE_COPY = "LtiContextCopyNotice";
     // a failure here is usually a per-institution Canvas Developer Key that doesn't have the
     // noticehandlers scope granted yet, which only that institution's admin can fix - back off
@@ -70,7 +70,7 @@ public class CanvasAdvantageNoticeServiceImpl implements CanvasAdvantageNoticeSe
         }
 
         try {
-            LtiToken ltiToken = advantageConnectorHelper.getToken(toolDeployment.getPlatformDeployment(), NOTICE_HANDLERS_SCOPE);
+            LtiToken ltiToken = advantageConnectorHelper.getToken(toolDeployment.getPlatformDeployment(), LtiStrings.LTI_SCOPE_NOTICE_HANDLERS);
 
             HttpHeaders headers = new HttpHeaders();
             headers.set(HttpHeaders.AUTHORIZATION, TextConstants.BEARER + ltiToken.getAccess_token());

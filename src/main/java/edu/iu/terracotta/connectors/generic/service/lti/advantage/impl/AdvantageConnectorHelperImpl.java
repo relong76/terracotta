@@ -8,6 +8,7 @@ import edu.iu.terracotta.connectors.generic.exceptions.ConnectionException;
 import edu.iu.terracotta.connectors.generic.exceptions.helper.ExceptionMessageGenerator;
 import edu.iu.terracotta.connectors.generic.service.lti.LtiJwtService;
 import edu.iu.terracotta.connectors.generic.service.lti.advantage.AdvantageConnectorHelper;
+import edu.iu.terracotta.utils.LtiStrings;
 import edu.iu.terracotta.utils.TextConstants;
 import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
@@ -227,13 +228,13 @@ public class AdvantageConnectorHelperImpl implements AdvantageConnectorHelper {
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_FORM_URLENCODED);
         MultiValueMap<String, String> map = new LinkedMultiValueMap<>();
-        map.add("grant_type", "client_credentials");
+        map.add(LtiStrings.OAUTH_GRANT_TYPE, LtiStrings.OAUTH_GRANT_TYPE_CLIENT_CREDENTIALS);
         // This is standard too
-        map.add("client_assertion_type", "urn:ietf:params:oauth:client-assertion-type:jwt-bearer");
+        map.add(LtiStrings.OAUTH_CLIENT_ASSERTION_TYPE, LtiStrings.OAUTH_CLIENT_ASSERTION_TYPE_JWT_BEARER);
         //This is special (see the generateTokenRequestJWT method for more comments)
-        map.add("client_assertion", ltijwtService.generateTokenRequestJWT(platformDeployment));
+        map.add(LtiStrings.OAUTH_CLIENT_ASSERTION, ltijwtService.generateTokenRequestJWT(platformDeployment));
         //We need to pass the scope of the token, meaning, the service we want to allow with this token.
-        map.add("scope", scope);
+        map.add(LtiStrings.OAUTH_SCOPE, scope);
 
         return new HttpEntity<>(map, headers);
     }
@@ -244,13 +245,13 @@ public class AdvantageConnectorHelperImpl implements AdvantageConnectorHelper {
         headers.setContentType(MediaType.APPLICATION_JSON);
         JSONObject parameterJson = new JSONObject();
         // The grant type is client credentials always
-        parameterJson.put("grant_type", "client_credentials");
+        parameterJson.put(LtiStrings.OAUTH_GRANT_TYPE, LtiStrings.OAUTH_GRANT_TYPE_CLIENT_CREDENTIALS);
         // This is standard too
-        parameterJson.put("client_assertion_type", "urn:ietf:params:oauth:client-assertion-type:jwt-bearer");
+        parameterJson.put(LtiStrings.OAUTH_CLIENT_ASSERTION_TYPE, LtiStrings.OAUTH_CLIENT_ASSERTION_TYPE_JWT_BEARER);
         //This is special (see the generateTokenRequestJWT method for more comments)
-        parameterJson.put("client_assertion", ltijwtService.generateTokenRequestJWT(platformDeployment));
+        parameterJson.put(LtiStrings.OAUTH_CLIENT_ASSERTION, ltijwtService.generateTokenRequestJWT(platformDeployment));
         //We need to pass the scope of the token, meaning, the service we want to allow with this token.
-        parameterJson.put("scope", scope);
+        parameterJson.put(LtiStrings.OAUTH_SCOPE, scope);
 
         return new HttpEntity<>(parameterJson.toString(), headers);
     }

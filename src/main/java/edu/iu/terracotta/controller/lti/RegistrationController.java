@@ -81,11 +81,11 @@ public class RegistrationController {
      * @throws NumberFormatException
      */
     @GetMapping("/")
-    public String registration(@RequestParam("openid_configuration") String openidConfiguration, @RequestParam(LtiStrings.REGISTRATION_TOKEN) String registrationToken, HttpServletRequest req, Model model) throws NumberFormatException, TerracottaConnectorException {
+    public String registration(@RequestParam(LtiStrings.REGISTRATION_OPENID_CONFIGURATION) String openidConfiguration, @RequestParam(LtiStrings.REGISTRATION_TOKEN) String registrationToken, HttpServletRequest req, Model model) throws NumberFormatException, TerracottaConnectorException {
         // We need to call the configuration endpoint recevied in the registration inititaion message and
         // call it to get all the information about the platform
         HttpSession session = req.getSession();
-        model.addAttribute("openid_configuration", openidConfiguration);
+        model.addAttribute(LtiStrings.REGISTRATION_OPENID_CONFIGURATION, openidConfiguration);
         model.addAttribute(LtiStrings.REGISTRATION_TOKEN, registrationToken);
 
         SecuredInfo securedInfo = apijwtService.extractValues(req, false);
@@ -178,18 +178,18 @@ public class RegistrationController {
         SecuredInfo securedInfo = apijwtService.extractValues(req, false);
         Optional<PlatformDeployment> platformDeployment = platformDeploymentRepository.findById(securedInfo.getPlatformDeploymentId());
         ToolRegistrationDto toolRegistrationDto = new ToolRegistrationDto();
-        toolRegistrationDto.setApplication_type("web");
+        toolRegistrationDto.setApplication_type(LtiStrings.REGISTRATION_APPLICATION_TYPE_WEB);
         List<String> grantTypes = new ArrayList<>();
-        grantTypes.add("implict");
-        grantTypes.add("client_credentials");
+        grantTypes.add(LtiStrings.OAUTH_GRANT_TYPE_IMPLICIT);
+        grantTypes.add(LtiStrings.OAUTH_GRANT_TYPE_CLIENT_CREDENTIALS);
         toolRegistrationDto.setGrant_types(grantTypes);
-        toolRegistrationDto.setResponse_types(Collections.singletonList("id_token"));
+        toolRegistrationDto.setResponse_types(Collections.singletonList(LtiStrings.OIDC_ID_TOKEN));
         toolRegistrationDto.setRedirect_uris(Collections.singletonList(platformDeployment.get().getLocalUrl() + TextConstants.LTI3_SUFFIX));
         toolRegistrationDto.setInitiate_login_uri(platformDeployment.get().getLocalUrl() + "/oidc/login_initiations");
         toolRegistrationDto.setClient_name(clientName);
         toolRegistrationDto.setJwks_uri(platformDeployment.get().getLocalUrl() + "/jwks/jwk");
         //OPTIONAL -->setLogo_uri
-        toolRegistrationDto.setToken_endpoint_auth_method("private_key_jwt");
+        toolRegistrationDto.setToken_endpoint_auth_method(LtiStrings.OAUTH_TOKEN_ENDPOINT_AUTH_PRIVATE_KEY_JWT);
         //OPTIONAL -->setContacts
         //OPTIONAL -->setClient_uri
         //OPTIONAL -->setTos_uri
@@ -203,36 +203,36 @@ public class RegistrationController {
         toolConfigurationDto.setDescription(description);
         List<ToolMessagesSupportedDto> messages = new ArrayList<>();
         ToolMessagesSupportedDto message1 = new ToolMessagesSupportedDto();
-        message1.setType("LtiDeepLinkingRequest");
+        message1.setType(LtiStrings.LTI_MESSAGE_TYPE_DEEP_LINKING);
         message1.setTarget_link_uri(platformDeployment.get().getLocalUrl() + TextConstants.LTI3_SUFFIX);
         //OPTIONAL: --> message1 --> setLabel
         //OPTIONAL: --> message1 --> setIcon_uri
         //OPTIONAL: --> message1 --> setCustom_parameters
         messages.add(message1);
         ToolMessagesSupportedDto message2 = new ToolMessagesSupportedDto();
-        message2.setType("LtiResourceLinkRequest");
+        message2.setType(LtiStrings.LTI_MESSAGE_TYPE_RESOURCE_LINK);
         message2.setTarget_link_uri(platformDeployment.get().getLocalUrl() + TextConstants.LTI3_SUFFIX);
         messages.add(message2);
         toolConfigurationDto.setMessages_supported(messages);
         //TODO, fill this correctly based on the claims received.
         List<String> claims = new ArrayList<>();
-        claims.add("iss");
-        claims.add("aud");
+        claims.add(LtiStrings.ISS);
+        claims.add(LtiStrings.AUD);
         toolConfigurationDto.setClaims(claims);
         toolRegistrationDto.setToolConfiguration(toolConfigurationDto);
         //TODO, fill this correctly based on the scopes received.
         List<String> scopes = new ArrayList<>();
-        scopes.add("openid");
-        scopes.add("https://purl.imsglobal.org/spec/lti-ags/scope/lineitem");
-        scopes.add("https://purl.imsglobal.org/spec/lti-ags/scope/result.readonly");
-        scopes.add("https://purl.imsglobal.org/spec/lti-ags/scope/score");
-        scopes.add("https://purl.imsglobal.org/spec/lti-reg/scope/registration");
-        scopes.add("https://purl.imsglobal.org/spec/lti-nrps/scope/contextmembership.readonly");
+        scopes.add(LtiStrings.OIDC_SCOPE_OPENID);
+        scopes.add(LtiStrings.LTI_SCOPE_AGS_LINEITEM);
+        scopes.add(LtiStrings.LTI_SCOPE_AGS_RESULT_READONLY);
+        scopes.add(LtiStrings.LTI_SCOPE_AGS_SCORE);
+        scopes.add(LtiStrings.LTI_SCOPE_REGISTRATION);
+        scopes.add(LtiStrings.LTI_SCOPE_NRPS_MEMBERSHIP_READONLY);
         // Platform Notification Service - lets this tool register itself as a handler for
         // Canvas's course-copy notice (see CanvasAdvantageNoticeServiceImpl/NoticeController). A
         // Canvas admin still has to explicitly check this scope on the resulting Developer Key
         // if "Enforce Scopes" is enabled for it - requesting it here only makes Canvas offer it.
-        scopes.add("https://purl.imsglobal.org/spec/lti/scope/noticehandlers");
+        scopes.add(LtiStrings.LTI_SCOPE_NOTICE_HANDLERS);
         toolRegistrationDto.setScope(scopes);
 
         return toolRegistrationDto;
