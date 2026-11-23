@@ -1,4 +1,4 @@
-package edu.iu.terracotta.controller.lti;
+package edu.iu.terracotta.connectors.canvas.controller;
 
 import java.util.Map;
 
