@@ -14,6 +14,7 @@ import edu.iu.terracotta.connectors.canvas.service.lti.CanvasDynamicRegistration
 import edu.iu.terracotta.connectors.canvas.service.lti.CanvasRegistrationException;
 import edu.iu.terracotta.connectors.canvas.service.lti.CanvasToolConfigurationService;
 import edu.iu.terracotta.connectors.generic.dao.entity.lti.PlatformDeployment;
+import edu.iu.terracotta.utils.LtiStrings;
 import lombok.RequiredArgsConstructor;
 
 /**
@@ -47,8 +48,8 @@ public class CanvasLtiController {
      */
     @GetMapping("/registration")
     public String registration(
-            @RequestParam(name = "openid_configuration", required = false) String openidConfiguration,
-            @RequestParam(name = "registration_token", required = false) String registrationToken,
+            @RequestParam(name = LtiStrings.REGISTRATION_OPENID_CONFIGURATION, required = false) String openidConfiguration,
+            @RequestParam(name = LtiStrings.REGISTRATION_TOKEN, required = false) String registrationToken,
             Model model) {
         try {
             PlatformDeployment platformDeployment = canvasDynamicRegistrationService.register(openidConfiguration, registrationToken);

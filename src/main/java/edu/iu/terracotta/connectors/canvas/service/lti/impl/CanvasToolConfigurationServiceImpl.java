@@ -11,6 +11,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import edu.iu.terracotta.connectors.canvas.service.lti.CanvasToolConfigurationService;
+import edu.iu.terracotta.utils.LtiStrings;
 
 @Service
 public class CanvasToolConfigurationServiceImpl implements CanvasToolConfigurationService {
@@ -18,28 +19,28 @@ public class CanvasToolConfigurationServiceImpl implements CanvasToolConfigurati
     public static final String LAUNCH_PATH = "/lti3";
     public static final String LOGIN_INITIATION_PATH = "/oidc/login_initiations";
     public static final String JWKS_PATH = "/jwks/jwk";
-    public static final String CANVAS_PLATFORM = "canvas.instructure.com";
-    public static final String PLACEMENT = "course_navigation";
-    public static final String MESSAGE_TYPE = "LtiResourceLinkRequest";
+    public static final String CANVAS_PLATFORM = LtiStrings.CANVAS_PLATFORM;
+    public static final String PLACEMENT = LtiStrings.CANVAS_PLACEMENT_COURSE_NAVIGATION;
+    public static final String MESSAGE_TYPE = LtiStrings.LTI_MESSAGE_TYPE_RESOURCE_LINK;
     // names, emails and the Canvas IDs below reach Terracotta at launch
-    public static final String PRIVACY_LEVEL = "public";
+    public static final String PRIVACY_LEVEL = LtiStrings.CANVAS_PRIVACY_LEVEL_PUBLIC;
 
     // what Terracotta reads from each launch (see LtiStrings and the launch handling)
     public static final Map<String, String> CUSTOM_FIELDS = customFields();
 
     public static final List<String> SCOPES = List.of(
-        "https://purl.imsglobal.org/spec/lti-ags/scope/lineitem.readonly",
-        "https://purl.imsglobal.org/spec/lti-ags/scope/lineitem",
-        "https://purl.imsglobal.org/spec/lti-ags/scope/result.readonly",
-        "https://purl.imsglobal.org/spec/lti-ags/scope/score",
-        "https://purl.imsglobal.org/spec/lti-nrps/scope/contextmembership.readonly",
-        "https://canvas.instructure.com/lti/account_lookup/scope/show",
+        LtiStrings.LTI_SCOPE_AGS_LINEITEM_READONLY,
+        LtiStrings.LTI_SCOPE_AGS_LINEITEM,
+        LtiStrings.LTI_SCOPE_AGS_RESULT_READONLY,
+        LtiStrings.LTI_SCOPE_AGS_SCORE,
+        LtiStrings.LTI_SCOPE_NRPS_MEMBERSHIP_READONLY,
+        LtiStrings.CANVAS_SCOPE_ACCOUNT_LOOKUP,
         // course copy notices (see NoticeController)
-        "https://purl.imsglobal.org/spec/lti/scope/noticehandlers"
+        LtiStrings.LTI_SCOPE_NOTICE_HANDLERS
     );
 
     // the OpenID claims a launch carries; Canvas's privacy level decides which it actually sends
-    public static final List<String> CLAIMS = List.of("iss", "sub", "name", "given_name", "family_name", "email");
+    public static final List<String> CLAIMS = List.of(LtiStrings.ISS, LtiStrings.SUB, LtiStrings.LTI_NAME, LtiStrings.LTI_GIVEN_NAME, LtiStrings.LTI_FAMILY_NAME, LtiStrings.LTI_EMAIL);
 
     @Value("${application.url}")
     private String applicationUrl;
@@ -100,32 +101,32 @@ public class CanvasToolConfigurationServiceImpl implements CanvasToolConfigurati
     @Override
     public Map<String, Object> registrationRequest() {
         Map<String, Object> message = new LinkedHashMap<>();
-        message.put("type", MESSAGE_TYPE);
-        message.put("target_link_uri", url(LAUNCH_PATH));
-        message.put("label", title);
-        message.put("placements", List.of(PLACEMENT));
+        message.put(LtiStrings.TOOL_MESSAGE_TYPE, MESSAGE_TYPE);
+        message.put(LtiStrings.TOOL_MESSAGE_TARGET_LINK_URI, url(LAUNCH_PATH));
+        message.put(LtiStrings.TOOL_MESSAGE_LABEL, title);
+        message.put(LtiStrings.TOOL_MESSAGE_PLACEMENTS, List.of(PLACEMENT));
 
         Map<String, Object> toolConfiguration = new LinkedHashMap<>();
-        toolConfiguration.put("domain", URI.create(baseUrl()).getHost());
-        toolConfiguration.put("description", description);
-        toolConfiguration.put("target_link_uri", url(LAUNCH_PATH));
-        toolConfiguration.put("custom_parameters", CUSTOM_FIELDS);
-        toolConfiguration.put("claims", CLAIMS);
-        toolConfiguration.put("messages", List.of(message));
-        toolConfiguration.put("https://canvas.instructure.com/lti/privacy_level", PRIVACY_LEVEL);
+        toolConfiguration.put(LtiStrings.TOOL_CONFIGURATION_DOMAIN, URI.create(baseUrl()).getHost());
+        toolConfiguration.put(LtiStrings.TOOL_CONFIGURATION_DESCRIPTION, description);
+        toolConfiguration.put(LtiStrings.TOOL_CONFIGURATION_TARGET_LINK_URI, url(LAUNCH_PATH));
+        toolConfiguration.put(LtiStrings.TOOL_CONFIGURATION_CUSTOM_PARAMETERS, CUSTOM_FIELDS);
+        toolConfiguration.put(LtiStrings.TOOL_CONFIGURATION_CLAIMS, CLAIMS);
+        toolConfiguration.put(LtiStrings.TOOL_CONFIGURATION_MESSAGES, List.of(message));
+        toolConfiguration.put(LtiStrings.CANVAS_PRIVACY_LEVEL, PRIVACY_LEVEL);
 
         Map<String, Object> registration = new LinkedHashMap<>();
-        registration.put("application_type", "web");
-        registration.put("client_name", title);
-        registration.put("grant_types", List.of("client_credentials", "implicit"));
-        registration.put("response_types", List.of("id_token"));
-        registration.put("redirect_uris", List.of(url(LAUNCH_PATH)));
-        registration.put("initiate_login_uri", url(LOGIN_INITIATION_PATH));
-        registration.put("jwks_uri", url(JWKS_PATH));
-        registration.put("token_endpoint_auth_method", "private_key_jwt");
+        registration.put(LtiStrings.REGISTRATION_APPLICATION_TYPE, LtiStrings.REGISTRATION_APPLICATION_TYPE_WEB);
+        registration.put(LtiStrings.REGISTRATION_CLIENT_NAME, title);
+        registration.put(LtiStrings.REGISTRATION_GRANT_TYPES, List.of(LtiStrings.OAUTH_GRANT_TYPE_CLIENT_CREDENTIALS, LtiStrings.OAUTH_GRANT_TYPE_IMPLICIT));
+        registration.put(LtiStrings.REGISTRATION_RESPONSE_TYPES, List.of(LtiStrings.OIDC_ID_TOKEN));
+        registration.put(LtiStrings.REGISTRATION_REDIRECT_URIS, List.of(url(LAUNCH_PATH)));
+        registration.put(LtiStrings.REGISTRATION_INITIATE_LOGIN_URI, url(LOGIN_INITIATION_PATH));
+        registration.put(LtiStrings.REGISTRATION_JWKS_URI, url(JWKS_PATH));
+        registration.put(LtiStrings.REGISTRATION_TOKEN_ENDPOINT_AUTH_METHOD, LtiStrings.OAUTH_TOKEN_ENDPOINT_AUTH_PRIVATE_KEY_JWT);
         // one space separated string, as the spec (OAuth 2.0 dynamic client registration) has it
-        registration.put("scope", String.join(" ", SCOPES));
-        registration.put("https://purl.imsglobal.org/spec/lti-tool-configuration", toolConfiguration);
+        registration.put(LtiStrings.REGISTRATION_SCOPE, String.join(" ", SCOPES));
+        registration.put(LtiStrings.REGISTRATION_TOOL_CONFIGURATION, toolConfiguration);
 
         return registration;
     }
