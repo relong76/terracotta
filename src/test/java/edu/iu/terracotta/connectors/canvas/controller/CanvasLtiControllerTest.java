@@ -1,4 +1,4 @@
-package edu.iu.terracotta.controller.lti;
+package edu.iu.terracotta.connectors.canvas.controller;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;

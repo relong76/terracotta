@@ -11,6 +11,8 @@ import lombok.Setter;
 
 import java.util.List;
 
+import edu.iu.terracotta.utils.LtiStrings;
+
 @Getter
 @Setter
 @Builder
@@ -32,7 +34,7 @@ public class PlatformRegistrationDto {
     private List<String> claims_supported;
     private String authorization_server;
 
-    @JsonProperty("https://purl.imsglobal.org/spec/lti-platform-configuration")
+    @JsonProperty(LtiStrings.REGISTRATION_PLATFORM_CONFIGURATION)
     private PlatformConfigurationDto platformConfiguration;
 
 }

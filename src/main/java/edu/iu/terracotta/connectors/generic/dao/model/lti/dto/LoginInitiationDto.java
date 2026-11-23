@@ -10,6 +10,8 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
+import edu.iu.terracotta.utils.LtiStrings;
+
 @Getter
 @Setter
 @NoArgsConstructor
@@ -27,12 +29,12 @@ public class LoginInitiationDto {
 
     public LoginInitiationDto(HttpServletRequest req) {
         this(
-            req.getParameter("iss"),
-            req.getParameter("login_hint"),
-            req.getParameter("target_link_uri"),
-            req.getParameter("lti_message_hint"),
-            req.getParameter("client_id"),
-            req.getParameter("lti_deployment_id")
+            req.getParameter(LtiStrings.OIDC_ISS),
+            req.getParameter(LtiStrings.OIDC_LOGIN_HINT),
+            req.getParameter(LtiStrings.OIDC_TARGET_LINK_URI),
+            req.getParameter(LtiStrings.OIDC_LTI_MESSAGE_HINT),
+            req.getParameter(LtiStrings.OIDC_CLIENT_ID),
+            req.getParameter(LtiStrings.OIDC_LTI_DEPLOYMENT_ID)
         );
     }
 

@@ -2,12 +2,12 @@ package edu.iu.terracotta.controller.lti;
 
 import edu.iu.terracotta.connectors.generic.service.lti.LtiDataService;
 import edu.iu.terracotta.utils.oauth.OAuthUtils;
-import org.springframework.context.annotation.Scope;
 import org.springframework.http.MediaType;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.context.annotation.SessionScope;
 
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
@@ -21,7 +21,7 @@ import java.util.Base64;
  * Serving the public key of the tool.
  */
 @RestController
-@Scope("session")
+@SessionScope
 @RequestMapping("/jwks")
 @RequiredArgsConstructor
 public class JwkController {

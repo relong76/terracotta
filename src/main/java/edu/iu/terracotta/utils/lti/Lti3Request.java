@@ -263,7 +263,7 @@ public class Lti3Request {
         this.ltiDataService = ltiDataService;
         this.httpServletRequest = request;
         // extract the typical LTI data from the request
-        String jwt = httpServletRequest.getParameter("id_token");
+        String jwt = httpServletRequest.getParameter(LtiStrings.OIDC_ID_TOKEN);
         JwtParserBuilder parser = Jwts.parser();
         String[] jwtSections = StringUtils.isNotBlank(jwt) ? jwt.split("\\.") : null;
         String jwtPayload = jwtSections != null && jwtSections.length >= 2 ? new String(Base64.getUrlDecoder().decode(jwtSections[1])) : null;

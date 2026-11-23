@@ -11,6 +11,8 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
+import edu.iu.terracotta.utils.LtiStrings;
+
 @Getter
 @Setter
 @Builder
@@ -25,14 +27,14 @@ public class PlatformConfigurationDto {
     private List<String> variables;
 
     // Canvas's own: which school (root account) is registering
-    @JsonProperty("https://canvas.instructure.com/lti/account_name")
+    @JsonProperty(LtiStrings.CANVAS_ACCOUNT_NAME)
     private String canvasAccountName;
 
     // the same ID Canvas launches carry as tool_platform's guid
-    @JsonProperty("https://canvas.instructure.com/lti/account_lti_guid")
+    @JsonProperty(LtiStrings.CANVAS_ACCOUNT_LTI_GUID)
     private String canvasAccountLtiGuid;
 
-    @JsonProperty("https://canvas.instructure.com/lti/account_domain")
+    @JsonProperty(LtiStrings.CANVAS_ACCOUNT_DOMAIN)
     private String canvasAccountDomain;
 
 }

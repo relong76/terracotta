@@ -176,10 +176,91 @@ public final class LtiStrings {
 
     public static final String AUD = "aud";
     public static final String ISS = "iss";
+    public static final String SUB = "sub";
     public static final String JTI = "jti";
+
+    //CANVAS LTI EXTENSIONS
+    // Canvas's extension on an AGS score (e.g. new_submission, submitted_at)
+    public static final String CANVAS_SUBMISSION = "https://canvas.instructure.com/lti/submission";
+    public static final String CANVAS_PRODUCT_FAMILY_CODE = "canvas";
+    public static final String CANVAS_PLATFORM = "canvas.instructure.com";
+    public static final String CANVAS_PLACEMENT_COURSE_NAVIGATION = "course_navigation";
+    public static final String CANVAS_PRIVACY_LEVEL = "https://canvas.instructure.com/lti/privacy_level";
+    public static final String CANVAS_PRIVACY_LEVEL_PUBLIC = "public";
+    public static final String CANVAS_SCOPE_ACCOUNT_LOOKUP = "https://canvas.instructure.com/lti/account_lookup/scope/show";
+    // in Canvas's platform configuration: which school (root account) is registering
+    public static final String CANVAS_ACCOUNT_NAME = "https://canvas.instructure.com/lti/account_name";
+    public static final String CANVAS_ACCOUNT_LTI_GUID = "https://canvas.instructure.com/lti/account_lti_guid";
+    public static final String CANVAS_ACCOUNT_DOMAIN = "https://canvas.instructure.com/lti/account_domain";
+
+    //OIDC LOGIN AND LAUNCH (third party initiated login, and the authentication response)
+    public static final String OIDC_ISS = "iss";
+    public static final String OIDC_LOGIN_HINT = "login_hint";
+    public static final String OIDC_TARGET_LINK_URI = "target_link_uri";
+    public static final String OIDC_LTI_MESSAGE_HINT = "lti_message_hint";
+    public static final String OIDC_CLIENT_ID = "client_id";
+    public static final String OIDC_LTI_DEPLOYMENT_ID = "lti_deployment_id";
+    public static final String OIDC_NONCE = "nonce";
+    public static final String OIDC_PROMPT = "prompt";
+    public static final String OIDC_PROMPT_NONE = "none";
+    public static final String OIDC_REDIRECT_URI = "redirect_uri";
+    public static final String OIDC_RESPONSE_MODE = "response_mode";
+    public static final String OIDC_RESPONSE_MODE_FORM_POST = "form_post";
+    public static final String OIDC_RESPONSE_TYPE = "response_type";
+    public static final String OIDC_SCOPE = "scope";
+    public static final String OIDC_SCOPE_OPENID = "openid";
+    public static final String OIDC_STATE = "state";
+    public static final String OIDC_ID_TOKEN = "id_token";
+
+    //OAUTH 2 CLIENT CREDENTIALS (service access tokens)
+    public static final String OAUTH_GRANT_TYPE = "grant_type";
+    public static final String OAUTH_GRANT_TYPE_CLIENT_CREDENTIALS = "client_credentials";
+    public static final String OAUTH_GRANT_TYPE_IMPLICIT = "implicit";
+    public static final String OAUTH_CLIENT_ASSERTION_TYPE = "client_assertion_type";
+    public static final String OAUTH_CLIENT_ASSERTION_TYPE_JWT_BEARER = "urn:ietf:params:oauth:client-assertion-type:jwt-bearer";
+    public static final String OAUTH_CLIENT_ASSERTION = "client_assertion";
+    public static final String OAUTH_SCOPE = "scope";
+    public static final String OAUTH_TOKEN_ENDPOINT_AUTH_PRIVATE_KEY_JWT = "private_key_jwt";
+
+    //SCOPES
+    public static final String LTI_SCOPE_AGS_LINEITEM = "https://purl.imsglobal.org/spec/lti-ags/scope/lineitem";
+    public static final String LTI_SCOPE_AGS_LINEITEM_READONLY = "https://purl.imsglobal.org/spec/lti-ags/scope/lineitem.readonly";
+    public static final String LTI_SCOPE_AGS_RESULT_READONLY = "https://purl.imsglobal.org/spec/lti-ags/scope/result.readonly";
+    public static final String LTI_SCOPE_AGS_SCORE = "https://purl.imsglobal.org/spec/lti-ags/scope/score";
+    public static final String LTI_SCOPE_NRPS_MEMBERSHIP_READONLY = "https://purl.imsglobal.org/spec/lti-nrps/scope/contextmembership.readonly";
+    public static final String LTI_SCOPE_REGISTRATION = "https://purl.imsglobal.org/spec/lti-reg/scope/registration";
+    public static final String LTI_SCOPE_NOTICE_HANDLERS = "https://purl.imsglobal.org/spec/lti/scope/noticehandlers";
 
     //Dynamic Registration
     public static final String REGISTRATION_TOKEN = "registration_token";
+    public static final String REGISTRATION_OPENID_CONFIGURATION = "openid_configuration";
+    public static final String REGISTRATION_APPLICATION_TYPE_WEB = "web";
+    public static final String REGISTRATION_PLATFORM_CONFIGURATION = "https://purl.imsglobal.org/spec/lti-platform-configuration";
+    public static final String REGISTRATION_TOOL_CONFIGURATION = "https://purl.imsglobal.org/spec/lti-tool-configuration";
+    public static final String REGISTRATION_APPLICATION_TYPE = "application_type";
+    public static final String REGISTRATION_CLIENT_ID = "client_id";
+    public static final String REGISTRATION_CLIENT_NAME = "client_name";
+    public static final String REGISTRATION_GRANT_TYPES = "grant_types";
+    public static final String REGISTRATION_RESPONSE_TYPES = "response_types";
+    public static final String REGISTRATION_REDIRECT_URIS = "redirect_uris";
+    public static final String REGISTRATION_INITIATE_LOGIN_URI = "initiate_login_uri";
+    public static final String REGISTRATION_JWKS_URI = "jwks_uri";
+    public static final String REGISTRATION_TOKEN_ENDPOINT_AUTH_METHOD = "token_endpoint_auth_method";
+    public static final String REGISTRATION_SCOPE = "scope";
+    // inside REGISTRATION_TOOL_CONFIGURATION
+    public static final String TOOL_CONFIGURATION_DOMAIN = "domain";
+    public static final String TOOL_CONFIGURATION_DESCRIPTION = "description";
+    public static final String TOOL_CONFIGURATION_TARGET_LINK_URI = "target_link_uri";
+    public static final String TOOL_CONFIGURATION_CUSTOM_PARAMETERS = "custom_parameters";
+    public static final String TOOL_CONFIGURATION_CLAIMS = "claims";
+    public static final String TOOL_CONFIGURATION_MESSAGES = "messages";
+    public static final String TOOL_CONFIGURATION_DEPLOYMENT_ID = "deployment_id";
+    // each of TOOL_CONFIGURATION_MESSAGES
+    public static final String TOOL_MESSAGE_TYPE = "type";
+    public static final String TOOL_MESSAGE_TARGET_LINK_URI = "target_link_uri";
+    public static final String TOOL_MESSAGE_LABEL = "label";
+    public static final String TOOL_MESSAGE_PLACEMENTS = "placements";
+    // session and model attribute names, not LTI values
     public static final String PLATFORM_CONFIGURATION = "platform_configuration";
     public static final String TOOL_CONFIGURATION = "tool_configuration";
 

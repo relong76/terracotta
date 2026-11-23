@@ -35,6 +35,7 @@ import edu.iu.terracotta.connectors.generic.dao.repository.lti.PlatformDeploymen
 import edu.iu.terracotta.connectors.generic.dao.repository.lti.ToolDeploymentRepository;
 import edu.iu.terracotta.connectors.generic.service.lti.LmsApprovedAccountService;
 import edu.iu.terracotta.service.app.OutboundUrlService;
+import edu.iu.terracotta.utils.LtiStrings;
 import lombok.extern.slf4j.Slf4j;
 import tools.jackson.databind.JsonNode;
 
@@ -43,7 +44,6 @@ import tools.jackson.databind.JsonNode;
 @SuppressWarnings("PMD.GuardLogStatement")
 public class CanvasDynamicRegistrationServiceImpl implements CanvasDynamicRegistrationService {
 
-    private static final String TOOL_CONFIGURATION = "https://purl.imsglobal.org/spec/lti-tool-configuration";
     private static final int TIMEOUT_MS = 15_000;
 
     // where Canvas cloud schools start a registration, and where Canvas cloud takes it
@@ -179,7 +179,7 @@ public class CanvasDynamicRegistrationServiceImpl implements CanvasDynamicRegist
             throw new CanvasRegistrationException("This Canvas's registration details point somewhere else.");
         }
 
-        if (platform.getPlatformConfiguration() != null && !Strings.CI.equals(platform.getPlatformConfiguration().getProduct_family_code(), "canvas")) {
+        if (platform.getPlatformConfiguration() != null && !Strings.CI.equals(platform.getPlatformConfiguration().getProduct_family_code(), LtiStrings.CANVAS_PRODUCT_FAMILY_CODE)) {
             log.error("Platform [{}] isn't Canvas: [{}]", configurationHost, platform.getPlatformConfiguration().getProduct_family_code());
             throw new CanvasRegistrationException("Only Canvas can register Terracotta here.");
         }
@@ -201,7 +201,7 @@ public class CanvasDynamicRegistrationServiceImpl implements CanvasDynamicRegist
             throw new CanvasRegistrationException("Canvas didn't accept Terracotta's registration. Please try again, or contact info@terracotta.education.", e);
         }
 
-        if (registration == null || StringUtils.isBlank(registration.path("client_id").asString(null))) {
+        if (registration == null || StringUtils.isBlank(registration.path(LtiStrings.REGISTRATION_CLIENT_ID).asString(null))) {
             log.error("Canvas [{}] registered Terracotta without returning a client ID", canvasHost);
             throw new CanvasRegistrationException("Canvas didn't return the details Terracotta needs. Please contact info@terracotta.education.");
         }
@@ -210,8 +210,8 @@ public class CanvasDynamicRegistrationServiceImpl implements CanvasDynamicRegist
     }
 
     private PlatformDeployment save(PlatformRegistrationDto platform, JsonNode registration, String canvasHost, LmsApprovedAccount account) {
-        String clientId = registration.path("client_id").asString();
-        String ltiDeploymentId = registration.path(TOOL_CONFIGURATION).path("deployment_id").asString(null);
+        String clientId = registration.path(LtiStrings.REGISTRATION_CLIENT_ID).asString();
+        String ltiDeploymentId = registration.path(LtiStrings.REGISTRATION_TOOL_CONFIGURATION).path(LtiStrings.TOOL_CONFIGURATION_DEPLOYMENT_ID).asString(null);
 
         // registering again with the same client ID updates that record instead of adding another
         List<PlatformDeployment> existing = platformDeploymentRepository.findByIssAndClientId(platform.getIssuer(), clientId);

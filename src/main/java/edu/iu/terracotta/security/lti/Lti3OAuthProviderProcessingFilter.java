@@ -8,6 +8,7 @@ import io.jsonwebtoken.ExpiredJwtException;
 import io.jsonwebtoken.Jws;
 import io.jsonwebtoken.security.SecurityException;
 import lombok.extern.slf4j.Slf4j;
+import edu.iu.terracotta.utils.LtiStrings;
 import edu.iu.terracotta.utils.lti.Lti3Request;
 
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -69,7 +70,7 @@ public class Lti3OAuthProviderProcessingFilter extends GenericFilterBean {
             // validate that the state is a good state.
 
             // ensure that the query has an state
-            String state = httpServletRequest.getParameter("state");
+            String state = httpServletRequest.getParameter(LtiStrings.OIDC_STATE);
             String link = httpServletRequest.getParameter("link");
 
             if (!StringUtils.hasText(state)) {
@@ -89,7 +90,7 @@ public class Lti3OAuthProviderProcessingFilter extends GenericFilterBean {
                 state in a different way.
             */
 
-            String jwt = httpServletRequest.getParameter("id_token");
+            String jwt = httpServletRequest.getParameter(LtiStrings.OIDC_ID_TOKEN);
 
             if (StringUtils.hasText(jwt)) {
                 // validate the JWT token

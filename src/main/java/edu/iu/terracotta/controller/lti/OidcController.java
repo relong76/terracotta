@@ -7,6 +7,7 @@ import edu.iu.terracotta.connectors.generic.dao.repository.lti.PlatformDeploymen
 import edu.iu.terracotta.connectors.generic.service.lti.LtiDataService;
 import edu.iu.terracotta.dao.entity.LtiNonce;
 import edu.iu.terracotta.dao.repository.LtiNonceRepository;
+import edu.iu.terracotta.utils.LtiStrings;
 import edu.iu.terracotta.utils.TextConstants;
 import edu.iu.terracotta.utils.lti.LtiOidcUtils;
 import lombok.RequiredArgsConstructor;
@@ -41,14 +42,6 @@ import java.util.UUID;
 @RequestMapping("/oidc/login_initiations")
 public class OidcController {
 
-    //Constants defined in the LTI standard
-    private static final String NONE = "none";
-    private static final String FORM_POST = "form_post";
-    private static final String ID_TOKEN = "id_token";
-    private static final String OPEN_ID = "openid";
-    private static final String CLIENT_ID = "client_id";
-    private static final String DEPLOYMENT_ID = "lti_deployment_id";
-
     private final PlatformDeploymentRepository platformDeploymentRepository;
     private final LtiDataService ltiDataService;
     private final LtiNonceRepository ltiNonceRepository;
@@ -72,7 +65,7 @@ public class OidcController {
         if (loginInitiationDTO.getClientId() != null) {
             clientIdValue = loginInitiationDTO.getClientId();
         } else {  // We try to get it from the URL query parameters.
-            clientIdValue = req.getParameter(CLIENT_ID);
+            clientIdValue = req.getParameter(LtiStrings.OIDC_CLIENT_ID);
         }
 
         // Getting the deployment_id (that is optional) and can come in the form or in the URL.
@@ -82,7 +75,7 @@ public class OidcController {
         if (loginInitiationDTO.getDeploymentId() != null) {
             deploymentIdValue = loginInitiationDTO.getDeploymentId();
         } else {  // We try to get it from the URL query getDeploymentId.
-            deploymentIdValue = req.getParameter(DEPLOYMENT_ID);
+            deploymentIdValue = req.getParameter(LtiStrings.OIDC_LTI_DEPLOYMENT_ID);
         }
 
         // We search for the platformDeployment.
@@ -145,7 +138,7 @@ public class OidcController {
             // signature is enough to validate it later - no need to track issued states ourselves.
             // The nonce isn't self-verifying, so it's persisted here and consumed exactly once
             // (Lti3Request.checkNonce) instead of being tracked in a session.
-            ltiNonceRepository.save(LtiNonce.builder().nonce(parameters.get("nonce")).build());
+            ltiNonceRepository.save(LtiNonce.builder().nonce(parameters.get(LtiStrings.OIDC_NONCE)).build());
 
             // Once we have the data ready, we redirect straight to the platform's OIDC
             // authorization endpoint - the launch doesn't depend on cookies, so there's no need
@@ -170,20 +163,20 @@ public class OidcController {
      */
     private Map<String, String> generateAuthRequestPayload(PlatformDeployment platformDeployment, LoginInitiationDto loginInitiationDto, String clientIdValue, String deploymentIdValue) throws GeneralSecurityException, IOException {
         Map<String, String> authRequestMap = new HashMap<>();
-        authRequestMap.put(CLIENT_ID, platformDeployment.getClientId()); //As it came from the Platform (if it came... if not we should have it configured)
-        authRequestMap.put("login_hint", loginInitiationDto.getLoginHint()); //As it came from the Platform
-        authRequestMap.put("lti_message_hint", loginInitiationDto.getLtiMessageHint()); //As it came from the Platform
+        authRequestMap.put(LtiStrings.OIDC_CLIENT_ID, platformDeployment.getClientId()); //As it came from the Platform (if it came... if not we should have it configured)
+        authRequestMap.put(LtiStrings.OIDC_LOGIN_HINT, loginInitiationDto.getLoginHint()); //As it came from the Platform
+        authRequestMap.put(LtiStrings.OIDC_LTI_MESSAGE_HINT, loginInitiationDto.getLtiMessageHint()); //As it came from the Platform
         String nonce = UUID.randomUUID().toString(); // We generate a nonce to allow this auth request to be used only one time.
-        authRequestMap.put("nonce", nonce);  //The nonce
-        authRequestMap.put("prompt", NONE);  //Always this value, as specified in the standard.
-        authRequestMap.put("redirect_uri", String.format("%s/lti3", platformDeployment.getLocalUrl()));
-        authRequestMap.put("response_mode", FORM_POST); //Always this value, as specified in the standard.
-        authRequestMap.put("response_type", ID_TOKEN); //Always this value, as specified in the standard.
-        authRequestMap.put("scope", OPEN_ID);  //Always this value, as specified in the standard.
+        authRequestMap.put(LtiStrings.OIDC_NONCE, nonce);  //The nonce
+        authRequestMap.put(LtiStrings.OIDC_PROMPT, LtiStrings.OIDC_PROMPT_NONE);  //Always this value, as specified in the standard.
+        authRequestMap.put(LtiStrings.OIDC_REDIRECT_URI, String.format("%s/lti3", platformDeployment.getLocalUrl()));
+        authRequestMap.put(LtiStrings.OIDC_RESPONSE_MODE, LtiStrings.OIDC_RESPONSE_MODE_FORM_POST); //Always this value, as specified in the standard.
+        authRequestMap.put(LtiStrings.OIDC_RESPONSE_TYPE, LtiStrings.OIDC_ID_TOKEN); //Always this value, as specified in the standard.
+        authRequestMap.put(LtiStrings.OIDC_SCOPE, LtiStrings.OIDC_SCOPE_OPENID);  //Always this value, as specified in the standard.
         // The state is something that we can create and add anything we want on it.
         // On this case, we have decided to create a JWT token with some information that we will use as additional security. But it is not mandatory.
         String state = LtiOidcUtils.generateState(ltiDataService, platformDeployment, authRequestMap, loginInitiationDto, clientIdValue, deploymentIdValue, ltiDataVerboseLoggingEnabled);
-        authRequestMap.put("state", state); //The state we use later to retrieve some useful information about the OICD request.
+        authRequestMap.put(LtiStrings.OIDC_STATE, state); //The state we use later to retrieve some useful information about the OICD request.
         authRequestMap.put("oicdEndpoint", platformDeployment.getOidcEndpoint());  //We need this in the Thymeleaf template in case we decide to use the POST method. It is the endpoint where the LMS receives the OICD requests
         authRequestMap.put("oicdEndpointComplete", generateCompleteUrl(authRequestMap));  //This generates the URL to use in case we decide to use the GET method
 
@@ -197,16 +190,16 @@ public class OidcController {
         StringBuilder getUrl = new StringBuilder();
 
         getUrl.append(model.get("oicdEndpoint"));
-        getUrl = addParameter(getUrl, "client_id", model.get(CLIENT_ID), true);
-        getUrl = addParameter(getUrl, "login_hint", model.get("login_hint"), false);
-        getUrl = addParameter(getUrl, "lti_message_hint", model.get("lti_message_hint"), false);
-        getUrl = addParameter(getUrl, "nonce", model.get("nonce"), false);
-        getUrl = addParameter(getUrl, "prompt", model.get("prompt"), false);
-        getUrl = addParameter(getUrl, "redirect_uri", model.get("redirect_uri"), false);
-        getUrl = addParameter(getUrl, "response_mode", model.get("response_mode"), false);
-        getUrl = addParameter(getUrl, "response_type", model.get("response_type"), false);
-        getUrl = addParameter(getUrl, "scope", model.get("scope"), false);
-        getUrl = addParameter(getUrl, "state", model.get("state"), false);
+        getUrl = addParameter(getUrl, LtiStrings.OIDC_CLIENT_ID, model.get(LtiStrings.OIDC_CLIENT_ID), true);
+        getUrl = addParameter(getUrl, LtiStrings.OIDC_LOGIN_HINT, model.get(LtiStrings.OIDC_LOGIN_HINT), false);
+        getUrl = addParameter(getUrl, LtiStrings.OIDC_LTI_MESSAGE_HINT, model.get(LtiStrings.OIDC_LTI_MESSAGE_HINT), false);
+        getUrl = addParameter(getUrl, LtiStrings.OIDC_NONCE, model.get(LtiStrings.OIDC_NONCE), false);
+        getUrl = addParameter(getUrl, LtiStrings.OIDC_PROMPT, model.get(LtiStrings.OIDC_PROMPT), false);
+        getUrl = addParameter(getUrl, LtiStrings.OIDC_REDIRECT_URI, model.get(LtiStrings.OIDC_REDIRECT_URI), false);
+        getUrl = addParameter(getUrl, LtiStrings.OIDC_RESPONSE_MODE, model.get(LtiStrings.OIDC_RESPONSE_MODE), false);
+        getUrl = addParameter(getUrl, LtiStrings.OIDC_RESPONSE_TYPE, model.get(LtiStrings.OIDC_RESPONSE_TYPE), false);
+        getUrl = addParameter(getUrl, LtiStrings.OIDC_SCOPE, model.get(LtiStrings.OIDC_SCOPE), false);
+        getUrl = addParameter(getUrl, LtiStrings.OIDC_STATE, model.get(LtiStrings.OIDC_STATE), false);
 
         return getUrl.toString();
     }

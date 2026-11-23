@@ -11,10 +11,10 @@ import edu.iu.terracotta.connectors.generic.exceptions.TerracottaConnectorExcept
 import edu.iu.terracotta.connectors.generic.service.lti.advantage.AdvantageMembershipService;
 import edu.iu.terracotta.utils.LtiStrings;
 import edu.iu.terracotta.utils.TextConstants;
-import org.springframework.context.annotation.Scope;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.context.annotation.SessionScope;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpSession;
@@ -28,7 +28,7 @@ import java.util.Optional;
  * Everything that arrives here is filtered first by the LTI3OAuthProviderProcessingFilter
  */
 @Controller
-@Scope("session")
+@SessionScope
 @RequiredArgsConstructor
 @RequestMapping("/membership")
 public class MembershipController {
