@@ -11,6 +11,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.util.HtmlUtils;
 
 import edu.iu.terracotta.connectors.generic.dao.entity.lti.LtiUserEntity;
+import edu.iu.terracotta.connectors.generic.dao.model.enums.LmsConnector;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import software.amazon.awssdk.core.SdkBytes;
@@ -91,6 +92,13 @@ public class NotificationEmailSender {
     /** The recipient's display name, HTML-escaped for a greeting, or "Instructor" when unknown. */
     public static String greetingName(LtiUserEntity recipient) {
         return HtmlUtils.htmlEscape(StringUtils.defaultIfBlank(recipient != null ? recipient.getDisplayName() : null, "Instructor"));
+    }
+
+    /** The name of the recipient's LMS, e.g. "Canvas", or "LMS" when it has no name people would know. */
+    public static String lmsName(LtiUserEntity recipient) {
+        LmsConnector connector = recipient != null && recipient.getPlatformDeployment() != null ? recipient.getPlatformDeployment().getLmsConnector() : null;
+
+        return connector != null && connector.isNamedLms() ? connector.title() : "LMS";
     }
 
     public static String supportLinkHtml() {

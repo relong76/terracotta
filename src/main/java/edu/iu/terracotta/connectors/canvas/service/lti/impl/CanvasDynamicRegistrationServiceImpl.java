@@ -21,15 +21,16 @@ import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestTemplate;
 
 
+import edu.iu.terracotta.connectors.canvas.dao.model.lti.dto.CanvasPlatformConfigurationDto;
 import edu.iu.terracotta.connectors.canvas.service.lti.CanvasDynamicRegistrationService;
 import edu.iu.terracotta.connectors.canvas.service.lti.CanvasRegistrationException;
 import edu.iu.terracotta.connectors.canvas.service.lti.CanvasToolConfigurationService;
+import edu.iu.terracotta.connectors.canvas.utils.CanvasLtiStrings;
 import edu.iu.terracotta.connectors.generic.dao.entity.lti.LmsApprovedAccount;
 import edu.iu.terracotta.connectors.generic.dao.entity.lti.PlatformDeployment;
 import edu.iu.terracotta.connectors.generic.dao.entity.lti.ToolDeployment;
 import edu.iu.terracotta.connectors.generic.dao.model.enums.LmsApprovedAccountStatus;
 import edu.iu.terracotta.connectors.generic.dao.model.enums.LmsConnector;
-import edu.iu.terracotta.connectors.generic.dao.model.lti.dto.PlatformConfigurationDto;
 import edu.iu.terracotta.connectors.generic.dao.model.lti.dto.PlatformRegistrationDto;
 import edu.iu.terracotta.connectors.generic.dao.repository.lti.PlatformDeploymentRepository;
 import edu.iu.terracotta.connectors.generic.dao.repository.lti.ToolDeploymentRepository;
@@ -37,7 +38,9 @@ import edu.iu.terracotta.connectors.generic.service.lti.LmsApprovedAccountServic
 import edu.iu.terracotta.service.app.OutboundUrlService;
 import edu.iu.terracotta.utils.LtiStrings;
 import lombok.extern.slf4j.Slf4j;
+import tools.jackson.core.JacksonException;
 import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.json.JsonMapper;
 
 @Slf4j
 @Service
@@ -53,8 +56,13 @@ public class CanvasDynamicRegistrationServiceImpl implements CanvasDynamicRegist
         "canvas.instructure.com", "canvas.beta.instructure.com", "canvas.test.instructure.com"
     );
 
+    private static final JsonMapper JSON_MAPPER = JsonMapper.builder().build();
+
     // the school registering: its Canvas address, and (Canvas cloud only) its account ID and name
     private record CanvasAccount(String host, String platformGuid, String name) {}
+
+    // Canvas's OpenID configuration: the standard values, and Canvas's own in its platform configuration
+    private record CanvasPlatform(PlatformRegistrationDto registration, CanvasPlatformConfigurationDto canvasConfiguration) {}
 
     private final CanvasToolConfigurationService canvasToolConfigurationService;
     private final OutboundUrlService outboundUrlService;
@@ -100,8 +108,9 @@ public class CanvasDynamicRegistrationServiceImpl implements CanvasDynamicRegist
             throw new CanvasRegistrationException("Canvas sent an invalid registration address.");
         }
 
-        PlatformRegistrationDto platform = fetchPlatformConfiguration(openidConfiguration, registrationToken, configurationHost);
-        CanvasAccount canvasAccount = identify(platform, configurationHost);
+        CanvasPlatform canvasPlatform = fetchPlatformConfiguration(openidConfiguration, registrationToken, configurationHost);
+        PlatformRegistrationDto platform = canvasPlatform.registration();
+        CanvasAccount canvasAccount = identify(canvasPlatform.canvasConfiguration(), configurationHost);
         Optional<LmsApprovedAccount> existing;
 
         try {
@@ -131,10 +140,9 @@ public class CanvasDynamicRegistrationServiceImpl implements CanvasDynamicRegist
      * whose configuration names the school: trusted, since it comes from Canvas cloud itself. A
      * self-hosted Canvas could say anything about itself, so it's only ever its own address.
      */
-    private static CanvasAccount identify(PlatformRegistrationDto platform, String configurationHost) throws CanvasRegistrationException {
-        PlatformConfigurationDto platformConfiguration = platform.getPlatformConfiguration();
-        String accountDomain = platformConfiguration != null ? hostOf(platformConfiguration.getCanvasAccountDomain()) : null;
-        String accountName = platformConfiguration != null ? StringUtils.trimToNull(platformConfiguration.getCanvasAccountName()) : null;
+    private static CanvasAccount identify(CanvasPlatformConfigurationDto canvasConfiguration, String configurationHost) throws CanvasRegistrationException {
+        String accountDomain = canvasConfiguration != null ? hostOf(canvasConfiguration.getAccountDomain()) : null;
+        String accountName = canvasConfiguration != null ? StringUtils.trimToNull(canvasConfiguration.getAccountName()) : null;
 
         if (CANVAS_CLOUD_CONFIGURATION_HOSTS.contains(configurationHost)) {
             if (accountDomain == null) {
@@ -142,7 +150,7 @@ public class CanvasDynamicRegistrationServiceImpl implements CanvasDynamicRegist
                 throw new CanvasRegistrationException("Canvas didn't say which school is registering Terracotta. Please try again, or contact info@terracotta.education.");
             }
 
-            return new CanvasAccount(accountDomain, StringUtils.trimToNull(platformConfiguration.getCanvasAccountLtiGuid()), accountName);
+            return new CanvasAccount(accountDomain, StringUtils.trimToNull(canvasConfiguration.getAccountLtiGuid()), accountName);
         }
 
         if (accountDomain != null && !accountDomain.equals(configurationHost)) {
@@ -153,14 +161,18 @@ public class CanvasDynamicRegistrationServiceImpl implements CanvasDynamicRegist
         return new CanvasAccount(configurationHost, null, accountName);
     }
 
-    private PlatformRegistrationDto fetchPlatformConfiguration(String openidConfiguration, String registrationToken, String configurationHost) throws CanvasRegistrationException {
+    private CanvasPlatform fetchPlatformConfiguration(String openidConfiguration, String registrationToken, String configurationHost) throws CanvasRegistrationException {
         PlatformRegistrationDto platform;
+        CanvasPlatformConfigurationDto canvasConfiguration;
 
         try {
             outboundUrlService.validatePublicUrl(openidConfiguration);
             // deepcode ignore Ssrf: openid_configuration comes from the request by design of LTI Dynamic Registration and is checked by validatePublicUrl above
-            platform = restTemplate.exchange(openidConfiguration, HttpMethod.GET, new HttpEntity<>(bearer(registrationToken)), PlatformRegistrationDto.class).getBody();
-        } catch (IllegalArgumentException | RestClientException e) {
+            JsonNode configuration = restTemplate.exchange(openidConfiguration, HttpMethod.GET, new HttpEntity<>(bearer(registrationToken)), JsonNode.class).getBody();
+            platform = configuration != null ? JSON_MAPPER.treeToValue(configuration, PlatformRegistrationDto.class) : null;
+            JsonNode platformConfiguration = configuration != null ? configuration.get(LtiStrings.REGISTRATION_PLATFORM_CONFIGURATION) : null;
+            canvasConfiguration = platformConfiguration != null && platformConfiguration.isObject() ? JSON_MAPPER.treeToValue(platformConfiguration, CanvasPlatformConfigurationDto.class) : null;
+        } catch (IllegalArgumentException | RestClientException | JacksonException e) {
             log.error("Couldn't read the OpenID configuration of Canvas [{}]", configurationHost, e);
             throw new CanvasRegistrationException("Terracotta couldn't read this Canvas's registration details. Please try again.", e);
         }
@@ -179,12 +191,12 @@ public class CanvasDynamicRegistrationServiceImpl implements CanvasDynamicRegist
             throw new CanvasRegistrationException("This Canvas's registration details point somewhere else.");
         }
 
-        if (platform.getPlatformConfiguration() != null && !Strings.CI.equals(platform.getPlatformConfiguration().getProduct_family_code(), LtiStrings.CANVAS_PRODUCT_FAMILY_CODE)) {
+        if (platform.getPlatformConfiguration() != null && !Strings.CI.equals(platform.getPlatformConfiguration().getProduct_family_code(), CanvasLtiStrings.PRODUCT_FAMILY_CODE)) {
             log.error("Platform [{}] isn't Canvas: [{}]", configurationHost, platform.getPlatformConfiguration().getProduct_family_code());
             throw new CanvasRegistrationException("Only Canvas can register Terracotta here.");
         }
 
-        return platform;
+        return new CanvasPlatform(platform, canvasConfiguration);
     }
 
     private JsonNode sendRegistration(String registrationEndpoint, String registrationToken, String canvasHost) throws CanvasRegistrationException {

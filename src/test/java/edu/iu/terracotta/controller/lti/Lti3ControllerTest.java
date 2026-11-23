@@ -26,10 +26,8 @@ import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.ui.Model;
 
 import edu.iu.terracotta.base.BaseTest;
-import edu.iu.terracotta.connectors.canvas.service.lti.advantage.CanvasAdvantageNoticeService;
 import edu.iu.terracotta.connectors.generic.dao.entity.lti.LtiDeepLink;
 import edu.iu.terracotta.connectors.generic.dao.entity.lti.PlatformDeployment;
-import edu.iu.terracotta.connectors.generic.dao.model.enums.LmsConnector;
 import edu.iu.terracotta.connectors.generic.exceptions.LmsOAuthException;
 import edu.iu.terracotta.connectors.generic.exceptions.TerracottaConnectorException;
 import edu.iu.terracotta.connectors.generic.service.lms.LmsOAuthServiceManager;
@@ -37,6 +35,7 @@ import edu.iu.terracotta.connectors.generic.service.lti.advantage.AdvantageDeepL
 import edu.iu.terracotta.connectors.generic.dao.entity.lti.LmsApprovedAccount;
 import edu.iu.terracotta.connectors.generic.dao.model.enums.LmsApprovedAccountStatus;
 import edu.iu.terracotta.connectors.generic.service.lti.LmsApprovedAccountService;
+import edu.iu.terracotta.connectors.generic.service.lti.advantage.AdvantageNoticeService;
 import edu.iu.terracotta.dao.entity.ObsoleteAssignment;
 import edu.iu.terracotta.dao.exceptions.FeatureNotFoundException;
 import edu.iu.terracotta.service.app.async.ParticipantAsyncService;
@@ -58,7 +57,7 @@ public class Lti3ControllerTest extends BaseTest {
 
     @Mock private AdvantageDeepLinkService advantageDeepLinkService;
     @Mock private LmsOAuthServiceManager lmsOAuthServiceManager;
-    @Mock private CanvasAdvantageNoticeService canvasAdvantageNoticeService;
+    @Mock private AdvantageNoticeService advantageNoticeService;
     @Mock private ParticipantAsyncService participantAsyncService;
     @Mock private ExperimentCopyCandidateService experimentCopyCandidateService;
     @Mock private LmsApprovedAccountService lmsApprovedAccountService;
@@ -78,7 +77,7 @@ public class Lti3ControllerTest extends BaseTest {
         // Constructed manually rather than via @InjectMocks: ApiJwtService is also implemented by the
         // inherited canvasApiJwtService mock (see the ambiguity warning in BaseServiceTest), so
         // constructor-injection-by-type could silently wire the wrong ApiJwtService mock.
-        lti3Controller = new Lti3Controller(ltiLinkRepository, apiJwtService, advantageDeepLinkService, caliperService, ltiDataService, ltiJwtService, lmsOAuthServiceManager, canvasAdvantageNoticeService, participantAsyncService, experimentCopyCandidateService, lmsApprovedAccountService);
+        lti3Controller = new Lti3Controller(ltiLinkRepository, apiJwtService, advantageDeepLinkService, caliperService, ltiDataService, ltiJwtService, lmsOAuthServiceManager, advantageNoticeService, participantAsyncService, experimentCopyCandidateService, lmsApprovedAccountService);
 
         when(httpServletRequest.getParameter("state")).thenReturn("state123");
         when(httpServletRequest.getParameter("link")).thenReturn(null);
@@ -115,7 +114,7 @@ public class Lti3ControllerTest extends BaseTest {
 
             assertEquals(Lti3Controller.LMS_ACCOUNT_UNAVAILABLE, result);
             verify(model).addAttribute("pending", true);
-            verify(canvasAdvantageNoticeService, never()).ensureNoticeHandlerRegistered(any());
+            verify(advantageNoticeService, never()).ensureNoticeHandlerRegistered(any());
             verify(apiJwtService, never()).buildJwt(true, lti3Request);
         }
     }
@@ -177,26 +176,14 @@ public class Lti3ControllerTest extends BaseTest {
         }
     }
 
+    // whether the LMS supports it is up to its connector (see AdvantageNoticeServiceImplTest)
     @Test
-    void homeRegistersNoticeHandlerForCanvasDeploymentTest() throws Exception {
-        when(platformDeployment.getLmsConnector()).thenReturn(LmsConnector.CANVAS);
-
+    void homeRegistersNoticeHandlerTest() throws Exception {
         try (var _ = mockLti3Request()) {
             callHome();
         }
 
-        verify(canvasAdvantageNoticeService).ensureNoticeHandlerRegistered(toolDeployment);
-    }
-
-    @Test
-    void homeSkipsNoticeHandlerRegistrationForNonCanvasDeploymentTest() throws Exception {
-        when(platformDeployment.getLmsConnector()).thenReturn(LmsConnector.BRIGHTSPACE);
-
-        try (var _ = mockLti3Request()) {
-            callHome();
-        }
-
-        verify(canvasAdvantageNoticeService, never()).ensureNoticeHandlerRegistered(any());
+        verify(advantageNoticeService).ensureNoticeHandlerRegistered(toolDeployment);
     }
 
     @Test

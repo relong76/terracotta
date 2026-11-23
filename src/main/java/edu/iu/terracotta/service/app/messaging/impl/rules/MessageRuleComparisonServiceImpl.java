@@ -12,7 +12,7 @@ import org.apache.commons.collections4.CollectionUtils;
 import org.apache.commons.math3.util.Precision;
 import org.springframework.stereotype.Service;
 
-import edu.iu.terracotta.connectors.canvas.dao.model.extended.enums.WorkflowState;
+import edu.iu.terracotta.connectors.generic.dao.model.enums.LmsSubmissionState;
 import edu.iu.terracotta.connectors.generic.dao.model.lms.LmsSubmission;
 import edu.iu.terracotta.connectors.generic.exceptions.ApiException;
 import edu.iu.terracotta.connectors.generic.exceptions.TerracottaConnectorException;
@@ -276,14 +276,14 @@ public class MessageRuleComparisonServiceImpl implements MessageRuleComparisonSe
                 // true if no submissions for the rule
                 ruleMatch.setMatch(
                     CollectionUtils.isEmpty(submissionsForRule)
-                        || submissionsForRule.stream().anyMatch(lmsSubmission -> lmsSubmission.getState().equals(WorkflowState.UNSUBMITTED.state()))
+                        || submissionsForRule.stream().anyMatch(lmsSubmission -> lmsSubmission.getState().equals(LmsSubmissionState.UNSUBMITTED.state()))
                 );
                 break;
             case IS_SUBMITTED:
                 // true if there are submissions for the rule
                 ruleMatch.setMatch(
                     CollectionUtils.isNotEmpty(submissionsForRule)
-                        && submissionsForRule.stream().allMatch(lmsSubmission -> List.of(WorkflowState.GRADED.state(), WorkflowState.SUBMITTED.state()).contains(lmsSubmission.getState()))
+                        && submissionsForRule.stream().allMatch(lmsSubmission -> List.of(LmsSubmissionState.GRADED.state(), LmsSubmissionState.SUBMITTED.state()).contains(lmsSubmission.getState()))
                 );
                 break;
             case IS_SUBMITTED_BUT_NOT_YET_GRADED:
@@ -291,7 +291,7 @@ public class MessageRuleComparisonServiceImpl implements MessageRuleComparisonSe
                 ruleMatch.setMatch(
                     CollectionUtils.isNotEmpty(submissionsForRule)
                         && submissionsForRule.get(0).isGradeMatchesCurrentSubmission()
-                        && submissionsForRule.get(0).getState().equals(WorkflowState.PENDING_REVIEW.state())
+                        && submissionsForRule.get(0).getState().equals(LmsSubmissionState.PENDING_REVIEW.state())
                 );
                 break;
             default:

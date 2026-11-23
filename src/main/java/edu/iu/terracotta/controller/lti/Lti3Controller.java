@@ -1,13 +1,11 @@
 package edu.iu.terracotta.controller.lti;
 
-import edu.iu.terracotta.connectors.canvas.service.lti.advantage.CanvasAdvantageNoticeService;
 import edu.iu.terracotta.connectors.generic.dao.entity.lti.LmsApprovedAccount;
 import edu.iu.terracotta.connectors.generic.dao.entity.lti.LtiDeepLink;
 import edu.iu.terracotta.connectors.generic.dao.entity.lti.LtiLinkEntity;
 import edu.iu.terracotta.connectors.generic.dao.entity.lti.LtiUserEntity;
 import edu.iu.terracotta.connectors.generic.dao.entity.lti.PlatformDeployment;
 import edu.iu.terracotta.connectors.generic.dao.model.enums.LmsApprovedAccountStatus;
-import edu.iu.terracotta.connectors.generic.dao.model.enums.LmsConnector;
 import edu.iu.terracotta.connectors.generic.dao.model.enums.jwt.JwtClaim;
 import edu.iu.terracotta.connectors.generic.dao.repository.lti.LtiLinkRepository;
 import edu.iu.terracotta.connectors.generic.exceptions.ApiException;
@@ -21,6 +19,7 @@ import edu.iu.terracotta.connectors.generic.service.lti.LmsApprovedAccountServic
 import edu.iu.terracotta.connectors.generic.service.lti.LtiDataService;
 import edu.iu.terracotta.connectors.generic.service.lti.LtiJwtService;
 import edu.iu.terracotta.connectors.generic.service.lti.advantage.AdvantageDeepLinkService;
+import edu.iu.terracotta.connectors.generic.service.lti.advantage.AdvantageNoticeService;
 import edu.iu.terracotta.dao.entity.ObsoleteAssignment;
 import edu.iu.terracotta.dao.exceptions.FeatureNotFoundException;
 import edu.iu.terracotta.exceptions.DataServiceException;
@@ -73,7 +72,7 @@ public class Lti3Controller {
     private final LtiDataService ltiDataService;
     private final LtiJwtService ltiJwtService;
     private final LmsOAuthServiceManager lmsOAuthServiceManager;
-    private final CanvasAdvantageNoticeService canvasAdvantageNoticeService;
+    private final AdvantageNoticeService advantageNoticeService;
     private final ParticipantAsyncService participantAsyncService;
     private final ExperimentCopyCandidateService experimentCopyCandidateService;
     private final LmsApprovedAccountService lmsApprovedAccountService;
@@ -133,14 +132,12 @@ public class Lti3Controller {
             }
 
             // best-effort, fire-and-forget: registers this tool as an LTI Platform Notification
-            // Service course-copy handler with Canvas, if not already done for this deployment -
-            // see CanvasAdvantageNoticeServiceImpl and NoticeController. A no-op after the first
-            // successful launch for a given deployment (see ToolDeployment.noticeHandlerRegistered),
-            // and never blocks or fails the launch itself either way.
-            if (LmsConnector.CANVAS == lti3Request.getToolDeployment().getPlatformDeployment().getLmsConnector()) {
-                // deepcode ignore Ssrf: the notice handler URL is built from the base URL of the stored PlatformDeployment and a numeric ID from the verified LTI launch JWT
-                canvasAdvantageNoticeService.ensureNoticeHandlerRegistered(lti3Request.getToolDeployment());
-            }
+            // Service course-copy handler with the LMS, where its connector supports it and it
+            // isn't done yet for this deployment - see AdvantageNoticeService and NoticeController.
+            // A no-op after the first successful launch for a given deployment (see
+            // ToolDeployment.noticeHandlerRegistered), and never blocks or fails the launch itself.
+            // deepcode ignore Ssrf: the notice handler URL is built from the base URL of the stored PlatformDeployment and a numeric ID from the verified LTI launch JWT
+            advantageNoticeService.ensureNoticeHandlerRegistered(lti3Request.getToolDeployment());
 
             // best-effort, fire-and-forget: keeps the participant roster reasonably fresh on an
             // instructor's launch (throttled internally - see

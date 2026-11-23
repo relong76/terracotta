@@ -1,4 +1,4 @@
-package edu.iu.terracotta.runner.apitokencleaner.configuration;
+package edu.iu.terracotta.connectors.brightspace.runner.apitokencleaner.configuration;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -22,9 +22,9 @@ import com.github.kagkarlsson.scheduler.task.TaskInstance;
 import edu.iu.terracotta.base.BaseTest;
 import edu.iu.terracotta.connectors.generic.dao.model.enums.LmsConnector;
 import edu.iu.terracotta.exceptions.scheduledtask.ScheduledTaskNotFound;
-import edu.iu.terracotta.runner.apitokencleaner.ApiTokenCleanerSchedulerService;
-import edu.iu.terracotta.runner.apitokencleaner.model.ApiTokenCleanerScheduleMessage;
-import edu.iu.terracotta.runner.apitokencleaner.model.ApiTokenCleanerScheduleResult;
+import edu.iu.terracotta.connectors.brightspace.runner.apitokencleaner.ApiTokenCleanerSchedulerService;
+import edu.iu.terracotta.connectors.brightspace.runner.apitokencleaner.model.ApiTokenCleanerScheduleMessage;
+import edu.iu.terracotta.connectors.brightspace.runner.apitokencleaner.model.ApiTokenCleanerScheduleResult;
 import edu.iu.terracotta.service.app.ScheduledTaskService;
 
 public class ApiTokenCleanerSchedulerRunnerTest extends BaseTest {

@@ -11,7 +11,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.util.HtmlUtils;
 
 import edu.iu.terracotta.connectors.generic.dao.entity.lti.LtiUserEntity;
-import edu.iu.terracotta.connectors.generic.dao.model.enums.LmsConnector;
 import edu.iu.terracotta.service.app.notification.LmsReauthorizationNotificationService;
 import edu.iu.terracotta.service.app.notification.NotificationEmailSender;
 
@@ -59,7 +58,7 @@ public class LmsReauthorizationNotificationServiceImpl implements LmsReauthoriza
             return;
         }
 
-        String lms = lmsName(instructor);
+        String lms = NotificationEmailSender.lmsName(instructor);
         boolean sent = notificationEmailSender.sendHtml(
             instructor,
             String.format(SUBJECT, lms),
@@ -70,16 +69,6 @@ public class LmsReauthorizationNotificationServiceImpl implements LmsReauthoriza
         if (sent) {
             lastSentByUserId.put(instructor.getUserId(), now);
         }
-    }
-
-    private String lmsName(LtiUserEntity instructor) {
-        LmsConnector connector = instructor.getPlatformDeployment() != null ? instructor.getPlatformDeployment().getLmsConnector() : null;
-
-        if (connector == LmsConnector.CANVAS || connector == LmsConnector.BRIGHTSPACE) {
-            return connector.title();
-        }
-
-        return "LMS";
     }
 
 }

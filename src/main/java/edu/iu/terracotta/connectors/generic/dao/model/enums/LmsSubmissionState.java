@@ -1,11 +1,15 @@
-package edu.iu.terracotta.connectors.canvas.dao.model.extended.enums;
+package edu.iu.terracotta.connectors.generic.dao.model.enums;
 
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 
+/**
+ * An LMS submission's state (LmsSubmission.getState), in the values connectors map their own
+ * states to. Canvas's workflow_state values are used as they are.
+ */
 @Getter
 @AllArgsConstructor
-public enum WorkflowState {
+public enum LmsSubmissionState {
 
     DELETED("deleted"),
     GRADED("graded"),

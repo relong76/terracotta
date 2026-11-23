@@ -1,4 +1,4 @@
-package edu.iu.terracotta.runner.apitokencleaner.impl;
+package edu.iu.terracotta.connectors.brightspace.runner.apitokencleaner.impl;
 
 import java.sql.Timestamp;
 import java.time.LocalDateTime;
@@ -12,9 +12,9 @@ import org.springframework.stereotype.Service;
 import edu.iu.terracotta.connectors.generic.dao.entity.api.ApiTokenEntity;
 import edu.iu.terracotta.connectors.generic.dao.model.enums.LmsConnector;
 import edu.iu.terracotta.connectors.generic.dao.repository.api.ApiTokenRepository;
-import edu.iu.terracotta.runner.apitokencleaner.ApiTokenCleanerSchedulerService;
-import edu.iu.terracotta.runner.apitokencleaner.model.ApiTokenCleanerScheduleMessage;
-import edu.iu.terracotta.runner.apitokencleaner.model.ApiTokenCleanerScheduleResult;
+import edu.iu.terracotta.connectors.brightspace.runner.apitokencleaner.ApiTokenCleanerSchedulerService;
+import edu.iu.terracotta.connectors.brightspace.runner.apitokencleaner.model.ApiTokenCleanerScheduleMessage;
+import edu.iu.terracotta.connectors.brightspace.runner.apitokencleaner.model.ApiTokenCleanerScheduleResult;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 

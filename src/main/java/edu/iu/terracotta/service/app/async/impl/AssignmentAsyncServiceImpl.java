@@ -118,7 +118,7 @@ public class AssignmentAsyncServiceImpl implements AssignmentAsyncService {
                 // return, so any exception escaping it is caught solely by Spring's default
                 // AsyncUncaughtExceptionHandler, which logs at ERROR with a full stack trace -
                 // needlessly alarming for this case.
-                log.warn("Skipping LMS assignment sync for context ID: [{}] - user does not yet have a Canvas API token", securedInfo.getContextId());
+                log.warn("Skipping LMS assignment sync for context ID: [{}] - user does not yet have an LMS API token", securedInfo.getContextId());
                 return;
             }
 

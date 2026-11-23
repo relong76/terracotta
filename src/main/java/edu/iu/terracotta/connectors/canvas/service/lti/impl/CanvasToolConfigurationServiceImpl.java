@@ -11,6 +11,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import edu.iu.terracotta.connectors.canvas.service.lti.CanvasToolConfigurationService;
+import edu.iu.terracotta.connectors.canvas.utils.CanvasLtiStrings;
 import edu.iu.terracotta.utils.LtiStrings;
 
 @Service
@@ -19,11 +20,11 @@ public class CanvasToolConfigurationServiceImpl implements CanvasToolConfigurati
     public static final String LAUNCH_PATH = "/lti3";
     public static final String LOGIN_INITIATION_PATH = "/oidc/login_initiations";
     public static final String JWKS_PATH = "/jwks/jwk";
-    public static final String CANVAS_PLATFORM = LtiStrings.CANVAS_PLATFORM;
-    public static final String PLACEMENT = LtiStrings.CANVAS_PLACEMENT_COURSE_NAVIGATION;
+    public static final String CANVAS_PLATFORM = CanvasLtiStrings.PLATFORM;
+    public static final String PLACEMENT = CanvasLtiStrings.PLACEMENT_COURSE_NAVIGATION;
     public static final String MESSAGE_TYPE = LtiStrings.LTI_MESSAGE_TYPE_RESOURCE_LINK;
     // names, emails and the Canvas IDs below reach Terracotta at launch
-    public static final String PRIVACY_LEVEL = LtiStrings.CANVAS_PRIVACY_LEVEL_PUBLIC;
+    public static final String PRIVACY_LEVEL = CanvasLtiStrings.PRIVACY_LEVEL_PUBLIC;
 
     // what Terracotta reads from each launch (see LtiStrings and the launch handling)
     public static final Map<String, String> CUSTOM_FIELDS = customFields();
@@ -34,7 +35,7 @@ public class CanvasToolConfigurationServiceImpl implements CanvasToolConfigurati
         LtiStrings.LTI_SCOPE_AGS_RESULT_READONLY,
         LtiStrings.LTI_SCOPE_AGS_SCORE,
         LtiStrings.LTI_SCOPE_NRPS_MEMBERSHIP_READONLY,
-        LtiStrings.CANVAS_SCOPE_ACCOUNT_LOOKUP,
+        CanvasLtiStrings.SCOPE_ACCOUNT_LOOKUP,
         // course copy notices (see NoticeController)
         LtiStrings.LTI_SCOPE_NOTICE_HANDLERS
     );
@@ -113,7 +114,7 @@ public class CanvasToolConfigurationServiceImpl implements CanvasToolConfigurati
         toolConfiguration.put(LtiStrings.TOOL_CONFIGURATION_CUSTOM_PARAMETERS, CUSTOM_FIELDS);
         toolConfiguration.put(LtiStrings.TOOL_CONFIGURATION_CLAIMS, CLAIMS);
         toolConfiguration.put(LtiStrings.TOOL_CONFIGURATION_MESSAGES, List.of(message));
-        toolConfiguration.put(LtiStrings.CANVAS_PRIVACY_LEVEL, PRIVACY_LEVEL);
+        toolConfiguration.put(CanvasLtiStrings.PRIVACY_LEVEL, PRIVACY_LEVEL);
 
         Map<String, Object> registration = new LinkedHashMap<>();
         registration.put(LtiStrings.REGISTRATION_APPLICATION_TYPE, LtiStrings.REGISTRATION_APPLICATION_TYPE_WEB);
