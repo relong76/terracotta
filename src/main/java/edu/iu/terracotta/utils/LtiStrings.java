@@ -178,6 +178,10 @@ public final class LtiStrings {
     public static final String ISS = "iss";
     public static final String JTI = "jti";
 
+    //CANVAS LTI EXTENSIONS
+    // Canvas's extension on an AGS score (e.g. new_submission, submitted_at)
+    public static final String CANVAS_SUBMISSION = "https://canvas.instructure.com/lti/submission";
+
     //OIDC LOGIN AND LAUNCH (third party initiated login, and the authentication response)
     public static final String OIDC_ISS = "iss";
     public static final String OIDC_LOGIN_HINT = "login_hint";
