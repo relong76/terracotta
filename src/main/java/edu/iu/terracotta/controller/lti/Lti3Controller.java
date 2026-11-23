@@ -75,7 +75,7 @@ public class Lti3Controller {
     @RequestMapping({"", "/"})
     public String home(HttpServletRequest req, Principal principal, Model model) throws DataServiceException, ApiException, ConnectionException, LmsOAuthException, TerracottaConnectorException {
         // First we will get the state, validate it
-        String state = req.getParameter("state");
+        String state = req.getParameter(LtiStrings.OIDC_STATE);
         // We will use this link to find the content to display.
         String link = req.getParameter("link");
 

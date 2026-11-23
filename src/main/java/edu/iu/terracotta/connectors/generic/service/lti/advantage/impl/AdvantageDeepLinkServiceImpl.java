@@ -19,6 +19,7 @@ import edu.iu.terracotta.connectors.generic.exceptions.TerracottaConnectorExcept
 import edu.iu.terracotta.connectors.generic.service.connector.ConnectorService;
 import edu.iu.terracotta.connectors.generic.service.lti.LtiJwtService;
 import edu.iu.terracotta.connectors.generic.service.lti.advantage.AdvantageDeepLinkService;
+import edu.iu.terracotta.utils.LtiStrings;
 import edu.iu.terracotta.utils.lti.Lti3Request;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jws;
@@ -62,7 +63,7 @@ public class AdvantageDeepLinkServiceImpl implements AdvantageDeepLinkService {
 
         return ltiDeepLinkRepository.save(
             LtiDeepLink.builder()
-                .idToken(request.getParameter("id_token"))
+                .idToken(request.getParameter(LtiStrings.OIDC_ID_TOKEN))
                 .nonce(stateClaims.getPayload().getId())
                 .returnUrl(lti3Request.getDeepLinkReturnUrl())
                 .state(state)

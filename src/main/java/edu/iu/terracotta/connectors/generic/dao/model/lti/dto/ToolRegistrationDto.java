@@ -11,6 +11,8 @@ import lombok.Setter;
 
 import java.util.List;
 
+import edu.iu.terracotta.utils.LtiStrings;
+
 @Getter
 @Setter
 @Builder
@@ -34,7 +36,7 @@ public class ToolRegistrationDto {
     private String policy_uri;
     private List<String> scope;
 
-    @JsonProperty("https://purl.imsglobal.org/spec/lti-tool-configuration")
+    @JsonProperty(LtiStrings.REGISTRATION_TOOL_CONFIGURATION)
     private ToolConfigurationDto toolConfiguration;
 
 }
