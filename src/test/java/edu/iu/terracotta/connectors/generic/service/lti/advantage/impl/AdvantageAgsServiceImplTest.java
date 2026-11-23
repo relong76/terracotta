@@ -110,11 +110,13 @@ public class AdvantageAgsServiceImplTest extends BaseTest {
         assertThrows(ConnectionException.class, () -> advantageAgsService.postLineItems(ltiToken, ltiContextEntity, lineItems));
     }
 
+    // wired by hand: ConnectorService's type parameter is erased, so @InjectMocks can pick the wrong ConnectorService mock
     @Test
     public void testReplacesScoreCommentAsksTheDeploymentsConnector() throws TerracottaConnectorException {
+        AdvantageAgsServiceImpl service = new AdvantageAgsServiceImpl(advantageAgsConnectorService, advantageConnectorHelper, exceptionMessageGenerator);
         when(canvasAdvantageAgsService.replacesScoreComment(platformDeployment)).thenReturn(true);
 
-        assertTrue(advantageAgsService.replacesScoreComment(platformDeployment));
+        assertTrue(service.replacesScoreComment(platformDeployment));
     }
 
 }
