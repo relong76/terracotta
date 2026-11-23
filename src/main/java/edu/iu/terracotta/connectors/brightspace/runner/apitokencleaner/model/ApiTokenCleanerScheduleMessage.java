@@ -1,4 +1,4 @@
-package edu.iu.terracotta.runner.apitokencleaner.model;
+package edu.iu.terracotta.connectors.brightspace.runner.apitokencleaner.model;
 
 import java.sql.Timestamp;
 import java.util.ArrayList;

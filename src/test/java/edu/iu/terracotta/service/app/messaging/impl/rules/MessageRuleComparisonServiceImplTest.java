@@ -22,7 +22,7 @@ import org.junit.jupiter.api.Test;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 
-import edu.iu.terracotta.connectors.canvas.dao.model.extended.enums.WorkflowState;
+import edu.iu.terracotta.connectors.generic.dao.model.enums.LmsSubmissionState;
 import edu.iu.terracotta.connectors.generic.dao.model.lms.LmsSubmission;
 import edu.iu.terracotta.connectors.generic.exceptions.ApiException;
 import edu.iu.terracotta.base.BaseTest;
@@ -211,7 +211,7 @@ public class MessageRuleComparisonServiceImplTest extends BaseTest {
             )
             .build();
         MessageConditionalText conditionalText = MessageConditionalText.builder().ruleSets(List.of(ruleSet)).build();
-        Map<String, List<LmsSubmission>> submissions = Map.of("101", List.of(submission(1L, 90D, true, WorkflowState.SUBMITTED.state())));
+        Map<String, List<LmsSubmission>> submissions = Map.of("101", List.of(submission(1L, 90D, true, LmsSubmissionState.SUBMITTED.state())));
 
         boolean result = messageRuleComparisonService.conditionalTextRuleSetsMatch(conditionalText, submissions);
 
@@ -240,7 +240,7 @@ public class MessageRuleComparisonServiceImplTest extends BaseTest {
     @Test
     public void testRecipientRuleSetsMatchEqualsTrue() {
         MessageRecipientRuleSet rs = ruleSet(MessageRuleOperator.NONE, recipientRule("101", MessageRuleComparison.EQUALS, MessageRuleOperator.NONE, "90"));
-        Map<String, List<LmsSubmission>> submissions = Map.of("101", List.of(submission(1L, 90D, true, WorkflowState.GRADED.state())));
+        Map<String, List<LmsSubmission>> submissions = Map.of("101", List.of(submission(1L, 90D, true, LmsSubmissionState.GRADED.state())));
 
         assertTrue(messageRuleComparisonService.recipientRuleSetsMatch(List.of(rs), submissions));
     }
@@ -248,7 +248,7 @@ public class MessageRuleComparisonServiceImplTest extends BaseTest {
     @Test
     public void testRecipientRuleSetsMatchEqualsFalse() {
         MessageRecipientRuleSet rs = ruleSet(MessageRuleOperator.NONE, recipientRule("101", MessageRuleComparison.EQUALS, MessageRuleOperator.NONE, "90"));
-        Map<String, List<LmsSubmission>> submissions = Map.of("101", List.of(submission(1L, 50D, true, WorkflowState.GRADED.state())));
+        Map<String, List<LmsSubmission>> submissions = Map.of("101", List.of(submission(1L, 50D, true, LmsSubmissionState.GRADED.state())));
 
         assertFalse(messageRuleComparisonService.recipientRuleSetsMatch(List.of(rs), submissions));
     }
@@ -256,18 +256,18 @@ public class MessageRuleComparisonServiceImplTest extends BaseTest {
     @Test
     public void testRecipientRuleSetsMatchGreaterThanTrueAndFalse() {
         MessageRecipientRuleSet rsTrue = ruleSet(MessageRuleOperator.NONE, recipientRule("101", MessageRuleComparison.GREATER_THAN, MessageRuleOperator.NONE, "50"));
-        Map<String, List<LmsSubmission>> submissionsTrue = Map.of("101", List.of(submission(1L, 90D, true, WorkflowState.GRADED.state())));
+        Map<String, List<LmsSubmission>> submissionsTrue = Map.of("101", List.of(submission(1L, 90D, true, LmsSubmissionState.GRADED.state())));
         assertTrue(messageRuleComparisonService.recipientRuleSetsMatch(List.of(rsTrue), submissionsTrue));
 
         MessageRecipientRuleSet rsFalse = ruleSet(MessageRuleOperator.NONE, recipientRule("101", MessageRuleComparison.GREATER_THAN, MessageRuleOperator.NONE, "50"));
-        Map<String, List<LmsSubmission>> submissionsFalse = Map.of("101", List.of(submission(1L, 10D, true, WorkflowState.GRADED.state())));
+        Map<String, List<LmsSubmission>> submissionsFalse = Map.of("101", List.of(submission(1L, 10D, true, LmsSubmissionState.GRADED.state())));
         assertFalse(messageRuleComparisonService.recipientRuleSetsMatch(List.of(rsFalse), submissionsFalse));
     }
 
     @Test
     public void testRecipientRuleSetsMatchGreaterThanEqualBoundary() {
         MessageRecipientRuleSet rs = ruleSet(MessageRuleOperator.NONE, recipientRule("101", MessageRuleComparison.GREATER_THAN_EQUAL, MessageRuleOperator.NONE, "50"));
-        Map<String, List<LmsSubmission>> submissions = Map.of("101", List.of(submission(1L, 50D, true, WorkflowState.GRADED.state())));
+        Map<String, List<LmsSubmission>> submissions = Map.of("101", List.of(submission(1L, 50D, true, LmsSubmissionState.GRADED.state())));
 
         assertTrue(messageRuleComparisonService.recipientRuleSetsMatch(List.of(rs), submissions));
     }
@@ -275,18 +275,18 @@ public class MessageRuleComparisonServiceImplTest extends BaseTest {
     @Test
     public void testRecipientRuleSetsMatchLessThanTrueAndFalse() {
         MessageRecipientRuleSet rsTrue = ruleSet(MessageRuleOperator.NONE, recipientRule("101", MessageRuleComparison.LESS_THAN, MessageRuleOperator.NONE, "50"));
-        Map<String, List<LmsSubmission>> submissionsTrue = Map.of("101", List.of(submission(1L, 10D, true, WorkflowState.GRADED.state())));
+        Map<String, List<LmsSubmission>> submissionsTrue = Map.of("101", List.of(submission(1L, 10D, true, LmsSubmissionState.GRADED.state())));
         assertTrue(messageRuleComparisonService.recipientRuleSetsMatch(List.of(rsTrue), submissionsTrue));
 
         MessageRecipientRuleSet rsFalse = ruleSet(MessageRuleOperator.NONE, recipientRule("101", MessageRuleComparison.LESS_THAN, MessageRuleOperator.NONE, "50"));
-        Map<String, List<LmsSubmission>> submissionsFalse = Map.of("101", List.of(submission(1L, 90D, true, WorkflowState.GRADED.state())));
+        Map<String, List<LmsSubmission>> submissionsFalse = Map.of("101", List.of(submission(1L, 90D, true, LmsSubmissionState.GRADED.state())));
         assertFalse(messageRuleComparisonService.recipientRuleSetsMatch(List.of(rsFalse), submissionsFalse));
     }
 
     @Test
     public void testRecipientRuleSetsMatchLessThanEqualBoundary() {
         MessageRecipientRuleSet rs = ruleSet(MessageRuleOperator.NONE, recipientRule("101", MessageRuleComparison.LESS_THAN_EQUAL, MessageRuleOperator.NONE, "50"));
-        Map<String, List<LmsSubmission>> submissions = Map.of("101", List.of(submission(1L, 50D, true, WorkflowState.GRADED.state())));
+        Map<String, List<LmsSubmission>> submissions = Map.of("101", List.of(submission(1L, 50D, true, LmsSubmissionState.GRADED.state())));
 
         assertTrue(messageRuleComparisonService.recipientRuleSetsMatch(List.of(rs), submissions));
     }
@@ -294,7 +294,7 @@ public class MessageRuleComparisonServiceImplTest extends BaseTest {
     @Test
     public void testRecipientRuleSetsMatchRequiresValueNoSubmissionsForRuleReturnsFalse() {
         MessageRecipientRuleSet rs = ruleSet(MessageRuleOperator.NONE, recipientRule("101", MessageRuleComparison.EQUALS, MessageRuleOperator.NONE, "50"));
-        Map<String, List<LmsSubmission>> submissions = Map.of("101", List.of(), "other", List.of(submission(1L, 1D, true, WorkflowState.GRADED.state())));
+        Map<String, List<LmsSubmission>> submissions = Map.of("101", List.of(), "other", List.of(submission(1L, 1D, true, LmsSubmissionState.GRADED.state())));
 
         assertFalse(messageRuleComparisonService.recipientRuleSetsMatch(List.of(rs), submissions));
     }
@@ -302,7 +302,7 @@ public class MessageRuleComparisonServiceImplTest extends BaseTest {
     @Test
     public void testRecipientRuleSetsMatchRequiresValueNoSubmissionMatchesCurrentReturnsFalse() {
         MessageRecipientRuleSet rs = ruleSet(MessageRuleOperator.NONE, recipientRule("101", MessageRuleComparison.EQUALS, MessageRuleOperator.NONE, "50"));
-        Map<String, List<LmsSubmission>> submissions = Map.of("101", List.of(submission(1L, 50D, false, WorkflowState.GRADED.state())));
+        Map<String, List<LmsSubmission>> submissions = Map.of("101", List.of(submission(1L, 50D, false, LmsSubmissionState.GRADED.state())));
 
         assertFalse(messageRuleComparisonService.recipientRuleSetsMatch(List.of(rs), submissions));
     }
@@ -310,7 +310,7 @@ public class MessageRuleComparisonServiceImplTest extends BaseTest {
     @Test
     public void testRecipientRuleSetsMatchRequiresValueNullScoreReturnsFalse() {
         MessageRecipientRuleSet rs = ruleSet(MessageRuleOperator.NONE, recipientRule("101", MessageRuleComparison.EQUALS, MessageRuleOperator.NONE, "50"));
-        Map<String, List<LmsSubmission>> submissions = Map.of("101", List.of(submission(1L, null, true, WorkflowState.GRADED.state())));
+        Map<String, List<LmsSubmission>> submissions = Map.of("101", List.of(submission(1L, null, true, LmsSubmissionState.GRADED.state())));
 
         assertFalse(messageRuleComparisonService.recipientRuleSetsMatch(List.of(rs), submissions));
     }
@@ -320,7 +320,7 @@ public class MessageRuleComparisonServiceImplTest extends BaseTest {
     @Test
     public void testRecipientRuleSetsMatchIsNotYetSubmittedTrueWhenNoSubmissions() {
         MessageRecipientRuleSet rs = ruleSet(MessageRuleOperator.NONE, recipientRule("101", MessageRuleComparison.IS_NOT_YET_SUBMITTED, MessageRuleOperator.NONE, null));
-        Map<String, List<LmsSubmission>> submissions = Map.of("101", List.of(), "other", List.of(submission(1L, 1D, true, WorkflowState.GRADED.state())));
+        Map<String, List<LmsSubmission>> submissions = Map.of("101", List.of(), "other", List.of(submission(1L, 1D, true, LmsSubmissionState.GRADED.state())));
 
         assertTrue(messageRuleComparisonService.recipientRuleSetsMatch(List.of(rs), submissions));
     }
@@ -328,7 +328,7 @@ public class MessageRuleComparisonServiceImplTest extends BaseTest {
     @Test
     public void testRecipientRuleSetsMatchIsNotYetSubmittedTrueWhenUnsubmittedState() {
         MessageRecipientRuleSet rs = ruleSet(MessageRuleOperator.NONE, recipientRule("101", MessageRuleComparison.IS_NOT_YET_SUBMITTED, MessageRuleOperator.NONE, null));
-        Map<String, List<LmsSubmission>> submissions = Map.of("101", List.of(submission(1L, null, false, WorkflowState.UNSUBMITTED.state())));
+        Map<String, List<LmsSubmission>> submissions = Map.of("101", List.of(submission(1L, null, false, LmsSubmissionState.UNSUBMITTED.state())));
 
         assertTrue(messageRuleComparisonService.recipientRuleSetsMatch(List.of(rs), submissions));
     }
@@ -336,7 +336,7 @@ public class MessageRuleComparisonServiceImplTest extends BaseTest {
     @Test
     public void testRecipientRuleSetsMatchIsNotYetSubmittedFalseWhenSubmitted() {
         MessageRecipientRuleSet rs = ruleSet(MessageRuleOperator.NONE, recipientRule("101", MessageRuleComparison.IS_NOT_YET_SUBMITTED, MessageRuleOperator.NONE, null));
-        Map<String, List<LmsSubmission>> submissions = Map.of("101", List.of(submission(1L, 90D, true, WorkflowState.SUBMITTED.state())));
+        Map<String, List<LmsSubmission>> submissions = Map.of("101", List.of(submission(1L, 90D, true, LmsSubmissionState.SUBMITTED.state())));
 
         assertFalse(messageRuleComparisonService.recipientRuleSetsMatch(List.of(rs), submissions));
     }
@@ -344,7 +344,7 @@ public class MessageRuleComparisonServiceImplTest extends BaseTest {
     @Test
     public void testRecipientRuleSetsMatchIsSubmittedTrue() {
         MessageRecipientRuleSet rs = ruleSet(MessageRuleOperator.NONE, recipientRule("101", MessageRuleComparison.IS_SUBMITTED, MessageRuleOperator.NONE, null));
-        Map<String, List<LmsSubmission>> submissions = Map.of("101", List.of(submission(1L, 90D, true, WorkflowState.GRADED.state())));
+        Map<String, List<LmsSubmission>> submissions = Map.of("101", List.of(submission(1L, 90D, true, LmsSubmissionState.GRADED.state())));
 
         assertTrue(messageRuleComparisonService.recipientRuleSetsMatch(List.of(rs), submissions));
     }
@@ -352,7 +352,7 @@ public class MessageRuleComparisonServiceImplTest extends BaseTest {
     @Test
     public void testRecipientRuleSetsMatchIsSubmittedFalseWhenNoSubmissions() {
         MessageRecipientRuleSet rs = ruleSet(MessageRuleOperator.NONE, recipientRule("101", MessageRuleComparison.IS_SUBMITTED, MessageRuleOperator.NONE, null));
-        Map<String, List<LmsSubmission>> submissions = Map.of("101", List.of(), "other", List.of(submission(1L, 1D, true, WorkflowState.GRADED.state())));
+        Map<String, List<LmsSubmission>> submissions = Map.of("101", List.of(), "other", List.of(submission(1L, 1D, true, LmsSubmissionState.GRADED.state())));
 
         assertFalse(messageRuleComparisonService.recipientRuleSetsMatch(List.of(rs), submissions));
     }
@@ -360,7 +360,7 @@ public class MessageRuleComparisonServiceImplTest extends BaseTest {
     @Test
     public void testRecipientRuleSetsMatchIsSubmittedButNotYetGradedTrue() {
         MessageRecipientRuleSet rs = ruleSet(MessageRuleOperator.NONE, recipientRule("101", MessageRuleComparison.IS_SUBMITTED_BUT_NOT_YET_GRADED, MessageRuleOperator.NONE, null));
-        Map<String, List<LmsSubmission>> submissions = Map.of("101", List.of(submission(2L, null, true, WorkflowState.PENDING_REVIEW.state()), submission(1L, null, true, WorkflowState.PENDING_REVIEW.state())));
+        Map<String, List<LmsSubmission>> submissions = Map.of("101", List.of(submission(2L, null, true, LmsSubmissionState.PENDING_REVIEW.state()), submission(1L, null, true, LmsSubmissionState.PENDING_REVIEW.state())));
 
         assertTrue(messageRuleComparisonService.recipientRuleSetsMatch(List.of(rs), submissions));
     }
@@ -368,7 +368,7 @@ public class MessageRuleComparisonServiceImplTest extends BaseTest {
     @Test
     public void testRecipientRuleSetsMatchIsSubmittedButNotYetGradedFalseWhenGraded() {
         MessageRecipientRuleSet rs = ruleSet(MessageRuleOperator.NONE, recipientRule("101", MessageRuleComparison.IS_SUBMITTED_BUT_NOT_YET_GRADED, MessageRuleOperator.NONE, null));
-        Map<String, List<LmsSubmission>> submissions = Map.of("101", List.of(submission(1L, 90D, true, WorkflowState.GRADED.state())));
+        Map<String, List<LmsSubmission>> submissions = Map.of("101", List.of(submission(1L, 90D, true, LmsSubmissionState.GRADED.state())));
 
         assertFalse(messageRuleComparisonService.recipientRuleSetsMatch(List.of(rs), submissions));
     }
@@ -383,8 +383,8 @@ public class MessageRuleComparisonServiceImplTest extends BaseTest {
             recipientRule("102", MessageRuleComparison.EQUALS, MessageRuleOperator.AND, "90")
         );
         Map<String, List<LmsSubmission>> submissions = Map.of(
-            "101", List.of(submission(1L, 90D, true, WorkflowState.GRADED.state())),
-            "102", List.of(submission(1L, 10D, true, WorkflowState.GRADED.state()))
+            "101", List.of(submission(1L, 90D, true, LmsSubmissionState.GRADED.state())),
+            "102", List.of(submission(1L, 10D, true, LmsSubmissionState.GRADED.state()))
         );
 
         assertFalse(messageRuleComparisonService.recipientRuleSetsMatch(List.of(rs), submissions));
@@ -398,8 +398,8 @@ public class MessageRuleComparisonServiceImplTest extends BaseTest {
             recipientRule("102", MessageRuleComparison.EQUALS, MessageRuleOperator.OR, "90")
         );
         Map<String, List<LmsSubmission>> submissions = Map.of(
-            "101", List.of(submission(1L, 90D, true, WorkflowState.GRADED.state())),
-            "102", List.of(submission(1L, 10D, true, WorkflowState.GRADED.state()))
+            "101", List.of(submission(1L, 90D, true, LmsSubmissionState.GRADED.state())),
+            "102", List.of(submission(1L, 10D, true, LmsSubmissionState.GRADED.state()))
         );
 
         assertTrue(messageRuleComparisonService.recipientRuleSetsMatch(List.of(rs), submissions));
@@ -415,8 +415,8 @@ public class MessageRuleComparisonServiceImplTest extends BaseTest {
             recipientRule("102", MessageRuleComparison.IS_NOT_YET_SUBMITTED, MessageRuleOperator.NOT, null)
         );
         Map<String, List<LmsSubmission>> submissions = Map.of(
-            "101", List.of(submission(1L, 90D, true, WorkflowState.GRADED.state())),
-            "102", List.of(submission(1L, null, false, WorkflowState.UNSUBMITTED.state()))
+            "101", List.of(submission(1L, 90D, true, LmsSubmissionState.GRADED.state())),
+            "102", List.of(submission(1L, null, false, LmsSubmissionState.UNSUBMITTED.state()))
         );
 
         assertTrue(messageRuleComparisonService.recipientRuleSetsMatch(List.of(rs), submissions));
@@ -426,7 +426,7 @@ public class MessageRuleComparisonServiceImplTest extends BaseTest {
     public void testRecipientRuleSetsMatchMultipleRuleSetsOperatorOr() {
         MessageRecipientRuleSet rsFalse = ruleSet(MessageRuleOperator.NONE, recipientRule("101", MessageRuleComparison.EQUALS, MessageRuleOperator.NONE, "999"));
         MessageRecipientRuleSet rsTrue = ruleSet(MessageRuleOperator.OR, recipientRule("101", MessageRuleComparison.EQUALS, MessageRuleOperator.NONE, "90"));
-        Map<String, List<LmsSubmission>> submissions = Map.of("101", List.of(submission(1L, 90D, true, WorkflowState.GRADED.state())));
+        Map<String, List<LmsSubmission>> submissions = Map.of("101", List.of(submission(1L, 90D, true, LmsSubmissionState.GRADED.state())));
 
         assertTrue(messageRuleComparisonService.recipientRuleSetsMatch(List.of(rsFalse, rsTrue), submissions));
     }
@@ -435,7 +435,7 @@ public class MessageRuleComparisonServiceImplTest extends BaseTest {
     public void testRecipientRuleSetsMatchMultipleRuleSetsOperatorAndRequiresAll() {
         MessageRecipientRuleSet rsFalse = ruleSet(MessageRuleOperator.NONE, recipientRule("101", MessageRuleComparison.EQUALS, MessageRuleOperator.NONE, "999"));
         MessageRecipientRuleSet rsTrue = ruleSet(MessageRuleOperator.AND, recipientRule("101", MessageRuleComparison.EQUALS, MessageRuleOperator.NONE, "90"));
-        Map<String, List<LmsSubmission>> submissions = Map.of("101", List.of(submission(1L, 90D, true, WorkflowState.GRADED.state())));
+        Map<String, List<LmsSubmission>> submissions = Map.of("101", List.of(submission(1L, 90D, true, LmsSubmissionState.GRADED.state())));
 
         assertFalse(messageRuleComparisonService.recipientRuleSetsMatch(List.of(rsFalse, rsTrue), submissions));
     }
@@ -446,9 +446,9 @@ public class MessageRuleComparisonServiceImplTest extends BaseTest {
         // only the highest-attempt submission has gradeMatchesCurrentSubmission=true
         Map<String, List<LmsSubmission>> submissions = Map.of(
             "101", List.of(
-                submission(1L, 10D, false, WorkflowState.GRADED.state()),
-                submission(3L, 90D, true, WorkflowState.GRADED.state()),
-                submission(2L, 50D, false, WorkflowState.GRADED.state())
+                submission(1L, 10D, false, LmsSubmissionState.GRADED.state()),
+                submission(3L, 90D, true, LmsSubmissionState.GRADED.state()),
+                submission(2L, 50D, false, LmsSubmissionState.GRADED.state())
             )
         );
 

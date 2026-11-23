@@ -13,11 +13,13 @@ import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
 import edu.iu.terracotta.connectors.canvas.dao.model.lti.advantage.CanvasNoticeHandlerDto;
+import edu.iu.terracotta.connectors.generic.annotation.TerracottaConnector;
 import edu.iu.terracotta.connectors.generic.dao.entity.lti.ToolDeployment;
+import edu.iu.terracotta.connectors.generic.dao.model.enums.LmsConnector;
 import edu.iu.terracotta.connectors.generic.dao.model.lti.LtiToken;
 import edu.iu.terracotta.connectors.generic.dao.repository.lti.ToolDeploymentRepository;
 import edu.iu.terracotta.connectors.generic.service.lti.advantage.AdvantageConnectorHelper;
-import edu.iu.terracotta.connectors.canvas.service.lti.advantage.CanvasAdvantageNoticeService;
+import edu.iu.terracotta.connectors.generic.service.lti.advantage.AdvantageNoticeService;
 import edu.iu.terracotta.dao.model.enums.FeatureType;
 import edu.iu.terracotta.service.app.FeatureService;
 import edu.iu.terracotta.utils.LtiStrings;
@@ -28,8 +30,9 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 @Service
 @RequiredArgsConstructor
+@TerracottaConnector(LmsConnector.CANVAS)
 @SuppressWarnings({"PMD.GuardLogStatement"})
-public class CanvasAdvantageNoticeServiceImpl implements CanvasAdvantageNoticeService {
+public class CanvasAdvantageNoticeServiceImpl implements AdvantageNoticeService {
 
     // per Canvas's Notice Handlers API docs; not an AGS/NRPS scope, so it doesn't belong in
     // LtiAgsScope

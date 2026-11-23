@@ -1,4 +1,4 @@
-package edu.iu.terracotta.runner.apitokencleaner.impl;
+package edu.iu.terracotta.connectors.brightspace.runner.apitokencleaner.impl;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -23,8 +23,8 @@ import edu.iu.terracotta.base.BaseTest;
 import edu.iu.terracotta.connectors.generic.dao.entity.api.ApiTokenEntity;
 import edu.iu.terracotta.connectors.generic.dao.entity.lti.LtiUserEntity;
 import edu.iu.terracotta.connectors.generic.dao.model.enums.LmsConnector;
-import edu.iu.terracotta.runner.apitokencleaner.model.ApiTokenCleanerScheduleMessage;
-import edu.iu.terracotta.runner.apitokencleaner.model.ApiTokenCleanerScheduleResult;
+import edu.iu.terracotta.connectors.brightspace.runner.apitokencleaner.model.ApiTokenCleanerScheduleMessage;
+import edu.iu.terracotta.connectors.brightspace.runner.apitokencleaner.model.ApiTokenCleanerScheduleResult;
 
 public class ApiTokenCleanerSchedulerServiceImplTest extends BaseTest {
 
