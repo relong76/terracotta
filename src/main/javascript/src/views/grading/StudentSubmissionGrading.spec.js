@@ -39,6 +39,7 @@ import { experiment as experimentModule } from "@/store/experiment.module";
 import { participants as participantsModule } from "@/store/participants.module";
 import { api as apiModule } from "@/store/api.module";
 import { assessment as assessmentModule } from "@/store/assessment.module";
+import { configuration as configurationModule } from "@/store/configuration.module";
 import { mountComponent } from "@/test-utils/mount";
 import PageLoading from "@/components/PageLoading.vue";
 import StudentSubmissionGrading from "./StudentSubmissionGrading.vue";
@@ -160,7 +161,7 @@ describe("StudentSubmissionGrading", () => {
     };
 
     const commentBox = wrapper => wrapper.findAllComponents({ name: "VTextarea" })
-      .find(textarea => textarea.props("label") === "Comment for the student");
+      .find(textarea => textarea.props("label") === "Comment");
 
     const addCommentButtons = wrapper => wrapper.findAll("button.add-comment");
 
@@ -194,6 +195,24 @@ describe("StudentSubmissionGrading", () => {
 
       expect(addCommentButtons(wrapper)).toHaveLength(0);
       expect(commentBox(wrapper).props("modelValue")).toBe("");
+    });
+
+    it("tells the instructor the student will see the comment in their LMS", async () => {
+      const wrapper = await mountLoaded();
+      configurationModule().configurations = { lmsTitle: "Canvas" };
+
+      await openCommentBox(wrapper);
+
+      expect(commentBox(wrapper).props("hint")).toBe("The student will see this comment in Canvas");
+    });
+
+    it("says LMS in the comment hint when the LMS isn't known", async () => {
+      const wrapper = await mountLoaded();
+      configurationModule().configurations = null;
+
+      await openCommentBox(wrapper);
+
+      expect(commentBox(wrapper).props("hint")).toBe("The student will see this comment in LMS");
     });
 
     it("fills the box with the saved comment", async () => {

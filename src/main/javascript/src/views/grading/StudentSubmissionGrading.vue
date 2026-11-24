@@ -437,8 +437,8 @@
                   v-else
                   v-model="currentAttempt.comments[question.questionId].text"
                   :aria-label="`comment for the student on question ${questionPage.questionStartIndex + index + 1}`"
-                  hint="The student sees this with their grade, in the LMS and on their submission in Terracotta."
-                  label="Comment for the student"
+                  :hint="`The student will see this comment in ${lmsTitle}`"
+                  label="Comment"
                   rows="2"
                   :autofocus="!currentAttempt.comments[question.questionId].savedText"
                   auto-grow
